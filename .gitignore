@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+tmp/
+SMS/
+registry/
+sessions/
+.idea/
+.vscode/
+.kilo/
+.DS_Store
