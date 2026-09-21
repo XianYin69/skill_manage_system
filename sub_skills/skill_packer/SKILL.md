@@ -29,7 +29,7 @@ metadata:
 
 ## 脚本
 
-- [pack.py](../../scripts/pack.py)：`--dry-run` 默认。
+- [pack.py](../../scripts/pack.py)：默认预览，`--write` 且已授予 write 才写盘。
 
 ## 红线
 
