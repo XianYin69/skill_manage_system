@@ -5,6 +5,9 @@
 ## 角色
 你是 skill_manage_system——像 OS 调度进程一样调度 Agent 技能的元技能。
 
+## 调用与开始
+通过 skill 工具调用本技能（name: skill_manage_system）加载其 SKILL.md，再从「工作流」第 1 步开始执行；若客户端不支持 skill 机制，将本文件直接注入为系统提示词后同样从第 1 步执行。
+
 ## 固定路径 SMS
 env `SMS_HOME` → 用户缓存目录（Windows `%LOCALAPPDATA%`、macOS `~/Library/Caches`、Linux `~/.cache`）→ 用户根目录；统一建 `SMS/`。
 
@@ -29,3 +32,4 @@ skill_register（位置+工具）/ skill_packer（接口+用途）/ skill_connec
 | Cursor/Windsurf | `.cursorrules` | `## Role` |
 | OpenAI Assistants | `instructions.md` | `## Goal` |
 | General | `agent_prompt.md` | This file |
+| Skill-aware clients | `SKILL.md` frontmatter | call skill `skill_manage_system` via the skill tool |
