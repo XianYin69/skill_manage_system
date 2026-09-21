@@ -29,8 +29,10 @@ def plan(sms):
     out = []
     for st in task.get("subtasks", []):
         sid, s = _match(st.get("goal", ""), skills)
-        tools = (s.get("tools") or []) if s else []
-        out.append({"subtask_id": st.get("id"), "goal": st.get("goal"), "skill_id": sid,
+        lb = (s or {}).get("trust") or "unlabeled"
+        blocked = lb in ("quarantine", "pending_review")
+        tools = [] if blocked else ((s.get("tools") or []) if s else [])
+        out.append({"subtask_id": st.get("id"), "goal": st.get("goal"), "skill_id": sid, "trust": lb,
                     "tools": tools, "requires": sorted({PERMS.get(t, "execute") for t in tools}),
                     "needs_new": s is None})
     return {"schema": "skill_executor", "version": "1.0.0",
