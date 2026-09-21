@@ -1,30 +1,37 @@
 # skill_manage_system（SMS）
 
-Agent 工具的"技能操作系统"：像 OS 调度进程一样发现、打包、连接并调度技能。
+Agent 工具的"技能操作系统"：像 OS 调度进程一样发现、打包、连接、拆分、并发调度、进程注册并调度技能。
 
 ## 结构
 
 - [`SKILL.md`](SKILL.md)：入口（YAML frontmatter，可直接注入 agent）。
-- [`agent/`](agent/CLAUDE.md)：四格式提示词（CLAUDE.md / .cursorrules / instructions.md / agent_prompt.md）。
-- [`sub_skills/`](sub_skills/skill_register/SKILL.md)：三个子技能（register / packer / connector）。
-- [`scripts/`](scripts/scripts.md)：6 个 Python 脚本（英文名、均 ≤ 50 行）。
-- [`schemas/`](schemas/register.schema.json)：四份 JSON 数据契约。
+- [`agent/`](agent/CLAUDE.md)：四格式提示词。
+- [`sub_skills/`](sub_skills/skill_register/SKILL.md)：四个子技能（register / packer / connector / scheduler）。
+- [`scripts/`](scripts/scripts.md)：11 个 Python 脚本（英文名、均 ≤ 50 行）。
+- [`schemas/`](schemas/register.schema.json)：七份 JSON 数据契约。
 - [`config/`](config/config.example.json)：SMS 固定路径覆盖示例。
 - [`resistance/`](resistance/resistance.md)：红线与降级策略。
 
 ## 快速开始
 
 ```bash
-# 初始设置（生成三份注册表 JSON）
-python scripts/init_registry.py --write 2>/dev/null || python scripts/init_registry.py
+# 1) 建会话（播种只读 grants）
+python scripts/session.py "查天气，然后写报告，最后发邮件" --write
 
-# 识别意图后建立今日会话目录
-python scripts/session.py "你的意图"
+# 2) 授予 write（数据写盘的前提，默认拒绝）
+python scripts/permissions.py grant write --write
 
-# 干跑预览（不写盘）
-python scripts/register.py --dry-run
-python scripts/pack.py --dry-run
-python scripts/connect.py --dry-run
+# 3) 初始设置（生成注册表 JSON）
+python scripts/init_registry.py --write
+
+# 拆分·理解·整合（默认预览；--write 且已授权才落盘）
+python scripts/task.py "查天气，然后写报告，最后发邮件" --write
+
+# 五 lane 并发调度（--slots 指定并发槽）
+python scripts/scheduler.py "查天气，然后写报告" --slots 3 --write
+
+# 进程式注册：spawn 一个进程
+python scripts/process.py spawn skill_connector --write
 ```
 
 ## 固定路径 SMS
@@ -34,5 +41,5 @@ python scripts/connect.py --dry-run
 ## 红线摘要
 
 - 不删 resistance/ 约束；SMS 运行时数据不进 skill 本体目录。
-- 悬空链接 = 0（`python ../Skill_Generator/scripts/check-links.py` 类校验）；所有 .md / 脚本 ≤ 50 行。
-- 写盘动作默认 `--dry-run`，权限未授予拒绝执行。
+- 悬空链接 = 0；所有 .md / 脚本 ≤ 50 行；SKILL.md 含 YAML frontmatter。
+- 写盘经 emit 门控：默认预览，`--write` 且已授予 write 才落盘。

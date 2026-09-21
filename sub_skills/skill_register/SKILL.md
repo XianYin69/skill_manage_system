@@ -29,7 +29,7 @@ metadata:
 
 ## 脚本
 
-- [register.py](../../scripts/register.py)：`--dry-run` 默认；`--dry-run` 之外需显式去除才写盘。
+- [register.py](../../scripts/register.py)：默认预览，`--write` 且已授予 write 才写盘。
 
 ## 红线
 

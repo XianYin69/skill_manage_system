@@ -30,7 +30,7 @@ metadata:
 
 ## 脚本
 
-- [connect.py](../../scripts/connect.py)：`--dry-run` 默认。
+- [connect.py](../../scripts/connect.py)：默认预览，`--write` 且已授予 write 才写盘。
 
 ## 红线
 
