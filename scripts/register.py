@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """register.py — 扫描技能安装位置与所用工具，生成 registry/register.json。"""
-import os, sys, json, time, glob
+import os, sys, time, glob
 
 TOOLS = ["read", "write", "edit", "glob", "grep", "bash", "task", "skill", "websearch", "webfetch"]
 DEFAULT_ROOTS = [os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sub_skills"), os.path.expanduser("~/.kilocode/skills")]
@@ -41,8 +41,5 @@ if __name__ == "__main__":
     sms = resolve_home.ensure()
     roots = [a for a in sys.argv[1:] if not a.startswith("--")] or DEFAULT_ROOTS
     out, doc = build(sms, roots)
-    if "--dry-run" in sys.argv:
-        print(json.dumps(doc, ensure_ascii=False, indent=2))
-    else:
-        json.dump(doc, open(out, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
-        print("OK", out)
+    import emit
+    print(emit.write_json(out, doc, sms, "--write" not in sys.argv))

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """connect.py — 依据 register/interfaces 生成技能间上下文连接，写 connections.json。"""
-import os, sys, json, time
+import os, sys, time
 
 PIPELINE = [
     ("skill_register", "skill_packer", ["install_path", "tools"]),
@@ -34,8 +34,5 @@ if __name__ == "__main__":
     _, reg = register.build(sms, roots)
     _, itf = pack.pack(sms, reg)
     out, doc = build(sms, reg, itf)
-    if "--dry-run" in sys.argv:
-        print(json.dumps(doc, ensure_ascii=False, indent=2))
-    else:
-        json.dump(doc, open(out, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
-        print("OK", out)
+    import emit
+    print(emit.write_json(out, doc, sms, "--write" not in sys.argv))

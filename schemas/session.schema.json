@@ -61,6 +61,17 @@
             "execute": { "type": "boolean" },
             "network": { "type": "boolean" }
           }
+        },
+        "audit": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "ts": { "type": "string" },
+              "action": { "type": "string" },
+              "key": { "type": "string" }
+            }
+          }
         }
       }
     }

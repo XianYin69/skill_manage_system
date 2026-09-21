@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """pack.py — 读取 register.json，描述每个技能的用途与接口，生成 interfaces.json。"""
-import os, sys, json, time, re
+import os, sys, time, re
 
 
 def headings(sk):
@@ -35,8 +35,5 @@ if __name__ == "__main__":
     roots = [a for a in sys.argv[1:] if not a.startswith("--")] or register.DEFAULT_ROOTS
     _, reg = register.build(sms, roots)
     out, doc = pack(sms, reg)
-    if "--dry-run" in sys.argv:
-        print(json.dumps(doc, ensure_ascii=False, indent=2))
-    else:
-        json.dump(doc, open(out, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
-        print("OK", out)
+    import emit
+    print(emit.write_json(out, doc, sms, "--write" not in sys.argv))
