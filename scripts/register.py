@@ -24,12 +24,14 @@ def meta(sk):
 
 def build(sms, roots):
     rows = []
+    import trust
     for n, d, sk in find_skills(roots):
         tools, desc = meta(sk)
         rows.append({"id": n, "name": n, "install_path": d, "entry": "SKILL.md",
                      "kind": "sub_skill" if "sub_skills" in d else "skill",
                      "tools": tools, "description": desc,
-                     "status": "active", "updated_at": time.strftime("%Y-%m-%d")})
+                     "status": "active", "updated_at": time.strftime("%Y-%m-%d"),
+                     "trust": trust.label_of(sms, n)})
     doc = {"schema": "skill_register", "version": "1.0.0",
            "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
            "scan_roots": roots, "skills": rows}

@@ -39,6 +39,7 @@ def acquire(sms, dry):
     if not (permissions.allow(sms, "network") and permissions.allow(sms, "write")):
         return {"found": False, "action": "DENIED: 拉取需授予 network + write"}
     r = subprocess.run(["git", "clone", "--depth", "1", repo, dest], capture_output=True, text=True)
+    if r.returncode == 0: import trust; trust.mark(sms, os.path.basename(dest), "pending_review", "cloud", "bootstrap")
     return {"found": False, "cloned": r.returncode == 0, "target": dest, "detail": (r.stderr or r.stdout).strip()[:200]}
 
 if __name__ == "__main__":
