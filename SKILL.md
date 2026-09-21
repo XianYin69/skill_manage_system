@@ -30,6 +30,7 @@ Agent 工具的技能操作系统：发现 → 打包 → 连接 → 拆分 → 
 7. 权限门控与写盘（[scripts/permissions.py](scripts/permissions.py)、[scripts/emit.py](scripts/emit.py)）。
 8. 依据 register + interfaces + connections 调度目标技能，由 [skill_executor](sub_skills/skill_executor/SKILL.md) 用 [scripts/dispatch.py](scripts/dispatch.py) 规划与调用 agent 工具（未授予权限拒绝）。
 9. 无匹配 → [scripts/bootstrap.py](scripts/bootstrap.py) 查技能目录/配置；缺 skill_generator 则从 GitHub 拉取（需 network+write），再委托新建。
+10. 按天缓存清理与重要记忆列表（[scripts/cache_cleanup.py](scripts/cache_cleanup.py) 删超期日目录；[scripts/memory_list.py](scripts/memory_list.py) 钉选日期/路径不被清理）。
 
 ## 子技能
 
@@ -38,8 +39,8 @@ Agent 工具的技能操作系统：发现 → 打包 → 连接 → 拆分 → 
 
 ## 数据契约与脚本
 
-- [register.schema.json](schemas/register.schema.json) · [interfaces.schema.json](schemas/interfaces.schema.json) · [connections.schema.json](schemas/connections.schema.json) · [session.schema.json](schemas/session.schema.json) · [task.schema.json](schemas/task.schema.json) · [process.schema.json](schemas/process.schema.json) · [scheduler.schema.json](schemas/scheduler.schema.json) · [dispatch.schema.json](schemas/dispatch.schema.json)
-- [scripts/scripts.md](scripts/scripts.md)：resolve_home / emit / bootstrap / register / pack / connect / session / init_registry / task / process / permissions / scheduler / dispatch
+- [register.schema.json](schemas/register.schema.json) · [interfaces.schema.json](schemas/interfaces.schema.json) · [connections.schema.json](schemas/connections.schema.json) · [session.schema.json](schemas/session.schema.json) · [task.schema.json](schemas/task.schema.json) · [process.schema.json](schemas/process.schema.json) · [scheduler.schema.json](schemas/scheduler.schema.json) · [dispatch.schema.json](schemas/dispatch.schema.json) · [memory.schema.json](schemas/memory.schema.json)
+- [scripts/scripts.md](scripts/scripts.md)：resolve_home / emit / bootstrap / register / pack / connect / session / init_registry / task / process / permissions / scheduler / dispatch / memory_list / cache_cleanup
 
 ## 红线
 

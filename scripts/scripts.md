@@ -1,6 +1,6 @@
 # scripts（脚本库）
 
-本目录存放 SMS 的可执行脚本：路径解析、写盘门控、注册、打包、连接、会话、任务、进程、权限、并发调度。
+本目录存放 SMS 的可执行脚本：路径解析、写盘门控、注册、打包、连接、会话、任务、进程、权限、并发调度、记忆与缓存清理。
 
 ## 应存什么
 
@@ -22,10 +22,12 @@
 - [`scheduler.py`](scheduler.py)：五 lane 并发调度 → scheduler.json。
 - [`dispatch.py`](dispatch.py)：子任务→技能→工具→权限映射 → dispatch.json（skill_executor 使用）。
 - [`init_registry.py`](init_registry.py)：初始设置一次性跑通 register → pack → connect。
+- [`memory_list.py`](memory_list.py)：重要记忆列表 add/list/remove → memory.json（记录的日期/路径为清理钉选）。
+- [`cache_cleanup.py`](cache_cleanup.py)：按天缓存清理：删 sessions/ 早于 --keep-days 的日目录，memory 钉选保留（默认预览）。
 
 ## 数据契约
 
-见 [`../schemas/`](../schemas/register.schema.json)：register / interfaces / connections / session / task / process / scheduler。
+见 [`../schemas/`](../schemas/register.schema.json)：register / interfaces / connections / session / task / process / scheduler / memory。
 
 ## 运行约定
 
