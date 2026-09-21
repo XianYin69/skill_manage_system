@@ -4,6 +4,11 @@
   "scan_roots": [
     "~/.kilocode/skills"
   ],
+  "skill_generator": {
+    "repo": "https://github.com/XianYin69/Skill_Generator.git",
+    "path": null,
+    "comment": "无匹配技能时：先查目标技能目录与配置是否含 skill_generator；缺失则由 scripts/bootstrap.py 从 repo 拉取（需 network + write 授权）。"
+  },
   "permissions_default": {
     "read": true,
     "write": false,
