@@ -28,18 +28,18 @@ Agent 工具的技能操作系统：发现 → 打包 → 连接 → 拆分 → 
 5. 拆分·整合任务（[scripts/task.py](scripts/task.py)）+ 五 lane 并发（[scripts/scheduler.py](scripts/scheduler.py)：理解/拆分/注册/权限/整合）。
 6. 进程式注册生命周期（[scripts/process.py](scripts/process.py)：spawn/run/suspend/resume/kill）。
 7. 权限门控与写盘（[scripts/permissions.py](scripts/permissions.py)、[scripts/emit.py](scripts/emit.py)）。
-8. 依据 register + interfaces + connections 调度目标技能（注入其 SKILL.md）。
+8. 依据 register + interfaces + connections 调度目标技能，由 [skill_executor](sub_skills/skill_executor/SKILL.md) 用 [scripts/dispatch.py](scripts/dispatch.py) 规划与调用 agent 工具（未授予权限拒绝）。
 9. 无匹配 → [scripts/bootstrap.py](scripts/bootstrap.py) 查技能目录/配置；缺 skill_generator 则从 GitHub 拉取（需 network+write），再委托新建。
 
 ## 子技能
 
 - [skill_register](sub_skills/skill_register/SKILL.md)（位置+工具）· [skill_packer](sub_skills/skill_packer/SKILL.md)（接口+用途）
-- [skill_connector](sub_skills/skill_connector/SKILL.md)（上下文）· [skill_scheduler](sub_skills/skill_scheduler/SKILL.md)（拆分/整合+并发+进程+权限）
+- [skill_connector](sub_skills/skill_connector/SKILL.md)（上下文）· [skill_scheduler](sub_skills/skill_scheduler/SKILL.md)（并发/整合）· [skill_executor](sub_skills/skill_executor/SKILL.md)（工具调度）
 
 ## 数据契约与脚本
 
-- [register.schema.json](schemas/register.schema.json) · [interfaces.schema.json](schemas/interfaces.schema.json) · [connections.schema.json](schemas/connections.schema.json) · [session.schema.json](schemas/session.schema.json) · [task.schema.json](schemas/task.schema.json) · [process.schema.json](schemas/process.schema.json) · [scheduler.schema.json](schemas/scheduler.schema.json)
-- [scripts/scripts.md](scripts/scripts.md)：resolve_home / emit / bootstrap / register / pack / connect / session / init_registry / task / process / permissions / scheduler
+- [register.schema.json](schemas/register.schema.json) · [interfaces.schema.json](schemas/interfaces.schema.json) · [connections.schema.json](schemas/connections.schema.json) · [session.schema.json](schemas/session.schema.json) · [task.schema.json](schemas/task.schema.json) · [process.schema.json](schemas/process.schema.json) · [scheduler.schema.json](schemas/scheduler.schema.json) · [dispatch.schema.json](schemas/dispatch.schema.json)
+- [scripts/scripts.md](scripts/scripts.md)：resolve_home / emit / bootstrap / register / pack / connect / session / init_registry / task / process / permissions / scheduler / dispatch
 
 ## 红线
 

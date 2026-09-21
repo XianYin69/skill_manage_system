@@ -26,6 +26,13 @@ SMS 不可逾越的规则、红线与降级策略。
 - 五 lane（understand/decompose/register/permit/integrate）并发槽 ≤ `--slots`，超限排队。
 - 任务拆分·整合走 [`../scripts/task.py`](../scripts/task.py)；`merge` 回填 `task.json` 的 merged。
 
+## 工具→权限映射（skill_executor）
+
+- `read/glob/grep/semantic_search/skill/question/board_read` → `read`（默认开）
+- `write/edit/memory_create_*` → `write`；`bash/task/agent_manager/background_process` → `execute`
+- `websearch/webfetch/generate_image/board_post` → `network`
+- 映射表在 [../scripts/dispatch.py](../scripts/dispatch.py)；未授予的工具调用必须拒绝并 audit。
+
 ## 降级策略
 
 - `SMS_HOME` 未定义 → 回退缓存目录 → 再回退用户根目录（见 [`../scripts/resolve_home.py`](../scripts/resolve_home.py)）。
