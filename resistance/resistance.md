@@ -30,5 +30,5 @@ SMS 不可逾越的规则、红线与降级策略。
 
 - `SMS_HOME` 未定义 → 回退缓存目录 → 再回退用户根目录（见 [`../scripts/resolve_home.py`](../scripts/resolve_home.py)）。
 - `register.json` 缺失 → 进入初始设置（[`../scripts/init_registry.py`](../scripts/init_registry.py)），不接写盘。
-- 无匹配技能 → 委托 Skill_Generator 新建，完成后用 register 重新登记。
+- 无匹配技能 → 先由 [`../scripts/bootstrap.py`](../scripts/bootstrap.py) 查技能目录/配置，缺 Skill_Generator 则从 GitHub 拉取（需 network+write）；再委托新建。
 - `--slots` 非法 → 回退为 lane 数；权限不足 → 默认拒绝并记 audit。

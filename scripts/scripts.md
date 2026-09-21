@@ -11,6 +11,7 @@
 
 - [`resolve_home.py`](resolve_home.py)：解析 SMS 固定路径（env SMS_HOME → 缓存目录 → 根目录）。
 - [`emit.py`](emit.py)：统一写盘门控（默认预览；已授予 write 才落盘）。
+- [`bootstrap.py`](bootstrap.py)：确保 Skill_Generator 可用（查技能目录/配置，缺失则 GitHub 拉取）。
 - [`register.py`](register.py)：扫描技能安装位置与所用工具 → register.json。
 - [`pack.py`](pack.py)：描述技能用途与接口 → interfaces.json。
 - [`connect.py`](connect.py)：生成技能间上下文连接 → connections.json。

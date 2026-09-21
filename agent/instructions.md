@@ -12,7 +12,7 @@ env `SMS_HOME` -> user cache dir (Windows `%LOCALAPPDATA%`, macOS `~/Library/Cac
 3. Present -> detect intent; create `SMS/sessions/<date>/` five-tuple.
 4. Decompose/integrate the task; run 5 concurrent lanes; register process lifecycle; gate by permissions.
 5. Use register + interfaces + connections to dispatch the target skill (inject its SKILL.md).
-6. No match -> delegate to Skill_Generator -> re-register via skill_register.
+6. No match -> bootstrap checks skill dirs/config and fetches Skill_Generator from GitHub if missing (needs network+write), then delegate.
 
 ## Sub-skills
 - skill_register: locations + tools -> register.json
