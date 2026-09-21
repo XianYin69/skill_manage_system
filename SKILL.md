@@ -29,7 +29,7 @@ Agent 工具的技能操作系统：发现 → 打包 → 连接 → 拆分 → 
 6. 进程式注册生命周期（[scripts/process.py](scripts/process.py)：spawn/run/suspend/resume/kill）。
 7. 权限门控与写盘（[scripts/permissions.py](scripts/permissions.py)、[scripts/emit.py](scripts/emit.py)）。
 8. 依据 register + interfaces + connections 调度目标技能（注入其 SKILL.md）。
-9. 无匹配 → 委托 Skill_Generator 新建 → skill_register 重新登记。
+9. 无匹配 → [scripts/bootstrap.py](scripts/bootstrap.py) 查技能目录/配置；缺 skill_generator 则从 GitHub 拉取（需 network+write），再委托新建。
 
 ## 子技能
 
@@ -39,7 +39,7 @@ Agent 工具的技能操作系统：发现 → 打包 → 连接 → 拆分 → 
 ## 数据契约与脚本
 
 - [register.schema.json](schemas/register.schema.json) · [interfaces.schema.json](schemas/interfaces.schema.json) · [connections.schema.json](schemas/connections.schema.json) · [session.schema.json](schemas/session.schema.json) · [task.schema.json](schemas/task.schema.json) · [process.schema.json](schemas/process.schema.json) · [scheduler.schema.json](schemas/scheduler.schema.json)
-- [scripts/scripts.md](scripts/scripts.md)：resolve_home / emit / register / pack / connect / session / init_registry / task / process / permissions / scheduler
+- [scripts/scripts.md](scripts/scripts.md)：resolve_home / emit / bootstrap / register / pack / connect / session / init_registry / task / process / permissions / scheduler
 
 ## 红线
 
