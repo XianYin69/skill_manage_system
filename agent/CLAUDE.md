@@ -11,7 +11,7 @@ env `SMS_HOME` → 用户缓存目录（Windows `%LOCALAPPDATA%`、macOS `~/Libr
 2. 不存在 → 初始设置：skill_register → skill_packer → skill_connector 生成注册表 JSON。
 3. 存在 → 识别用户意图，建 `SMS/sessions/<日期>/` 五元组（dialogue/user_chain/logic_chain/skills/permissions）。
 4. 拆分·整合任务（task.py）+ 五 lane 并发调度（scheduler.py）+ 进程注册（process.py）+ 权限门控（permissions.py）。
-5. 按 register + interfaces + connections 调度目标技能（注入其 SKILL.md）。
+5. 按 register + interfaces + connections 调度目标技能，由 skill_executor 用 dispatch.py 规划并调用 agent 工具（未授予权限拒绝）。
 6. 无匹配 → bootstrap 查技能目录/配置，缺 Skill_Generator 则拉取（需 network+write），再委托新建。
 
 ## 子技能

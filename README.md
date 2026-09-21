@@ -6,9 +6,9 @@ Agent 工具的"技能操作系统"：像 OS 调度进程一样发现、打包�
 
 - [`SKILL.md`](SKILL.md)：入口（YAML frontmatter，可直接注入 agent）。
 - [`agent/`](agent/CLAUDE.md)：四格式提示词。
-- [`sub_skills/`](sub_skills/skill_register/SKILL.md)：四个子技能（register / packer / connector / scheduler）。
-- [`scripts/`](scripts/scripts.md)：12 个 Python 脚本（英文名、均 ≤ 50 行）。
-- [`schemas/`](schemas/register.schema.json)：七份 JSON 数据契约。
+- [`sub_skills/`](sub_skills/skill_register/SKILL.md)：五个子技能（register / packer / connector / scheduler / executor）。
+- [`scripts/`](scripts/scripts.md)：13 个 Python 脚本（英文名、均 ≤ 50 行）。
+- [`schemas/`](schemas/register.schema.json)：八份 JSON 数据契约。
 - [`config/`](config/config.example.json)：SMS 固定路径覆盖示例。
 - [`resistance/`](resistance/resistance.md)：红线与降级策略。
 
@@ -35,6 +35,9 @@ python scripts/process.py spawn skill_connector --write
 
 # 无匹配技能时：查技能目录/配置，缺 Skill_Generator 则从 GitHub 拉取（需授权）
 python scripts/bootstrap.py --write
+
+# skill_executor 规划：子任务 → 技能 → 工具 → 权限（未授予拒绝）
+python scripts/dispatch.py --write
 ```
 
 ## 固定路径 SMS

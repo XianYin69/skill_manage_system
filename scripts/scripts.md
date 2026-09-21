@@ -20,6 +20,7 @@
 - [`process.py`](process.py)：进程式注册生命周期 spawn/run/suspend/resume/kill → processes.json。
 - [`permissions.py`](permissions.py)：权限 grant/deny/check/audit → permissions.json。
 - [`scheduler.py`](scheduler.py)：五 lane 并发调度 → scheduler.json。
+- [`dispatch.py`](dispatch.py)：子任务→技能→工具→权限映射 → dispatch.json（skill_executor 使用）。
 - [`init_registry.py`](init_registry.py)：初始设置一次性跑通 register → pack → connect。
 
 ## 数据契约
