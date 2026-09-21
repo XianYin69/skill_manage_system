@@ -7,7 +7,7 @@ Agent 工具的"技能操作系统"：像 OS 调度进程一样发现、打包�
 - [`SKILL.md`](SKILL.md)：入口（YAML frontmatter，可直接注入 agent）。
 - [`agent/`](agent/CLAUDE.md)：四格式提示词。
 - [`sub_skills/`](sub_skills/skill_register/SKILL.md)：五个子技能（register / packer / connector / scheduler / executor）。
-- [`scripts/`](scripts/scripts.md)：15 个 Python 脚本（英文名、均 ≤ 50 行）。
+- [`scripts/`](scripts/scripts.md)：16 个 Python 脚本（英文名、均 ≤ 50 行）。
 - [`schemas/`](schemas/register.schema.json)：九份 JSON 数据契约。
 - [`config/`](config/config.example.json)：SMS 固定路径覆盖示例。
 - [`resistance/`](resistance/resistance.md)：红线与降级策略。

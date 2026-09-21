@@ -11,4 +11,6 @@ def write_json(path, doc, sms, dry):
         return "DENIED: 会话未授予 write 权限（permissions.json），拒绝写盘"
     os.makedirs(os.path.dirname(path), exist_ok=True)
     json.dump(doc, open(path, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+    if os.path.basename(os.path.dirname(os.path.dirname(path))) == "sessions":
+        import auto_compress; auto_compress.maybe(sms)
     return "OK " + path
