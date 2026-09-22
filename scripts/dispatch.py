@@ -34,7 +34,7 @@ def plan(sms):
         tools = [] if blocked else ((s.get("tools") or []) if s else [])
         out.append({"subtask_id": st.get("id"), "goal": st.get("goal"), "skill_id": sid, "trust": lb,
                     "tools": tools, "requires": sorted({PERMS.get(t, "execute") for t in tools}),
-                    "needs_new": s is None})
+                    "needs_new": s is None, "return_to": "sms"})
     return {"schema": "skill_executor", "version": "1.0.0",
             "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "intent": task.get("intent", ""), "dispatches": out}
