@@ -3,7 +3,8 @@ name: skill_manage_system
 description: >
   技能操作系统（SMS）：读取固定路径注册表，识别用户意图，按日期建会话五元组
   （对话/用户链/逻辑链/技能/权限），五 lane 并发拆分·整合与进程注册、权限门控，
-  并支持错误自愈、本地/云端安装、多客户端同步与信任链审查。
+  支持错误自愈、本地/云端安装、多客户端同步与信任链审查；并提供时区地区检查、
+  正反双辩论逻辑链、命令系统（help/intent/show/use）、删除 skill 与子技能回主接口。
 license: MIT
 metadata:
   category: meta
@@ -19,30 +20,31 @@ metadata:
 
 ## 运行流程
 
-1. 解析 SMS_HOME，读取 `SMS/registry/register.json`（每技能带信任标签）。
-2. 缺失 → 初始设置：[scripts/init_registry.py](scripts/init_registry.py) 跑 register → pack → connect。
-3. 识别意图，[scripts/session.py](scripts/session.py) 建 `SMS/sessions/<日期>/` 五元组（dialogue/user_chain/logic_chain/skills/permissions）。
+1. 解析 SMS_HOME，读 `SMS/registry/register.json`（含信任标签）；[locality.py](scripts/locality.py) 检查时区/地区 → `registry/locality.json` 供会话读取。
+2. 缺失 → 初始设置：[init_registry.py](scripts/init_registry.py) 跑 register → pack → connect。
+3. 识别意图，[session.py](scripts/session.py) 建 `SMS/sessions/<日期>/` 五元组（dialogue/user_chain/logic_chain/skills/permissions）。
 4. 数据写盘前先授权：`permissions.py grant write`（默认只读，未授予 emit 拒绝落盘）。
-5. 拆分·整合（[task.py](scripts/task.py)）+ 五 lane 并发（[scheduler.py](scripts/scheduler.py)：理解/拆分/注册/权限/整合）+ 进程生命周期（[process.py](scripts/process.py)：spawn/run/suspend/resume/kill）。
-6. 调度目标技能：[skill_executor](sub_skills/skill_executor/SKILL.md) 用 [dispatch.py](scripts/dispatch.py) 规划调用（未授予权限与 quarantine/pending_review 标签拒绝）；无匹配 → [bootstrap.py](scripts/bootstrap.py) 拉取 Skill_Generator（network+write，拉取后标 pending_review 云端必审），委托新建。
-7. 运行时治理：按天缓存清理（[cache_cleanup.py](scripts/cache_cleanup.py)，[memory_list.py](scripts/memory_list.py) 钉选保留）；emit 会话写盘后自动压缩上下文（[auto_compress.py](scripts/auto_compress.py)，归档 sha1 可回溯）。
-8. 错误自愈：[skill_errors.py](scripts/skill_errors.py) 记录 skill 出错位置与日志；未解决 ≥3 处 → `due` 提示启用 Skill_Generator 的 self_update 修复，`resolve` 销账。
-9. 技能安装：[install.py](scripts/install.py) 从本地目录或 `gh:owner/repo[/sub]` 装入目标客户端 skills 文件夹；云端需 network+write，一律标 pending_review。
-10. 多客户端同步：[sync_skills.py](scripts/sync_skills.py) 以 `SMS/skills/` 为 hub pull/push/status（sha1 比对、冲突取新；未审/隔离不推送）。
-11. 信任链：[trust.py](scripts/trust.py) 每 skill 一标签——云端必 `review pass/fail`，本地按日随机 `audit` 抽查，fail → quarantine。
+5. 拆分·整合（[task.py](scripts/task.py)）+ 五 lane 并发（[scheduler.py](scripts/scheduler.py)）+ 进程生命周期（[process.py](scripts/process.py)）。
+6. 调度目标技能：[skill_executor](sub_skills/skill_executor/SKILL.md) 用 [dispatch.py](scripts/dispatch.py) 规划；每条 `return_to=sms`——子技能运行完回到 SMS 整合，不得直接回复用户；无匹配 → [bootstrap.py](scripts/bootstrap.py) 拉取（network+write）。
+7. 治理：按天缓存清理（[cache_cleanup.py](scripts/cache_cleanup.py)）；emit 会话写盘后自动压缩上下文（[auto_compress.py](scripts/auto_compress.py)）。
+8. 错误自愈：[skill_errors.py](scripts/skill_errors.py) 记录出错位置；未解决 ≥3 → 提示 self_update 修复，`resolve` 销账。
+9. 安装：[install.py](scripts/install.py) 本地或 `gh:owner/repo[/sub]` 装入客户端 skills；云端需 network+write 且 `--accept-download` 用户确认下载，标 pending_review。
+10. 同步与信任：[sync_skills.py](scripts/sync_skills.py) hub pull/push/status；[trust.py](scripts/trust.py) 云端必审、本地抽查，fail → quarantine。
+11. 决策审查：[debate.py](scripts/debate.py) 对论断生成 pro/con 正反双链 + verdict → `sessions/<日期>/debate.json`。
+12. 命令系统：[commands.py](scripts/commands.py) 汇总内置与暴露接口 → `registry/commands.json`，`help/intent/show/use` 查看与调用。
+13. 删除：[remove.py](scripts/remove.py) `--yes --write` 从客户端/hub 移除 skill（默认预览，拒删受保护本体）。
 
 ## 子技能
 
-- [skill_register](sub_skills/skill_register/SKILL.md)（位置+工具）· [skill_packer](sub_skills/skill_packer/SKILL.md)（接口+用途）
-- [skill_connector](sub_skills/skill_connector/SKILL.md)（上下文）· [skill_scheduler](sub_skills/skill_scheduler/SKILL.md)（并发/整合）· [skill_executor](sub_skills/skill_executor/SKILL.md)（工具调度）
+- [skill_register](sub_skills/skill_register/SKILL.md) · [skill_packer](sub_skills/skill_packer/SKILL.md) · [skill_connector](sub_skills/skill_connector/SKILL.md) · [skill_scheduler](sub_skills/skill_scheduler/SKILL.md) · [skill_executor](sub_skills/skill_executor/SKILL.md)
 
 ## 数据契约与脚本
 
-- [register.schema.json](schemas/register.schema.json) · [interfaces.schema.json](schemas/interfaces.schema.json) · [connections.schema.json](schemas/connections.schema.json) · [session.schema.json](schemas/session.schema.json) · [task.schema.json](schemas/task.schema.json) · [process.schema.json](schemas/process.schema.json) · [scheduler.schema.json](schemas/scheduler.schema.json) · [dispatch.schema.json](schemas/dispatch.schema.json) · [memory.schema.json](schemas/memory.schema.json) · [trust.schema.json](schemas/trust.schema.json) · [error.schema.json](schemas/error.schema.json)
-- [scripts/scripts.md](scripts/scripts.md)：resolve_home / emit / bootstrap / register / pack / connect / session / init_registry / task / process / permissions / scheduler / dispatch / memory_list / cache_cleanup / auto_compress / trust / skill_errors / install / sync_skills
+- schemas/：register · interfaces · connections · session · task · process · scheduler · dispatch · memory · trust · error · [locality](schemas/locality.schema.json) · [debate](schemas/debate.schema.json) · [commands](schemas/commands.schema.json)
+- [scripts/scripts.md](scripts/scripts.md)：resolve_home / emit / bootstrap / register / pack / connect / session / init_registry / task / process / permissions / scheduler / dispatch / memory_list / cache_cleanup / auto_compress / trust / skill_errors / install / sync_skills / locality / debate / commands / remove
 
 ## 红线
 
-- 不得删除 [resistance/](resistance/resistance.md) 约束；SMS 运行时数据不进 skill 本体目录。
+- 不得删除 [resistance/](resistance/resistance.md) 约束；SMS 运行时数据不进 skill 本体目录；子技能运行完必须回到 SMS。
 - 悬空链接 = 0；所有 .md / 脚本 ≤ 50 行；SKILL.md 含 YAML frontmatter。
-- 调度前写 session 五元组 + 进程表；数据写盘经 emit 门控，未授予 write 拒绝（--write 才写）。
+- 数据写盘经 emit 门控（--write 才写）；云端下载须 network+write 且用户确认；删除须 --yes。

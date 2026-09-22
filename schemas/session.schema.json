@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "skill_manage_system session folder",
   "type": "object",
-  "description": "SMS/sessions/<YYYY-MM-DD>/ 下的五元组契约（context_archive.md 为自动压缩可选归档）",
+  "description": "SMS/sessions/<YYYY-MM-DD>/ 下的五元组契约（debate.json 为正反双辩论链、context_archive.md 为自动压缩可选归档）",
   "properties": {
     "dialogue.md": {
       "type": "string",
@@ -78,6 +78,10 @@
     "context_archive.md": {
       "type": "string",
       "description": "auto_compress 折叠的原文归档（可选，sha1 可回溯）"
+    },
+    "debate.json": {
+      "type": "object",
+      "description": "正反双辩论逻辑链（可选，见 schemas/debate.schema.json）"
     }
   }
 }

@@ -29,6 +29,7 @@ metadata:
    - `write/edit/memory_create_*` → `write`；`bash/task/agent_manager/background_process` → `execute`
    - `websearch/webfetch/generate_image/board_post` → `network`
 4. 结果写回 `dispatches[i].result`。
+5. **回到 SMS**：每条 `dispatch.return_to=sms`——子技能执行完（无论成功/失败）必须把控制权交回 SMS 整合 lane，禁止在子技能内直接结束或直接回复用户。
 
 ## 输出
 
@@ -42,4 +43,5 @@ metadata:
 ## 红线
 
 - 只写 `SMS/registry/dispatch.json`；未授予对应权限的工具必须拒绝并 audit。
+- 子技能运行完必须回到 SMS（`return_to=sms`），不得在子技能内直接结束或直接回复用户。
 - 悬空链接 = 0；本文件 ≤ 50 行；SKILL.md 含 YAML frontmatter。

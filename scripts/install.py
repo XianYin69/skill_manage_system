@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""install.py — skill 管理器：从本地目录或云端 gh:owner/repo[/sub] 安装到目标 agent 客户端 skills 文件夹；本地→trusted_local，云端→pending_review（trust review 通过前不被 sync push 推送）。"""
+"""install.py — skill 管理器：从本地目录或云端 gh:owner/repo[/sub] 安装到目标 agent 客户端 skills 文件夹；本地→trusted_local，云端→pending_review（trust review 通过前不被 sync push 推送）；云端下载需 network+write 且 --accept-download 用户确认。"""
 import os, sys, json, shutil, subprocess
 
 def _targets(a):
@@ -12,8 +12,8 @@ def _fetch(sms, spec, write):
     dest = os.path.join(sms, "tmp_install", parts[1] if len(parts) > 1 else "repo")
     if not write: return dest, "would git clone --depth 1 https://github.com/%s.git" % owner_repo
     import permissions
-    if not (permissions.allow(sms, "network") and permissions.allow(sms, "write")):
-        return None, "DENIED: 云端安装需授予 network + write"
+    if not (permissions.allow(sms, "network") and permissions.allow(sms, "write")): return None, "DENIED: 云端安装需授予 network + write"
+    if not os.environ.get("SMS_ACCEPT_DOWNLOAD"): return None, "CONFIRM: 通过网络下载子skill到目标skill目录须用户同意——加 --accept-download"
     shutil.rmtree(dest, ignore_errors=True); os.makedirs(os.path.dirname(dest), exist_ok=True)
     r = subprocess.run(["git", "clone", "--depth", "1", "https://github.com/" + owner_repo + ".git", dest], capture_output=True, text=True)
     return (os.path.join(dest, "/".join(parts[2:])) if r.returncode == 0 else None), (r.stderr or r.stdout).strip()[:200]
@@ -42,8 +42,9 @@ if __name__ == "__main__":
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import resolve_home, permissions
     sms = resolve_home.ensure(); argv = sys.argv[1:]; w = "--write" in argv
+    if "--accept-download" in argv: os.environ["SMS_ACCEPT_DOWNLOAD"] = "1"
     pos = [x for i, x in enumerate(argv) if not x.startswith("--") and argv[i - 1] != "--clients"]
-    if not pos: print("用法: install.py <path|gh:owner/repo[/sub]> [--clients a,b|all] --write"); sys.exit(1)
+    if not pos: print("用法: install.py <path|gh:owner/repo[/sub]> [--clients a,b|all] [--accept-download] --write"); sys.exit(1)
     src = pos[0]
     if w and not permissions.allow(sms, "write"): print("DENIED: 会话未授予 write 权限（permissions.json）"); sys.exit(1)
     print(json.dumps(install(sms, src, _targets(argv), w, "cloud" if src.startswith("gh:") else "local"), ensure_ascii=False, indent=2))

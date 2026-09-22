@@ -27,12 +27,16 @@
 - [`auto_compress.py`](auto_compress.py)：自动上下文压缩：日目录超阈时折叠 dialogue.md 旧记录为提纲，原文归档 context_archive.md（sha1 回溯；手动运行默认预览）。
 - [`trust.py`](trust.py)：信任链标签 list/mark/review/audit：云端必 review，本地按日随机抽查，fail → quarantine。
 - [`skill_errors.py`](skill_errors.py)：skill 错误位置与日志记录 → errors/skill_errors.json；未解决 ≥3 → 提示启用 self_update。
-- [`install.py`](install.py)：本地 / `gh:owner/repo[/sub]` 安装到目标客户端 skills 文件夹（云端需 network+write，标 pending_review）。
+- [`install.py`](install.py)：本地 / `gh:owner/repo[/sub]` 安装到目标客户端 skills 文件夹（云端需 network+write 且 `--accept-download` 用户确认下载，标 pending_review）。
 - [`sync_skills.py`](sync_skills.py)：SMS/skills hub ↔ 客户端目录 pull/push/status（冲突取新，未审/隔离不推送）。
+- [`locality.py`](locality.py)：检查用户时区与地区（tz/locale/region）→ registry/locality.json，SMS 层接口。
+- [`debate.py`](debate.py)：正反双辩论逻辑链（pro/con 两链 + verdict）→ sessions/<日期>/debate.json。
+- [`commands.py`](commands.py)：命令系统 help/intent/show/use，汇总内置与暴露接口 → registry/commands.json。
+- [`remove.py`](remove.py)：删除 skill（默认预览；--yes 确认 + --write 且已授予 write 才删；拒删受保护本体）。
 
 ## 数据契约
 
-见 [`../schemas/`](../schemas/register.schema.json)：register / interfaces / connections / session / task / process / scheduler / memory / trust / error。
+见 [`../schemas/`](../schemas/register.schema.json)：register / interfaces / connections / session / task / process / scheduler / memory / trust / error / locality / debate / commands。
 
 ## 运行约定
 

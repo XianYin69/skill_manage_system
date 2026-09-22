@@ -1,14 +1,14 @@
 # skill_manage_system（SMS）
 
-Agent 工具的"技能操作系统"：像 OS 调度进程一样发现、打包、连接、拆分、并发调度、进程注册并调度技能，支持按天缓存清理、上下文自动压缩、本地/云端安装、多客户端同步与信任链审查。
+Agent 工具的"技能操作系统"：像 OS 调度进程一样发现、打包、连接、拆分、并发调度、进程注册并调度技能（子技能运行完回到 SMS），支持按天缓存清理、上下文自动压缩、本地/云端安装（下载须确认）、多客户端同步与信任链审查，并暴露时区地区、正反双辩论、删除 skill 与命令系统（help/intent/show/use）接口。
 
 ## 结构
 
 - [`SKILL.md`](SKILL.md)：入口（YAML frontmatter，可直接注入 agent）。
 - [`agent/`](agent/CLAUDE.md)：四格式提示词。
 - [`sub_skills/`](sub_skills/skill_register/SKILL.md)：五个子技能（register / packer / connector / scheduler / executor）。
-- [`scripts/`](scripts/scripts.md)：20 个 Python 脚本（英文名、均 ≤ 50 行）。
-- [`schemas/`](schemas/register.schema.json)：十一份 JSON 数据契约。
+- [`scripts/`](scripts/scripts.md)：24 个 Python 脚本（英文名、均 ≤ 50 行）。
+- [`schemas/`](schemas/register.schema.json)：十四份 JSON 数据契约。
 - [`config/`](config/config.example.json)：SMS 固定路径覆盖示例。
 - [`resistance/`](resistance/resistance.md)：红线与降级策略。
 
