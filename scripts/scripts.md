@@ -12,7 +12,7 @@
 - [`resolve_home.py`](resolve_home.py)：解析 SMS 固定路径（env SMS_HOME → 用户配置 sms_home → 缓存目录 → 根目录）；`conf()` 读取 `<SMS_HOME>/config/config.json`（首读自动从 skill 模板 config.example.json 播种，用户配置不进 skill 目录）；分配子 skill 未指定路径的新建目录到 `<SMS_HOME>/tmp/`（`temp <rel> [--mkdir]`）。
 - [`sandbox.py`](sandbox.py)：未指定路径的工作目录在 `<SMS_HOME>/tmp/sandbox/` 建立沙盒；create/list/deliver/clean（deliver/clean 默认预览，`--yes` 执行）。
 - [`emit.py`](emit.py)：统一写盘门控（默认预览；已授予 write 才落盘；会话日目录写盘后自动触发上下文压缩）。
-- [`bootstrap.py`](bootstrap.py)：确保 Skill_Generator 可用（查技能目录与 `<SMS_HOME>/config/config.json` 的 skill_generator，缺失则 GitHub 拉取）。
+- [`bootstrap.py`](bootstrap.py)：确保 Skill_Generator 可用（查技能目录与 `<SMS_HOME>/config/config.json` 的 skill_generator，缺失则 GitHub 拉取）；创建目标 skill/子 skill 走其创建路径、修改（含 SMS 自身）走其修改路径。
 - [`register.py`](register.py)：扫描技能安装位置与所用工具（默认根 = 用户 config 的 scan_roots）→ register.json。
 - [`pack.py`](pack.py)：描述技能用途与接口 → interfaces.json。
 - [`connect.py`](connect.py)：生成技能间上下文连接 → connections.json。

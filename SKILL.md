@@ -4,7 +4,7 @@ description: >
   技能操作系统（SMS）：读取固定路径注册表，识别用户意图，按日期建会话五元组
   （对话/用户链/逻辑链/技能/权限），五 lane 并发拆分·整合与进程注册、权限门控，
   支持错误自愈、本地/云端安装、多客户端同步与信任链审查；并提供时区地区检查、
-  正反双辩论逻辑链、命令系统（help/intent/show/use）、删除 skill 与子技能回主接口；背景隐私采集默认关闭：须用户授权、每笔告知，数据混淆/掩码/矩阵变换后仅存 SMS 固定目录。
+  正反双辩论逻辑链、命令系统（help/intent/show/use）、删除 skill 与子技能回主接口；创建/修改目标 skill 与子 skill 均委托 Skill_Generator；背景隐私采集默认关闭：须用户授权、每笔告知，数据混淆/掩码/矩阵变换后仅存 SMS 固定目录。
 license: MIT
 metadata:
   category: meta
@@ -25,9 +25,9 @@ metadata:
 3. 识别意图，[session.py](scripts/session.py) 建 `SMS/sessions/<日期>/` 五元组（dialogue/user_chain/logic_chain/skills/permissions）。
 4. 数据写盘前先授权：`permissions.py grant write`（默认只读，未授予 emit 拒绝落盘）。
 5. 拆分·整合（[task.py](scripts/task.py)）+ 五 lane 并发（[scheduler.py](scripts/scheduler.py)）+ 进程生命周期（[process.py](scripts/process.py)）。
-6. 调度目标技能：[skill_executor](sub_skills/skill_executor/SKILL.md) 用 [dispatch.py](scripts/dispatch.py) 规划；每条 `return_to=sms`——子技能运行完回到 SMS 整合，不得直接回复用户；无匹配 → [bootstrap.py](scripts/bootstrap.py) 拉取（network+write）。
+6. 调度目标技能：[skill_executor](sub_skills/skill_executor/SKILL.md) 用 [dispatch.py](scripts/dispatch.py) 规划；每条 `return_to=sms`——子技能运行完回到 SMS 整合，不得直接回复用户；无匹配 → [bootstrap.py](scripts/bootstrap.py) 拉取 Skill_Generator（network+write），委托其创建目标 skill/子 skill；改已有 skill（含 SMS 自身与子 skill）→ 同样委托 Skill_Generator 修改路径。
 7. 治理：按天缓存清理（[cache_cleanup.py](scripts/cache_cleanup.py)）；emit 会话写盘后自动压缩上下文（[auto_compress.py](scripts/auto_compress.py)）；背景隐私采集 [privacy.py](scripts/privacy.py)（`grant privacy` 用户授权才可采集，每笔写 NOTICE.md 告知，混淆/掩码/矩阵变换后存 `<SMS_HOME>/privacy/`，仅必要时凭理由解密）。
-8. 错误自愈：[skill_errors.py](scripts/skill_errors.py) 记录出错位置；未解决 ≥3 → 提示 self_update 修复，`resolve` 销账。
+8. 错误自愈：[skill_errors.py](scripts/skill_errors.py) 记录出错位置；未解决 ≥3 → 提示启用 Skill_Generator self_update 修复（经其修改路径），`resolve` 销账。
 9. 安装：[install.py](scripts/install.py) 本地或 `gh:owner/repo[/sub]` 装入客户端 skills；云端需 network+write 且 `--accept-download` 用户确认下载，标 pending_review。
 10. 同步与信任：[sync_skills.py](scripts/sync_skills.py) hub pull/push/status；[trust.py](scripts/trust.py) 云端必审、本地抽查，fail → quarantine。
 11. 决策审查：[debate.py](scripts/debate.py) 对论断生成 pro/con 正反双链 + verdict → `sessions/<日期>/debate.json`。

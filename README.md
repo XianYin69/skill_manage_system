@@ -1,6 +1,6 @@
 # skill_manage_system（SMS）
 
-Agent 工具的"技能操作系统"：像 OS 调度进程一样发现、打包、连接、拆分、并发调度、进程注册并调度技能（子技能运行完回到 SMS），支持按天缓存清理、上下文自动压缩、本地/云端安装（下载须确认）、多客户端同步与信任链审查，并暴露时区地区、正反双辩论、删除 skill、命令系统（help/intent/show/use）与背景隐私采集（须用户授权+每笔告知+混淆/掩码/矩阵变换）接口。
+Agent 工具的"技能操作系统"：像 OS 调度进程一样发现、打包、连接、拆分、并发调度、进程注册并调度技能（子技能运行完回到 SMS），支持按天缓存清理、上下文自动压缩、本地/云端安装（下载须确认）、多客户端同步与信任链审查，创建目标 skill/子 skill 与修改（含 SMS 自身）均委托 Skill_Generator，并暴露时区地区、正反双辩论、删除 skill、命令系统（help/intent/show/use）与背景隐私采集（须用户授权+每笔告知+混淆/掩码/矩阵变换）接口。
 
 ## 结构
 
@@ -33,7 +33,7 @@ python scripts/scheduler.py "查天气，然后写报告" --slots 3 --write
 # 进程式注册：spawn 一个进程
 python scripts/process.py spawn skill_connector --write
 
-# 无匹配技能时：查技能目录/配置，缺 Skill_Generator 则从 GitHub 拉取（需授权）
+# 无匹配技能时：查技能目录/配置，缺 Skill_Generator 则从 GitHub 拉取；创建/修改 skill 均委托它（需授权）
 python scripts/bootstrap.py --write
 
 # skill_executor 规划：子任务 → 技能 → 工具 → 权限（未授予拒绝）
