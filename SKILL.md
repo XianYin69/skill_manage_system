@@ -45,6 +45,6 @@ metadata:
 
 ## 红线
 
-- 不得删除 [resistance/](resistance/resistance.md) 约束；SMS 运行时数据不进 skill 本体目录；子技能运行完必须回到 SMS。
+- 不得删除 [resistance/](resistance/resistance.md) 约束；SMS 运行时数据与一切缓存文件（`__pycache__`/截图/tmp/日志）不得写入任何 skill 目录，缓存一律落用户缓存目录；子技能运行完必须回到 SMS。
 - 悬空链接 = 0；所有 .md / 脚本 ≤ 50 行；SKILL.md 含 YAML frontmatter。
 - 数据写盘经 emit 门控（--write 才写）；云端下载须 network+write 且用户确认；删除须 --yes。
