@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""register.py — 扫描技能安装位置与所用工具，生成 registry/register.json。"""
+"""register.py — 扫描技能安装位置与所用工具，生成 registry/register.json；默认扫描根读用户 config 的 scan_roots。"""
 import os, sys, time, glob
 
 TOOLS = ["read", "write", "edit", "glob", "grep", "bash", "task", "skill", "websearch", "webfetch"]
@@ -41,7 +41,8 @@ if __name__ == "__main__":
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import resolve_home
     sms = resolve_home.ensure()
-    roots = [a for a in sys.argv[1:] if not a.startswith("--")] or DEFAULT_ROOTS
+    cfg = resolve_home.conf(sms)
+    roots = [a for a in sys.argv[1:] if not a.startswith("--")] or [os.path.expanduser(x) for x in cfg.get("scan_roots") or []] or DEFAULT_ROOTS
     out, doc = build(sms, roots)
     import emit
     print(emit.write_json(out, doc, sms, "--write" not in sys.argv))

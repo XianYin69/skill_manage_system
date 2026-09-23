@@ -9,7 +9,7 @@ Agent 工具的"技能操作系统"：像 OS 调度进程一样发现、打包�
 - [`sub_skills/`](sub_skills/skill_register/SKILL.md)：五个子技能（register / packer / connector / scheduler / executor）。
 - [`scripts/`](scripts/scripts.md)：26 个 Python 脚本（英文名、均 ≤ 50 行，含 sandbox/privacy）。
 - [`schemas/`](schemas/register.schema.json)：十六份 JSON 数据契约（含 sandbox/privacy）。
-- [`config/`](config/config.example.json)：SMS 固定路径覆盖示例。
+- [`config/`](config/config.example.json)：用户配置模板（真实 config.json 存 `<SMS_HOME>/config/`，首读自动播种）。
 - [`resistance/`](resistance/resistance.md)：红线与降级策略。
 
 ## 快速开始

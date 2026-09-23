@@ -1,6 +1,6 @@
 {
   "sms_home": null,
-  "comment": "SMS 固定路径：默认由 resolve_home.py 解析（env SMS_HOME > 缓存目录 > 根目录,统一建 SMS/）。若需覆盖，在此填绝对路径或设置环境变量 SMS_HOME。",
+  "comment": "SMS 用户配置模板：真实配置固定存 <SMS_HOME>/config/config.json（首读由 resolve_home.conf() 从本模板播种，skill 本体目录不放真实配置）。SMS 固定路径：默认由 resolve_home.py 解析（env SMS_HOME > 用户配置 sms_home > 缓存目录 > 根目录，统一建 SMS/）。若需覆盖，在用户配置里填绝对路径或设置环境变量 SMS_HOME。",
   "scan_roots": [
     "~/.kilocode/skills"
   ],
@@ -13,6 +13,7 @@
     "read": true,
     "write": false,
     "execute": false,
-    "network": false
+    "network": false,
+    "privacy": false
   }
 }

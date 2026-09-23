@@ -9,7 +9,7 @@ SMS 不可逾越的规则、红线与降级策略。
 ## 红线
 
 1. 不得删除本目录及 [`../SKILL.md`](../SKILL.md) 中的约束条目。
-2. SMS 运行时数据（`SMS/registry`、`SMS/sessions`）位于用户缓存/根目录，禁止写入 skill 本体目录；子 skill 未指定路径的新建目录必须经 `resolve_home.temp()` 落在 `<SMS_HOME>/tmp/`，并作为 SMS 对子 skill 开放的临时用户空间接口。
+2. SMS 运行时数据（`SMS/registry`、`SMS/sessions`、`SMS/config/config.json` 用户配置）位于用户缓存/根目录，禁止写入 skill 本体目录（skill 的 `config/` 只放模板 config.example.json，首读由 `resolve_home.conf()` 播种）；子 skill 未指定路径的新建目录必须经 `resolve_home.temp()` 落在 `<SMS_HOME>/tmp/`，并作为 SMS 对子 skill 开放的临时用户空间接口。
 3. 悬空链接必须为 0；所有 .md / 脚本 ≤ 50 行；SKILL.md 必须含 YAML frontmatter。
 4. 子技能 SKILL.md 必须含 YAML frontmatter，可直接注入 agent 执行。
 5. 数据写盘经 [`../scripts/emit.py`](../scripts/emit.py) 门控：默认预览；仅当 `--write` 且会话已授予 `write` 才落盘，否则拒绝。
@@ -41,7 +41,7 @@ SMS 不可逾越的规则、红线与降级策略。
 
 ## 降级策略
 
-- `SMS_HOME` 未定义 → 回退缓存目录 → 再回退用户根目录（见 [`../scripts/resolve_home.py`](../scripts/resolve_home.py)）。
+- `SMS_HOME` 未定义 → 读用户配置 `<SMS_HOME>/config/config.json` 的 `sms_home` → 回退缓存目录 → 再回退用户根目录（见 [`../scripts/resolve_home.py`](../scripts/resolve_home.py)）。
 - `register.json` 缺失 → 进入初始设置（[`../scripts/init_registry.py`](../scripts/init_registry.py)），不接写盘。
 - 无匹配技能 → 先由 [`../scripts/bootstrap.py`](../scripts/bootstrap.py) 查技能目录/配置，缺 Skill_Generator 则从 GitHub 拉取（需 network+write）；再委托新建。
 - `--slots` 非法 → 回退为 lane 数；权限不足 → 默认拒绝并记 audit。

@@ -16,7 +16,7 @@ metadata:
 
 ## 固定路径 SMS
 
-- 解析顺序：env `SMS_HOME` → 用户缓存目录（Windows `%LOCALAPPDATA%` · macOS `~/Library/Caches` · Linux `~/.cache`，缺省回退 `~/SMS`）→ 用户根目录；统一建 `SMS/`（实现 [scripts/resolve_home.py](scripts/resolve_home.py)，覆盖见 [config/config.example.json](config/config.example.json)）。
+- 解析顺序：env `SMS_HOME` → 用户配置 `<SMS_HOME>/config/config.json` 的 `sms_home` → 用户缓存目录（Windows `%LOCALAPPDATA%` · macOS `~/Library/Caches` · Linux `~/.cache`，缺省回退 `~/SMS`）→ 用户根目录；统一建 `SMS/`；用户配置固定存 `<SMS_HOME>/config/config.json`（`resolve_home.conf()` 首读自动从 skill 模板 [config/config.example.json](config/config.example.json) 播种，skill 本体目录只放模板）。
 
 ## 运行流程
 
@@ -45,6 +45,6 @@ metadata:
 
 ## 红线
 
-- 不得删除 [resistance/](resistance/resistance.md) 约束；SMS 运行时数据与一切缓存文件（`__pycache__`/截图/tmp/日志）不得写入任何 skill 目录；子 skill 未指定路径的新建目录必须经 [resolve_home.py](scripts/resolve_home.py) 分配到 `<SMS_HOME>/tmp/`，工程任务优先用 [sandbox.py](scripts/sandbox.py) 建 `<SMS_HOME>/tmp/sandbox/<id>`，并向子 skill 暴露该能力；子技能运行完必须回到 SMS。
+- 不得删除 [resistance/](resistance/resistance.md) 约束；SMS 运行时数据与一切缓存文件（`__pycache__`/截图/tmp/日志/用户 config.json）不得写入任何 skill 目录；子 skill 未指定路径的新建目录必须经 [resolve_home.py](scripts/resolve_home.py) 分配到 `<SMS_HOME>/tmp/`，工程任务优先用 [sandbox.py](scripts/sandbox.py) 建 `<SMS_HOME>/tmp/sandbox/<id>`，并向子 skill 暴露该能力；子技能运行完必须回到 SMS。
 - 悬空链接 = 0；所有 .md / 脚本 ≤ 50 行；SKILL.md 含 YAML frontmatter。
 - 数据写盘经 emit 门控（--write 才写）；云端下载须 network+write 且用户确认；删除须 --yes；隐私采集须用户授权（`grant privacy`）且每笔告知，解密须必要理由，隐私文件仅存 `<SMS_HOME>/privacy/`。
