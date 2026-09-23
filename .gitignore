@@ -7,4 +7,5 @@ sessions/
 .idea/
 .vscode/
 .kilo/
+config/config.json
 .DS_Store

@@ -9,7 +9,8 @@
 
 ## 当前内容
 
-- [`resolve_home.py`](resolve_home.py)：解析 SMS 固定路径（env SMS_HOME → 缓存目录 → 根目录）。
+- [`resolve_home.py`](resolve_home.py)：解析 SMS 固定路径（env SMS_HOME → 缓存目录 → 根目录）；分配子 skill 未指定路径的新建目录到 `<SMS_HOME>/tmp/`（`temp <rel> [--mkdir]`）。
+- [`sandbox.py`](sandbox.py)：未指定路径的工作目录在 `<SMS_HOME>/tmp/sandbox/` 建立沙盒；create/list/deliver/clean（deliver/clean 默认预览，`--yes` 执行）。
 - [`emit.py`](emit.py)：统一写盘门控（默认预览；已授予 write 才落盘；会话日目录写盘后自动触发上下文压缩）。
 - [`bootstrap.py`](bootstrap.py)：确保 Skill_Generator 可用（查技能目录/配置，缺失则 GitHub 拉取）。
 - [`register.py`](register.py)：扫描技能安装位置与所用工具 → register.json。

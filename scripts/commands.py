@@ -3,7 +3,8 @@
 import os, sys, json, time
 
 BUILTIN = {"help": "列出所有可用命令", "intent": "按一句话意图匹配候选命令 <utterance>",
-           "show": "查看某命令详情 <name>", "use": "使用/调用命令 <name> [args...]（转 dispatch/skill_executor）"}
+           "show": "查看某命令详情 <name>", "use": "使用/调用命令 <name> [args...]（转 dispatch/skill_executor）",
+           "temp": "子 skill 未指定路径的新建目录 → <SMS_HOME>/tmp", "sandbox": "SMS 沙盒：create/list/deliver/clean → <SMS_HOME>/tmp/sandbox"}
 
 
 def _load(sms, rel):
@@ -43,5 +44,7 @@ if __name__ == "__main__":
     elif cmd == "intent": r = match(doc, arg)
     elif cmd == "show": r = next((c for c in doc["commands"] if c["name"] == arg), {"error": "用法: show <name>"})
     elif cmd == "use": r = {"invoked": arg or None, "args": argv[2:], "next": "转 dispatch.py / skill_executor 执行并回到 SMS"}
-    else: r = {"error": "用法: help | intent <utterance> | show <name> | use <name> [args] [--write]"}
+    elif cmd == "temp": r = {"path": resolve_home.temp(sms, arg, "--mkdir" in sys.argv)}
+    elif cmd == "sandbox": r = {"script": "scripts/sandbox.py", "args": argv[2:], "root": os.path.join(sms, "tmp", "sandbox")}
+    else: r = {"error": "用法: help | intent <utterance> | show <name> | use <name> [args] | temp <rel> [--mkdir] | sandbox <subcommand> [args] [--write]"}
     print(json.dumps(r, ensure_ascii=False, indent=2))

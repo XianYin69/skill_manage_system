@@ -40,11 +40,11 @@ metadata:
 
 ## 数据契约与脚本
 
-- schemas/：register · interfaces · connections · session · task · process · scheduler · dispatch · memory · trust · error · [locality](schemas/locality.schema.json) · [debate](schemas/debate.schema.json) · [commands](schemas/commands.schema.json)
-- [scripts/scripts.md](scripts/scripts.md)：resolve_home / emit / bootstrap / register / pack / connect / session / init_registry / task / process / permissions / scheduler / dispatch / memory_list / cache_cleanup / auto_compress / trust / skill_errors / install / sync_skills / locality / debate / commands / remove
+- schemas/：register · interfaces · connections · session · task · process · scheduler · dispatch · memory · trust · error · [locality](schemas/locality.schema.json) · [debate](schemas/debate.schema.json) · [commands](schemas/commands.schema.json) · [sandbox](schemas/sandbox.schema.json)
+- [scripts/scripts.md](scripts/scripts.md)：resolve_home / sandbox / emit / bootstrap / register / pack / connect / session / init_registry / task / process / permissions / scheduler / dispatch / memory_list / cache_cleanup / auto_compress / trust / skill_errors / install / sync_skills / locality / debate / commands / remove
 
 ## 红线
 
-- 不得删除 [resistance/](resistance/resistance.md) 约束；SMS 运行时数据与一切缓存文件（`__pycache__`/截图/tmp/日志）不得写入任何 skill 目录，缓存一律落用户缓存目录；子技能运行完必须回到 SMS。
+- 不得删除 [resistance/](resistance/resistance.md) 约束；SMS 运行时数据与一切缓存文件（`__pycache__`/截图/tmp/日志）不得写入任何 skill 目录；子 skill 未指定路径的新建目录必须经 [resolve_home.py](scripts/resolve_home.py) 分配到 `<SMS_HOME>/tmp/`，工程任务优先用 [sandbox.py](scripts/sandbox.py) 建 `<SMS_HOME>/tmp/sandbox/<id>`，并向子 skill 暴露该能力；子技能运行完必须回到 SMS。
 - 悬空链接 = 0；所有 .md / 脚本 ≤ 50 行；SKILL.md 含 YAML frontmatter。
 - 数据写盘经 emit 门控（--write 才写）；云端下载须 network+write 且用户确认；删除须 --yes。

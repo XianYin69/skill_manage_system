@@ -24,6 +24,8 @@ metadata:
 2. Agent 按 `dispatches[i]` 顺序调用：
    - `needs_new=true` → 转 bootstrap / Skill_Generator 新建后重新登记。
    - 否则按 `tools[]` 调用对应 agent 工具。
+   - 需新建目录且用户未指定路径 → 调用 `../../scripts/resolve_home.py temp <name> --mkdir`，目录必须落 `<SMS_HOME>/tmp/`。
+   - 需完整工程沙盒 → 调用 `../../scripts/sandbox.py create --name <task>`；交付用 `deliver --id I --to P --yes --write`，清理用 `clean --id I --yes`。
 3. 调用前按工具→权限映射核对 grants（未授予则拒绝并记 audit）：
    - `read/glob/grep/semantic_search/skill/question/board_read` → `read`
    - `write/edit/memory_create_*` → `write`；`bash/task/agent_manager/background_process` → `execute`

@@ -37,5 +37,5 @@ metadata:
 
 ## 红线
 
-- 只写 `SMS/registry/` 与 `SMS/sessions/`；进程生命周期受权限门控。
+- 只写 `SMS/registry/` 与 `SMS/sessions/`；进程生命周期受权限门控；未指定路径的新建目录经 `resolve_home.temp` 落 `<SMS_HOME>/tmp/`，工程任务优先使用 `sandbox.py` 的 `<SMS_HOME>/tmp/sandbox/<id>`。
 - 悬空链接 = 0；本文件 ≤ 50 行；SKILL.md 含 YAML frontmatter。

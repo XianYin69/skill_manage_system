@@ -9,7 +9,7 @@ SMS 不可逾越的规则、红线与降级策略。
 ## 红线
 
 1. 不得删除本目录及 [`../SKILL.md`](../SKILL.md) 中的约束条目。
-2. SMS 运行时数据（`SMS/registry`、`SMS/sessions`）位于用户缓存/根目录，禁止写入 skill 本体目录。
+2. SMS 运行时数据（`SMS/registry`、`SMS/sessions`）位于用户缓存/根目录，禁止写入 skill 本体目录；子 skill 未指定路径的新建目录必须经 `resolve_home.temp()` 落在 `<SMS_HOME>/tmp/`，并作为 SMS 对子 skill 开放的临时用户空间接口。
 3. 悬空链接必须为 0；所有 .md / 脚本 ≤ 50 行；SKILL.md 必须含 YAML frontmatter。
 4. 子技能 SKILL.md 必须含 YAML frontmatter，可直接注入 agent 执行。
 5. 数据写盘经 [`../scripts/emit.py`](../scripts/emit.py) 门控：默认预览；仅当 `--write` 且会话已授予 `write` 才落盘，否则拒绝。
@@ -17,6 +17,7 @@ SMS 不可逾越的规则、红线与降级策略。
 7. 通过网络下载子 skill 到目标 skill 目录须 network+write 且用户显式确认（`install.py --accept-download`），否则拒绝。
 8. 删除 skill 须 [`../scripts/remove.py`](../scripts/remove.py) `--yes` 确认 + write 授权（默认预览）；禁止删除 SMS 本体与五个受保护子技能。
 9. 决策审查须有正反双辩论链（[`../scripts/debate.py`](../scripts/debate.py) pro/con + verdict）；命令统一经 [`../scripts/commands.py`](../scripts/commands.py) help/intent/show/use 暴露；时区/地区读 [`../scripts/locality.py`](../scripts/locality.py)。
+10. 沙盒机制统一使用 [`../scripts/sandbox.py`](../scripts/sandbox.py)：未指定工作目录时建在 `<SMS_HOME>/tmp/sandbox/<id>`；交付须 `--yes --write` 且目标非空拒绝覆盖；清理须 `--yes`。
 
 ## 默认权限模型
 
