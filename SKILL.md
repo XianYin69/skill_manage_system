@@ -4,7 +4,7 @@ description: >
   技能操作系统（SMS）：读取固定路径注册表，识别用户意图，按日期建会话五元组
   （对话/用户链/逻辑链/技能/权限），五 lane 并发拆分·整合与进程注册、权限门控，
   支持错误自愈、本地/云端安装、多客户端同步与信任链审查；并提供时区地区检查、
-  正反双辩论逻辑链、命令系统（help/intent/show/use）、删除 skill 与子技能回主接口。
+  正反双辩论逻辑链、命令系统（help/intent/show/use）、删除 skill 与子技能回主接口；背景隐私采集默认关闭：须用户授权、每笔告知，数据混淆/掩码/矩阵变换后仅存 SMS 固定目录。
 license: MIT
 metadata:
   category: meta
@@ -26,7 +26,7 @@ metadata:
 4. 数据写盘前先授权：`permissions.py grant write`（默认只读，未授予 emit 拒绝落盘）。
 5. 拆分·整合（[task.py](scripts/task.py)）+ 五 lane 并发（[scheduler.py](scripts/scheduler.py)）+ 进程生命周期（[process.py](scripts/process.py)）。
 6. 调度目标技能：[skill_executor](sub_skills/skill_executor/SKILL.md) 用 [dispatch.py](scripts/dispatch.py) 规划；每条 `return_to=sms`——子技能运行完回到 SMS 整合，不得直接回复用户；无匹配 → [bootstrap.py](scripts/bootstrap.py) 拉取（network+write）。
-7. 治理：按天缓存清理（[cache_cleanup.py](scripts/cache_cleanup.py)）；emit 会话写盘后自动压缩上下文（[auto_compress.py](scripts/auto_compress.py)）。
+7. 治理：按天缓存清理（[cache_cleanup.py](scripts/cache_cleanup.py)）；emit 会话写盘后自动压缩上下文（[auto_compress.py](scripts/auto_compress.py)）；背景隐私采集 [privacy.py](scripts/privacy.py)（`grant privacy` 用户授权才可采集，每笔写 NOTICE.md 告知，混淆/掩码/矩阵变换后存 `<SMS_HOME>/privacy/`，仅必要时凭理由解密）。
 8. 错误自愈：[skill_errors.py](scripts/skill_errors.py) 记录出错位置；未解决 ≥3 → 提示 self_update 修复，`resolve` 销账。
 9. 安装：[install.py](scripts/install.py) 本地或 `gh:owner/repo[/sub]` 装入客户端 skills；云端需 network+write 且 `--accept-download` 用户确认下载，标 pending_review。
 10. 同步与信任：[sync_skills.py](scripts/sync_skills.py) hub pull/push/status；[trust.py](scripts/trust.py) 云端必审、本地抽查，fail → quarantine。
@@ -40,11 +40,11 @@ metadata:
 
 ## 数据契约与脚本
 
-- schemas/：register · interfaces · connections · session · task · process · scheduler · dispatch · memory · trust · error · [locality](schemas/locality.schema.json) · [debate](schemas/debate.schema.json) · [commands](schemas/commands.schema.json) · [sandbox](schemas/sandbox.schema.json)
-- [scripts/scripts.md](scripts/scripts.md)：resolve_home / sandbox / emit / bootstrap / register / pack / connect / session / init_registry / task / process / permissions / scheduler / dispatch / memory_list / cache_cleanup / auto_compress / trust / skill_errors / install / sync_skills / locality / debate / commands / remove
+- schemas/：register · interfaces · connections · session · task · process · scheduler · dispatch · memory · trust · error · [locality](schemas/locality.schema.json) · [debate](schemas/debate.schema.json) · [commands](schemas/commands.schema.json) · [sandbox](schemas/sandbox.schema.json) · [privacy](schemas/privacy.schema.json)
+- [scripts/scripts.md](scripts/scripts.md)：resolve_home / sandbox / emit / bootstrap / register / pack / connect / session / init_registry / task / process / permissions / privacy / scheduler / dispatch / memory_list / cache_cleanup / auto_compress / trust / skill_errors / install / sync_skills / locality / debate / commands / remove
 
 ## 红线
 
 - 不得删除 [resistance/](resistance/resistance.md) 约束；SMS 运行时数据与一切缓存文件（`__pycache__`/截图/tmp/日志）不得写入任何 skill 目录；子 skill 未指定路径的新建目录必须经 [resolve_home.py](scripts/resolve_home.py) 分配到 `<SMS_HOME>/tmp/`，工程任务优先用 [sandbox.py](scripts/sandbox.py) 建 `<SMS_HOME>/tmp/sandbox/<id>`，并向子 skill 暴露该能力；子技能运行完必须回到 SMS。
 - 悬空链接 = 0；所有 .md / 脚本 ≤ 50 行；SKILL.md 含 YAML frontmatter。
-- 数据写盘经 emit 门控（--write 才写）；云端下载须 network+write 且用户确认；删除须 --yes。
+- 数据写盘经 emit 门控（--write 才写）；云端下载须 network+write 且用户确认；删除须 --yes；隐私采集须用户授权（`grant privacy`）且每笔告知，解密须必要理由，隐私文件仅存 `<SMS_HOME>/privacy/`。

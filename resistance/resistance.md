@@ -18,6 +18,7 @@ SMS 不可逾越的规则、红线与降级策略。
 8. 删除 skill 须 [`../scripts/remove.py`](../scripts/remove.py) `--yes` 确认 + write 授权（默认预览）；禁止删除 SMS 本体与五个受保护子技能。
 9. 决策审查须有正反双辩论链（[`../scripts/debate.py`](../scripts/debate.py) pro/con + verdict）；命令统一经 [`../scripts/commands.py`](../scripts/commands.py) help/intent/show/use 暴露；时区/地区读 [`../scripts/locality.py`](../scripts/locality.py)。
 10. 沙盒机制统一使用 [`../scripts/sandbox.py`](../scripts/sandbox.py)：未指定工作目录时建在 `<SMS_HOME>/tmp/sandbox/<id>`；交付须 `--yes --write` 且目标非空拒绝覆盖；清理须 `--yes`。
+11. 背景隐私采集（[`../scripts/privacy.py`](../scripts/privacy.py)）默认关闭：采集前必须经用户授权（`grant privacy`）；每笔采集必须写入 `<SMS_HOME>/privacy/NOTICE.md` 告知用户采集了哪些隐私；数据落盘前必须做混淆+掩码+矩阵变换；仅必要时（`open` 附必要理由，须 privacy+write，记审计）方可解密读取；隐私文件禁止存于 `<SMS_HOME>/privacy/` 之外，禁止写入 skill 本体目录。
 
 ## 默认权限模型
 

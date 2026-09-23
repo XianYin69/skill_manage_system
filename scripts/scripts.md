@@ -20,6 +20,7 @@
 - [`task.py`](task.py)：任务拆分·理解·整合 → task.json。
 - [`process.py`](process.py)：进程式注册生命周期 spawn/run/suspend/resume/kill → processes.json。
 - [`permissions.py`](permissions.py)：权限 grant/deny/check/audit → permissions.json。
+- [`privacy.py`](privacy.py)：背景隐私采集 collect/notice/open：须 `grant privacy` 用户授权才可采集；每笔更新 NOTICE.md 告知用户；数据混淆+掩码+矩阵变换后存 `<SMS_HOME>/privacy/`；解密须 privacy+write 且写明必要理由并记审计。
 - [`scheduler.py`](scheduler.py)：五 lane 并发调度 → scheduler.json。
 - [`dispatch.py`](dispatch.py)：子任务→技能→工具→权限映射 → dispatch.json（skill_executor 使用；quarantine/pending_review 技能拒绝派发）。
 - [`init_registry.py`](init_registry.py)：初始设置一次性跑通 register → pack → connect。
@@ -37,7 +38,7 @@
 
 ## 数据契约
 
-见 [`../schemas/`](../schemas/register.schema.json)：register / interfaces / connections / session / task / process / scheduler / memory / trust / error / locality / debate / commands。
+见 [`../schemas/`](../schemas/register.schema.json)：register / interfaces / connections / session / task / process / scheduler / memory / trust / error / locality / debate / commands / privacy。
 
 ## 运行约定
 

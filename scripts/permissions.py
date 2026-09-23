@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""permissions.py — 权限管理：grant/deny/check/audit，维护 sessions/<日期>/permissions.json。"""
+"""permissions.py — 权限管理：grant/deny/check/audit，维护 sessions/<日期>/permissions.json（含 privacy，默认拒绝）。"""
 import os, sys, json, time
 
-KEYS = ("read", "write", "execute", "network")
-DEFAULT_GRANTS = {"read": True, "write": False, "execute": False, "network": False}
+KEYS = ("read", "write", "execute", "network", "privacy")
+DEFAULT_GRANTS = {"read": True, "write": False, "execute": False, "network": False, "privacy": False}
 DATE = time.strftime("%Y-%m-%d")
 
 
