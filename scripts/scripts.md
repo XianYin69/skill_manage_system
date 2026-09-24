@@ -28,13 +28,13 @@
 - [`auto_compress.py`](auto_compress.py)：自动上下文压缩：日目录超阈时折叠 dialogue.md 旧记录为提纲，原文归档 context_archive.md（sha1 回溯；手动运行默认预览）。
 - [`trust.py`](trust.py)：信任链标签 list/mark/review/audit：云端必 review，本地按日随机抽查，fail → quarantine。
 - [`skill_errors.py`](skill_errors.py)：skill 错误位置与日志记录 → errors/skill_errors.json；未解决 ≥3 → 提示启用 self_update。
-- [`install.py`](install.py)：本地 / `gh:owner/repo[/sub]` 安装到目标客户端 skills 文件夹（云端需 network+write 且 `--accept-download` 用户确认下载，标 pending_review）。
-- [`sync_skills.py`](sync_skills.py)：SMS/skills hub ↔ 客户端目录 pull/push/status（冲突取新，未审/隔离不推送）。
+- [`install.py`](install.py) / [`sync_skills.py`](sync_skills.py)：本地 / `gh:owner/repo[/sub]` 安装到目标客户端 skills 文件夹（云端需 network+write 且 `--accept-download` 确认，标 pending_review）；SMS/skills hub ↔ 客户端目录 pull/push/status（冲突取新，未审/隔离不推送）。
+- [`shell.py`](shell.py) / [`shell_core.py`](shell_core.py)：sms-shell 入口（有图形服务器→GUI，否则 TUI，`--tui/--gui` 强制，GUI 探测失败自动回退）与共享命令引擎——skills/agents、cmds/intent/use/alias 指令系统、session/grant、hud、deploy，转调既有脚本，SMS 本体不作答；入口 [`../bin/sms-shell`](../bin/sms-shell)（POSIX，可执行位）与 `sms-shell.cmd`（Windows）相对自身定位，部署后在其他路径直接执行。
+- [`shell_tui.py`](shell_tui.py) / [`shell_gui.py`](shell_gui.py)：TUI 前端（pwsh/bash/zsh 式终端壳，readline 历史+Tab 补全+ANSI，完全无需图形服务器，TTY/SSH 可跑）；GUI 前端（tkinter 窗口终端，输出区+输入行，`tui` 可另起终端壳）。
 - [`locality.py`](locality.py) / [`debate.py`](debate.py)：检查用户时区与地区（tz/locale/region）→ registry/locality.json；对论断生成 pro/con 正反双链 + verdict → sessions/<日期>/debate.json。
 - [`commands.py`](commands.py)：命令系统 help/intent/show/use，汇总内置/skill 接口/个性化指令 → registry/commands.json；alias/unalias/hud/deploy/shell/temp/sandbox/privacy 路由转发。
 - [`user_commands.py`](user_commands.py)：完全个性化指令——用户自定义指令格式（名称/描述/arg_names/步骤模板）存 `<SMS_HOME>/commands/user_commands.json`；步骤前缀 `script:`（调 SMS 脚本，写盘仍经 emit 门控）/`delegate:`（必须回 SMS 由 dispatch 派托管 skill，如 `delegate:Skill_Generator 修改 {skill}` 实现 skill-update 迭代）/`say:`；expand 展开 `{arg}`/`{args}` 占位，run 逐步执行。
-- [`shell.py`](shell.py)：sms-shell 交互壳（入口 [`../bin/sms-shell`](../bin/sms-shell)）——skills/agents 列表、cmds/intent/use/alias 指令系统、session/grant 授权、hud 顶面提示、deploy 部署；转调既有脚本，SMS 本体不作答。
-- [`deploy.py`](deploy.py)：按指令部署 SMS 本体与托管 skills 到其他目录/客户端（位置参数目录或 `--clients a,b`；`--skills a,b|all`；复制排除 .git/__pycache__/tmp；默认预览，`--write` 且 grant write 才执行）。
+- [`deploy.py`](deploy.py)：按指令部署 SMS 本体与托管 skills 到其他目录/客户端（位置参数目录或 `--clients a,b`；`--skills a,b|all`；`--launcher` 在目标根生成可执行 `sms-shell(.cmd)` 启动器；复制排除 .git/__pycache__/tmp；默认预览，`--write` 且 grant write 才执行）。
 - [`hud.py`](hud.py) / [`hud_view.py`](hud_view.py)：界面顶面 HUD——任务进行时置顶·点击穿透·不抢焦点·只读，居屏幕顶中（alert 红/session/step 三行）；session/step/alert/hide/status；状态只存 `<SMS_HOME>/hud/`，查看进程后台拉起、空闲 120s 自退。
 - [`remove.py`](remove.py)：删除 skill（默认预览；--yes 确认 + --write 且已授予 write 才删；拒删受保护本体）。
 

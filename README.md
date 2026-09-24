@@ -1,14 +1,14 @@
 # skill_manage_system（SMS）
 
-Agent 工具的"技能操作系统"：本身不作答——一切用户请求经 dispatch 派给托管 skill 执行、由 SMS 整合结果作答（无匹配→委托 Skill_Generator 创建）；像 OS 调度进程一样发现、打包、连接、拆分、并发调度、进程注册并调度技能（子技能运行完回到 SMS），支持按天缓存清理、上下文自动压缩、本地/云端安装（下载须确认）、多客户端同步与信任链审查，创建目标 skill/子 skill 与修改（含 SMS 自身）均委托 Skill_Generator，并以依赖库 deps.json 记录各技能的关联 skill（depends/independent/related）与关联 python（import→pip 名→安装状态），权限支持角色批量与 TTL 到期、敏感键 vault/verify 门控凭据与验证协助技能，隐私采集按类别留存到期清理（privacy_cat），并暴露时区地区、正反双辩论、删除 skill、命令系统（help/intent/show/use）与完全个性化指令（alias 定义指令格式，如 skill-update→委托 Skill_Generator 迭代 skill）、sms-shell 交互壳（操作已安装 agent 客户端使用 SMS 与 skills、按指令部署到其他目录）、界面顶面不打扰 HUD（置顶·穿透·不抢焦点，任务进行时提示）、背景隐私采集（须用户授权+每笔告知+混淆/掩码/矩阵变换）接口。
+Agent 工具的"技能操作系统"：本身不作答——一切用户请求经 dispatch 派给托管 skill 执行、由 SMS 整合结果作答（无匹配→委托 Skill_Generator 创建）；像 OS 调度进程一样发现、打包、连接、拆分、并发调度、进程注册并调度技能（子技能运行完回到 SMS），支持按天缓存清理、上下文自动压缩、本地/云端安装（下载须确认）、多客户端同步与信任链审查，创建目标 skill/子 skill 与修改（含 SMS 自身）均委托 Skill_Generator，并以依赖库 deps.json 记录各技能的关联 skill（depends/independent/related）与关联 python（import→pip 名→安装状态），权限支持角色批量与 TTL 到期、敏感键 vault/verify 门控凭据与验证协助技能，隐私采集按类别留存到期清理（privacy_cat），并暴露时区地区、正反双辩论、删除 skill、命令系统（help/intent/show/use）与完全个性化指令（alias 定义指令格式，如 skill-update→委托 Skill_Generator 迭代 skill）、sms-shell 双前端（有图形服务器→GUI 窗口，无→pwsh/bash/zsh 式 TUI 终端壳；操作已安装 agent 客户端使用 SMS 与 skills、按指令部署到其他目录并生成可执行启动器）、界面顶面不打扰 HUD（置顶·穿透·不抢焦点，任务进行时提示）、背景隐私采集（须用户授权+每笔告知+混淆/掩码/矩阵变换）接口。
 
 ## 结构
 
 - [`SKILL.md`](SKILL.md)：入口（YAML frontmatter，可直接注入 agent）。
 - [`agent/`](agent/CLAUDE.md)：四格式提示词。
 - [`sub_skills/`](sub_skills/skill_register/SKILL.md)：五个子技能（register / packer / connector / scheduler / executor）。
-- [`scripts/`](scripts/scripts.md)：35 个 Python 脚本（英文名、均 ≤ 50 行，含 sandbox/privacy/deps/privacy_cat/skill_cache/user_commands/shell/deploy/hud）。
-- [`bin/`](bin/sms-shell)：sms-shell 启动入口（Windows `.cmd` + POSIX sh），部署后加 PATH 即用。
+- [`scripts/`](scripts/scripts.md)：38 个 Python 脚本（英文名、均 ≤ 50 行，含 sandbox/privacy/deps/privacy_cat/skill_cache/user_commands/shell×4/deploy/hud）。
+- [`bin/`](bin/sms-shell)：sms-shell 启动入口（Windows `.cmd` + POSIX 可执行 sh），相对自身定位；部署后其他路径直接执行，或 `deploy.py --launcher` 在目标根再生成一份。
 - [`schemas/`](schemas/register.schema.json)：十八份 JSON 数据契约（含 sandbox/privacy/deps/user_commands）。
 - [`config/`](config/config.example.json)：用户配置模板（真实 config.json 存 `<SMS_HOME>/config/`，首读自动播种）。
 - [`resistance/`](resistance/resistance.md)：红线与降级策略。
@@ -29,13 +29,13 @@ python scripts/scheduler.py "查天气，然后写报告" --slots 3 --write
 python scripts/process.py spawn skill_connector --write
 python scripts/bootstrap.py --write
 python scripts/dispatch.py --write
-# sms-shell 交互壳：操作已安装 agent 客户端、使用 skills、按指令部署到其他目录（bin/sms-shell 同）
-python -B scripts/shell.py
+# sms-shell：自动选前端——有图形服务器→GUI 窗口，无→TUI 终端壳（免图形，TTY/SSH 可跑）；--tui/--gui 强制
+python -B scripts/shell.py            # 或部署后任意路径执行 <目标>/skill_manage_system/bin/sms-shell(.cmd)
 # 个性化指令：定义 skill-update（迭代 skill）→ 查看展开计划 → 任务进行时界面顶面 HUD 提示
 python -B scripts/commands.py alias skill-update --desc="迭代指定 skill" --args=skill,需求 --step="script:session.py 迭代{skill}" --step="delegate:Skill_Generator 修改 {skill}：{需求}" --write
 python -B scripts/commands.py intent "更新 sms"
 python -B scripts/hud.py session "SMS 任务进行中"
-python -B scripts/deploy.py D:\agents\.kilocode\skills --write   # 或 --clients kilocode,cursor；默认预览
+python -B scripts/deploy.py D:\agents --launcher --skills all --write   # 目标根生成可执行 sms-shell，其他路径直接跑
 ```
 
 ## 固定路径 SMS

@@ -7,7 +7,7 @@ BUILTIN = {"help": "列出所有命令（内置/skill 接口/个性化）", "int
   "alias": "定义个性化指令 <name> --desc= --args=a,b --step='script:|delegate:|say:..' [--write]", "unalias": "删除个性化指令 <name> [--write]",
   "temp": "子 skill 未指定路径的新建目录 → <SMS_HOME>/tmp", "sandbox": "SMS 沙盒 create/list/deliver/clean",
   "privacy": "背景隐私采集 notice/collect/open（须 grant privacy，每笔告知）", "hud": "界面顶面 HUD session/step/alert/hide（置顶·穿透·不抢焦点，任务进行时提示）",
-  "shell": "sms-shell 交互壳（操作已安装 agent 用 SMS 与 skills、按指令部署到其他目录）", "deploy": "部署 SMS/托管 skills 到其他目录或客户端（默认预览，--write 执行）"}
+  "shell": "sms-shell 双前端：有图形服务器→GUI 窗口，无→TUI 终端壳（pwsh/bash/zsh 式）；--tui/--gui 强制；操作已装 agent 用 SMS/skills", "deploy": "部署 SMS/托管 skills 到其他目录或客户端（--launcher 生成可执行 sms-shell；默认预览，--write 执行）"}
 ROUTE = {"alias": "user_commands.py", "unalias": "user_commands.py", "temp": "resolve_home.py", "sandbox": "sandbox.py", "privacy": "privacy.py", "hud": "hud.py", "deploy": "deploy.py", "shell": "shell.py"}
 def _load(sms, rel): return json.load(open(os.path.join(sms, rel), encoding="utf-8")) if os.path.exists(os.path.join(sms, rel)) else {}
 def collect(sms):
