@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """shell_core.py — sms-shell 共享路由引擎（TUI/GUI 前端通用）：像对 agent 说话一样——任意话语默认经数据流交给已安装 agent CLI 执行（agent_stream，前置 skill_manage_system 指令）；输入命中个性化指令名（user_commands）则展开执行；`:` 元指令仅做治理（切 agent、开关技能前缀、指令系统、hud/deploy/session/grant）；本体不作答。"""
-import os, sys, subprocess
+import os, sys, subprocess, shlex
 S = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, S)
 import agent_stream as ag
@@ -31,7 +31,8 @@ def handle(line, on_line):
     if line.startswith(":"):
         p = line[1:].split(); _meta(p[0], p[1:], on_line); return None
     import user_commands
-    parts = line.split()
+    try: parts = shlex.split(line)
+    except ValueError: parts = line.split()
     if user_commands.find(user_commands.load(SMS), parts[0]):
         on_line(run_script("user_commands.py", ["run"] + parts)); return None
     ag.ask(line, on_line); return None

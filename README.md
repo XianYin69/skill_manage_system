@@ -32,7 +32,7 @@ python scripts/dispatch.py --write
 # sms-shell：进去就像对 agent 说话——话语直接以数据流交给已装 agent CLI（默认前置 skill_manage_system 指令）
 python -B scripts/shell.py            # GUI（有图形服务器）或 TUI；部署后任意路径跑 <目标>/sms-shell(.cmd)
 # 例：`查天气然后写报告` → 流式回显 agent 输出；`:agents` 看检测到的 CLI；`:use codex` 换；`:skill off` 关指令前缀
-# 个性化指令优先于数据流：`skill-update my-skill 加导出功能` → 展开步骤执行
+# 个性化指令优先于数据流，支持命名参数透传：`sms-skill init --Path "C:\x" --NewFolder Yes --FolderName SMSH` → 展开为 deploy 执行
 # 个性化指令：定义 skill-update（迭代 skill）→ 查看展开计划 → 任务进行时界面顶面 HUD 提示
 python -B scripts/commands.py alias skill-update --desc="迭代指定 skill" --args=skill,需求 --step="script:session.py 迭代{skill}" --step="delegate:Skill_Generator 修改 {skill}：{需求}" --write
 python -B scripts/commands.py intent "更新 sms"
