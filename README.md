@@ -5,7 +5,7 @@
 ## 结构
 
 - 根 [`sms.py`](sms.py)＋[`sms`](sms)/[`sms.cmd`](sms.cmd)：跨 OS（Win/macOS/Linux）入口程序——**开箱即用**（建 SMS_HOME、播种配置、红线自检）→**依赖嗅探与修补**（PySide6/git/agent CLI，`--rebuild` 重建注册表、`--install-deps` 经同意装 PySide6）→**引导至 CLI**（交棒 sms-shell）；`sms.py doctor` 只诊断不启动。
-- [`skill/`](skill/SKILL.md)：工具全部层——[SKILL.md](skill/SKILL.md)（YAML frontmatter 入口）、[AGENTS.md](skill/AGENTS.md)（入口红线镜像，redlines.py 机械断言）、[agent/](skill/agent/CLAUDE.md)（四格式提示词）、[scripts/](skill/scripts/scripts.md)（引擎，40 脚本 ≤50 行）、[schemas/](skill/schemas/register.schema.json)（18 份 JSON 契约）、[config/](skill/config/config.example.json)（模板，真实 config 首读播种到 `<SMS_HOME>/config/`）、[resistance/](skill/resistance/resistance.md)（红线，不得删改）、[sub_skills/](skill/sub_skills/skill_register/SKILL.md)（五个子技能）。
+- [`skill/`](skill/SKILL.md)：工具全部层——[SKILL.md](skill/SKILL.md)（YAML frontmatter 入口）、[AGENTS.md](skill/AGENTS.md)（入口红线镜像，redlines.py 机械断言）、[agent/](skill/agent/CLAUDE.md)（四格式提示词）、[scripts/](skill/scripts/scripts.md)（引擎，44 脚本 ≤50 行；十一链记忆体系见 [chains.md](skill/scripts/chains.md)）、[schemas/](skill/schemas/register.schema.json)（19 份 JSON 契约）、[config/](skill/config/config.example.json)（模板，真实 config 首读播种到 `<SMS_HOME>/config/`）、[resistance/](skill/resistance/resistance.md)（红线，不得删改）、[sub_skills/](skill/sub_skills/skill_register/SKILL.md)（五个子技能）。
 - [`bin/`](bin/sms-shell)：交互入口部署包＝sms-shell(.cmd)＋[locate.py](bin/locate.py)（相邻→SMS_SKILL→sms_skill 三级定位回源）＋格式 API sms-api(.cmd)／[sms_api.py](bin/sms_api.py)／[sms_formats.py](bin/sms_formats.py)——claude SKILL.md 格式、claude-code（CLAUDE.md＋斜杠指令）、OpenAI 全系（Chat/Responses tools·Assistants·realtime/Codex）互转导出；部署＝仅把这些文件复制到指定路径，目标处直接运行。
 
 ## 快速开始
@@ -29,6 +29,14 @@ python -B skill/scripts/dispatch.py --write
 # 个性化指令（如 skill-update→委托 Skill_Generator 迭代）与任务进行时顶面 HUD
 python -B skill/scripts/commands.py alias skill-update --desc="迭代指定 skill" --args=skill,需求 --step="script:session.py 迭代{skill}" --step="delegate:Skill_Generator 修改 {skill}：{需求}" --write
 python -B skill/scripts/hud.py session "SMS 任务进行中"
+# 十一链记忆：语句碎片（向量/频次/语义边，存 <SMS_HOME>/chains/）·压缩检索·做梦整理
+python -B skill/scripts/chains.py user "偏好精简记忆"
+python -B skill/scripts/prompt_pack.py pack "当前问题关键词"
+python -B skill/scripts/dream.py run
+# 十一链记忆：语句碎片（向量/频次/语义边，存 <SMS_HOME>/chains/）·压缩检索·做梦整理
+python -B skill/scripts/chains.py user "偏好精简记忆"
+python -B skill/scripts/prompt_pack.py pack "当前问题关键词"
+python -B skill/scripts/dream.py run
 ```
 
 ## 固定路径 SMS

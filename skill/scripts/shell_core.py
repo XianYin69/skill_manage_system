@@ -7,7 +7,7 @@ import agent_stream as ag
 SMS = ag.SMS
 HELP = ("直接输入任何话语＝交给当前 agent（默认带 skill_manage_system 指令）· 命中个性化指令名则展开执行\n"
         ":agents 看/选 · :use <name> · :skill on|off 技能前缀 · :cmds [name] · :intent <话语> · :alias/:unalias 个性化指令\n"
-        ":hud session|step|alert|hide · :deploy <dir|--Path P --FolderName F>（部署＝仅复制 bin 文件） · :session \"<任务>\" · :grant <键|角色> [分钟] · :quit")
+        ":hud session|step|alert|hide · :deploy <dir|--Path P --FolderName F>（部署＝仅复制 bin 文件） · :session \"<任务>\" · :grant <键|角色> [分钟] · :dream status|run · :quit")
 def banner():
     return "sms-shell · SMS_HOME=" + SMS + " · 当前 agent：" + (ag.current() or "未检出（:agents 查看）") + " · 技能前缀：" + ("on" if ag.prefix_on() else "off")
 def run_script(name, args):
@@ -19,6 +19,7 @@ def _meta(m, a, on_line):
     elif m == "skill": on_line(ag.skill(not (a and a[0] == "off")))
     elif m in ("hud", "deploy", "session"): on_line(run_script(m + ".py", a))
     elif m == "grant": on_line(run_script("permissions.py", ["grant"] + a + ["--write"]))
+    elif m == "dream": on_line(run_script("dream.py", a or ["status"]))
     elif m == "cmds": on_line(run_script("commands.py", ["help"] if not a else ["show"] + a))
     elif m == "intent": on_line(run_script("commands.py", ["intent"] + a))
     elif m == "alias": on_line(run_script("user_commands.py", ["add"] + a))
