@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""remove.py — 删除 skill：从目标客户端 skills 目录/hub 移除指定技能；默认预览，--write 且已授予 write 才删，需 --yes 确认，拒删受保护本体。"""
+"""remove.py — 删除 skill：从目标客户端 skills 目录/hub 移除指定技能；默认预览，--write 且已授予 write 才删，需 --yes 确认 + grant danger（高危键，红线 16），拒删受保护本体。"""
 import os, sys, json, shutil
 
 PROTECT = {"skill_manage_system", "Skill_Generator", "skill_executor", "skill_register",
@@ -38,4 +38,5 @@ if __name__ == "__main__":
     pos = [x for x in argv if not x.startswith("--")]
     if not pos: print("用法: remove.py <skill_name> --yes --write"); sys.exit(1)
     if w and not permissions.allow(sms, "write"): print("DENIED: 会话未授予 write 权限（permissions.json）"); sys.exit(1)
+    if w and "--yes" in argv and not permissions.allow(sms, "danger"): print("DENIED: 递归删除属高危，须用户当轮确认后 grant danger（红线 16）"); sys.exit(1)
     print(json.dumps(remove(sms, pos[0], w, "--yes" in argv), ensure_ascii=False, indent=2))

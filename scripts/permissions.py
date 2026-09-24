@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""permissions.py — 权限：grant/deny/check/audit + 角色批量 + TTL 自动到期；vault/verify 敏感键控凭据与验证协助；默认拒绝。"""
+"""permissions.py — 权限：grant/deny/check/audit + 角色批量 + TTL 自动到期；vault/verify 敏感键控凭据与验证协助；danger 键控高危（skill/SMS_HOME 外递归删除、向用户目录复制覆盖）——默认拒绝、不随角色批量，须用户当轮确认后单独 grant（红线 16）。"""
 import os, sys, json, time
 from datetime import datetime, timedelta
-KEYS = ("read", "write", "execute", "network", "privacy", "vault", "verify")
+KEYS = ("read", "write", "execute", "network", "privacy", "vault", "verify", "danger")
 ROLES = {"readonly": ["read"], "worker": ["read", "write", "execute"], "net": ["read", "write", "execute", "network"],
-         "privacy": ["read", "privacy"], "secrets": ["read", "vault", "verify"], "admin": list(KEYS)}
-DEFAULT_GRANTS = dict(zip(KEYS, [True, False, False, False, False, False, False]))
+         "privacy": ["read", "privacy"], "secrets": ["read", "vault", "verify"], "admin": [k for k in KEYS if k != "danger"]}
+DEFAULT_GRANTS = dict(zip(KEYS, [True, False, False, False, False, False, False, False]))
 DATE = time.strftime("%Y-%m-%d")
 def _path(sms): return os.path.join(sms, "sessions", DATE, "permissions.json")
 def _doc(path):
