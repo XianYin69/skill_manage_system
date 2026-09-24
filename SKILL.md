@@ -20,7 +20,7 @@ metadata:
 
 ## 运行流程
 
-1. 解析 SMS_HOME，读 `SMS/registry/register.json`（含信任标签）；[locality.py](scripts/locality.py) 检查时区/地区 → `registry/locality.json` 供会话读取。
+1. 初始化第一步先跑 `python -B scripts/redlines.py check`（约束持久化机械断言：入口镜像关键句/≤50 行/零悬空链接，失败即停并报告、禁止绕过），再解析 SMS_HOME，读 `SMS/registry/register.json`（含信任标签）；[locality.py](scripts/locality.py) 检查时区/地区 → `registry/locality.json` 供会话读取。
 2. 缺失 → 初始设置：[init_registry.py](scripts/init_registry.py) 跑 register → pack → connect → deps。
 3. 识别意图（只产生路由/创建决策，不触发作答），[session.py](scripts/session.py) 建 `SMS/sessions/<日期>/` 五元组（dialogue/user_chain/logic_chain/skills/permissions）。
 4. 数据写盘前先授权：`permissions.py grant write`（默认只读，未授予 emit 拒绝落盘）；可 `grant role secrets [分钟]` 批量+TTL 到期自动失效，`deny` 随时撤销；敏感键 vault/verify 由 dispatch 对 login-vault/captcha-assist 强制。
@@ -31,7 +31,7 @@ metadata:
 9. 安装：[install.py](scripts/install.py) 本地或 `gh:owner/repo[/sub]` 装入客户端 skills；云端需 network+write 且 `--accept-download` 用户确认下载，标 pending_review。
 10. 同步与信任：[sync_skills.py](scripts/sync_skills.py) hub pull/push/status；[trust.py](scripts/trust.py) 云端必审、本地抽查，fail → quarantine。
 11. 决策审查：[debate.py](scripts/debate.py) 对论断生成 pro/con 正反双链 + verdict → `sessions/<日期>/debate.json`。
-12. 命令系统：[commands.py](scripts/commands.py) 汇总内置/skill 接口/个性化指令 → `registry/commands.json`，`help/intent/show/use` 调用；个性化指令格式经 [user_commands.py](scripts/user_commands.py) `alias/unalias` 定义（`script:`调脚本、`delegate:`必回 SMS 派发、`say:`提示，`{arg}` 占位；如 skill-update→委托 Skill_Generator 迭代）；[shell.py](scripts/shell.py)（入口 [bin/sms-shell](bin/sms-shell)）双前端（GUI/TUI）——任意话语默认经数据流交给已安装 agent CLI 执行（[agent_stream.py](scripts/agent_stream.py)：claude/codex/kilocode… 适配器可配，前置「使用 skill_manage_system 技能」指令，本体不作答），命中个性化指令自动展开（支持 `sms-skill init --Path … --NewFolder Yes --FolderName …` 式命名参数 token 透传），`:` 元指令治理（[shell_core.py](scripts/shell_core.py)），经 [deploy.py](scripts/deploy.py)（`--launcher` 目标根生成可执行 sms-shell）部署到其他目录/客户端；任务进行时 [hud.py](scripts/hud.py)+[hud_view.py](scripts/hud_view.py) 在界面顶面常显置顶·穿透·不抢焦点提示，任务结束 hide。
+12. 命令系统：[commands.py](scripts/commands.py) 汇总内置/skill 接口/个性化指令 → `registry/commands.json`，`help/intent/show/use` 调用；个性化指令格式经 [user_commands.py](scripts/user_commands.py) `alias/unalias` 定义（`script:`调脚本、`delegate:`必回 SMS 派发、`say:`提示，`{arg}` 占位；如 skill-update→委托 Skill_Generator 迭代）；[shell.py](scripts/shell.py)（入口 [bin/sms-shell](bin/sms-shell)）双前端（GUI/TUI）——任意话语默认经数据流交给已安装 agent CLI 执行（[agent_stream.py](scripts/agent_stream.py)：claude/codex/kilocode… 适配器可配，前置「使用 skill_manage_system 技能」指令，本体不作答），命中个性化指令自动展开（支持 `sms-skill init --Path … --NewFolder Yes --FolderName …` 式命名参数 token 透传），`:` 元指令治理（[shell_core.py](scripts/shell_core.py)），经 [deploy.py](scripts/deploy.py) 部署＝仅复制 bin 启动文件到用户指定路径（[bin/locate.py](bin/locate.py) 相邻→SMS_SKILL→sms_skill 三级定位回源，禁止整包复制 skill）；任务进行时 [hud.py](scripts/hud.py)+[hud_view.py](scripts/hud_view.py) 在界面顶面常显置顶·穿透·不抢焦点提示，任务结束 hide。
 13. 删除：[remove.py](scripts/remove.py) `--yes --write` 从客户端/hub 移除 skill（默认预览，拒删受保护本体）。
 
 ## 子技能
@@ -47,4 +47,4 @@ metadata:
 
 - 不得删除 [resistance/](resistance/resistance.md) 约束；SMS 运行时数据与一切缓存文件（`__pycache__`/截图/tmp/日志/用户 config.json）不得写入任何 skill 目录；子 skill 未指定路径的新建目录必须经 [resolve_home.py](scripts/resolve_home.py) 分配到 `<SMS_HOME>/tmp/`，工程任务优先用 [sandbox.py](scripts/sandbox.py) 建 `<SMS_HOME>/tmp/sandbox/<id>`，并向子 skill 暴露该能力；子技能运行完必须回到 SMS；**SMS 本体不得直接回答用户需求**——一切经 dispatch 派托管 skill 执行、SMS 整合结果作答（无匹配→委托 Skill_Generator 创建后执行；仍不可得→明确拒绝，不得以模型自身知识代答）。
 - 悬空链接 = 0；所有 .md / 脚本 ≤ 50 行；SKILL.md 含 YAML frontmatter。
-- 数据写盘经 emit 门控（--write 才写）；云端下载须 network+write 且用户确认；删除须 --yes；隐私采集须用户授权（`grant privacy`）且每笔告知，解密须必要理由，隐私文件仅存 `<SMS_HOME>/privacy/`。
+- 数据写盘经 emit 门控（--write 才写）；云端下载须 network+write 且用户确认；删除须 --yes 且 grant danger；隐私采集须用户授权（`grant privacy`）且每笔告知，解密须必要理由，隐私文件仅存 `<SMS_HOME>/privacy/`。**高危操作先询问**（resistance #16）：skill/SMS_HOME 外递归删除、向用户目录复制/覆盖写——必须先向用户预览并取得当轮明确同意，且 `permissions.py grant danger`（敏感键、不随角色批量、TTL 到期）。约束持久化：[AGENTS.md](AGENTS.md) 入口镜像＋redlines.py 机械断言（初始化与 git 提交前必跑）＋`seal` 基线；部署＝仅复制 bin 文件，创建/修改 skill 一律委托 Skill_Generator。

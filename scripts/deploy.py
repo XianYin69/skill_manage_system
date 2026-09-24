@@ -1,51 +1,47 @@
 #!/usr/bin/env python3
-"""deploy.py — 把 SMS 与托管 skills 部署到其他目录/agent 客户端：默认预览，--write 且已授予 write 才执行；复制排除 .git/.kilo/__pycache__/tmp；目标=位置参数目录、--clients a,b、或命名参数 --Path P [--NewFolder Yes] [--FolderName F]（P 拼 F，即 init 语义）；--launcher 在目标根生成可执行 sms-shell(.cmd)——部署后其他路径直接运行该文件即可起 GUI/TUI 壳。"""
+"""deploy.py — 部署＝仅把 skill 的 bin 启动文件复制到指定路径，绝不整包复制 skill：目标=位置参数目录，或 --Path P [--NewFolder Yes] [--FolderName F]（init 语义，flag 名大小写不敏感、值保真）；同时在 <SMS_HOME>/config/config.json 登记源安装绝对路径（sms_skill），目标处的 bin/locate.py 按 相邻→SMS_SKILL→sms_skill 三级定位回源，sms-shell 在任意路径直接可用。默认预览，--write 且已授予 write 才执行。"""
 import os, sys, json, shutil
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-EXCL = shutil.ignore_patterns(".git", ".kilo", "__pycache__", "*.pyc", "tmp", "SMS")
-FLAGS = ("--clients", "--skills", "--path", "--newfolder", "--foldername", "--folder")
-def _clients(): import sync_skills; return sync_skills.clients()
-def _roots(sms): return [os.path.join(sms, "skills")] + sorted(_clients().values())
-def _pick(sms, name):
-    return next((os.path.join(r, name) for r in _roots(sms) if os.path.isfile(os.path.join(r, name, "SKILL.md"))), None)
-def _names(sms, spec):
-    return [n.strip() for n in spec.split(",") if n.strip()] if spec != "all" else sorted({n for r in _roots(sms) if os.path.isdir(r) for n in os.listdir(r) if os.path.isfile(os.path.join(r, n, "SKILL.md"))})
-def deploy(sms, targets, with_sms, skills, write):
+BIN = os.path.join(HERE, "bin")
+FLAGS = ("--path", "--newfolder", "--foldername", "--folder")
+def _targets(raw):
+    skip = set()
+    for i, lx in ((i, x.lower()) for i, x in enumerate(raw)):
+        if lx in FLAGS and i + 1 < len(raw) and not raw[i + 1].startswith("--"):
+            raw[i] = lx + "=" + raw[i + 1]; skip.add(i + 1)
+    kv = dict((x[2:].split("=", 1)[0].lower(), x[2:].split("=", 1)[1]) for i, x in enumerate(raw) if x.startswith("--") and "=" in x and i not in skip)
+    dirs = [os.path.expandvars(os.path.expanduser(x)) for i, x in enumerate(raw) if i not in skip and not x.startswith("--")]
+    if kv.get("path"):
+        base = os.path.expandvars(os.path.expanduser(kv["path"]))
+        fol = kv.get("foldername") or kv.get("folder")
+        dirs.append(os.path.join(base, fol) if fol and (kv.get("newfolder") or "yes").lower() != "no" else base)
+    return dirs
+def _register(sms, write):
+    conf = os.path.join(sms, "config", "config.json")
+    doc = json.load(open(conf, encoding="utf-8")) if os.path.isfile(conf) else {}
+    if doc.get("sms_skill") == HERE: return "registered(unchanged) " + HERE
+    if write:
+        doc["sms_skill"] = HERE
+        json.dump(doc, open(conf, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+    return ("register " if write else "would register ") + "sms_skill=" + HERE
+def _copy(d, write):
     acts = []
-    items = ([("skill_manage_system", HERE)] if with_sms else []) + [(n, _pick(sms, n)) for n in skills]
-    for d in targets:
-        for n, src in items:
-            if not src: acts.append("MISS " + n + "（hub/客户端目录未找到，先 sync pull 或 install）"); continue
-            dst = os.path.join(d, n)
-            acts.append(("deploy " if write else "would deploy ") + n + " -> " + dst)
-            if write:
-                os.makedirs(d, exist_ok=True); shutil.copytree(src, dst, dirs_exist_ok=True, ignore=EXCL)
-    return acts
-def launcher(d, write):
-    files = {"sms-shell.cmd": b'@echo off\r\npython -B "%~dp0skill_manage_system\\scripts\\shell.py" %*\r\n', "sms-shell": b'#!/bin/sh\nexec python3 -B "$(dirname "$0")/skill_manage_system/scripts/shell.py" "$@"\n'}
-    acts = []
-    for name, data in files.items():
-        acts.append(("launcher " if write else "would launcher ") + os.path.join(d, name))
-        if write: os.makedirs(d, exist_ok=True); open(os.path.join(d, name), "wb").write(data); os.chmod(os.path.join(d, name), 0o755)
+    for name in sorted(os.listdir(BIN)):
+        src = os.path.join(BIN, name)
+        if not os.path.isfile(src): continue
+        dst = os.path.join(d, name)
+        acts.append(("deploy bin " if write else "would deploy ") + dst)
+        if write:
+            os.makedirs(d, exist_ok=True); shutil.copy2(src, dst)
+            if not dst.endswith(".cmd"): os.chmod(dst, 0o755)
     return acts
 if __name__ == "__main__":
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import resolve_home, permissions
-    sms = resolve_home.ensure(); raw = sys.argv[1:]; w = "--write" in raw; skip = set()
-    for i, lx in ((i, x.lower()) for i, x in enumerate(raw)):
-        if lx == "init": skip.add(i); continue
-        if lx in FLAGS and i + 1 < len(raw) and not raw[i + 1].startswith("--"): raw[i] = lx + "=" + raw[i + 1]; skip.add(i + 1)
-    kv = dict((x[2:].split("=", 1)[0].lower(), x[2:].split("=", 1)[1]) for i, x in enumerate(raw) if x.startswith("--") and "=" in x and i not in skip)
-    dirs = [os.path.expandvars(os.path.expanduser(x)) for i, x in enumerate(raw) if not x.startswith("--") and i not in skip]
-    if kv.get("path"):
-        base = os.path.expandvars(os.path.expanduser(kv["path"])); fol = kv.get("foldername") or kv.get("folder")
-        dirs.append(os.path.join(base, fol) if fol and (kv.get("newfolder") or "yes").lower() != "no" else base)
-    cls = _clients()
-    for c in (kv.get("clients") or "").replace(",", " ").split():
-        if c not in cls: print("未知客户端（未检出该 agent 目录；可先设 env SMS_CLIENTS=\"name=path;...\"）: " + c); sys.exit(1)
-        dirs.append(cls[c])
-    if not dirs: print("用法: deploy.py [init] <dir...> | --Path P [--NewFolder Yes] [--FolderName F] | --clients a,b [--skills a,b|all] [--no-sms] [--launcher] --write"); sys.exit(1)
-    if w and not permissions.allow(sms, "write"): print("DENIED: 会话未授予 write 权限（permissions.json）"); sys.exit(1)
-    skills = _names(sms, kv["skills"]) if "skills" in kv else []
-    acts = deploy(sms, dirs, "--no-sms" not in raw, skills, w) + ([l for d in dirs for l in launcher(d, w)] if "--launcher" in raw else [])
-    print(json.dumps({"targets": dirs, "actions": acts}, ensure_ascii=False, indent=2))
+    sms = resolve_home.ensure(); raw = [x for x in sys.argv[1:] if x.lower() != "init"]; w = "--write" in raw
+    dirs = _targets(raw)
+    if not dirs:
+        print("用法: deploy.py [init] <dir...> | --Path P [--NewFolder Yes] [--FolderName F] [--write]"); sys.exit(1)
+    if w and not permissions.allow(sms, "write"):
+        print("DENIED: 会话未授予 write 权限（permissions.json）"); sys.exit(1)
+    print(json.dumps({"targets": dirs, "actions": [_register(sms, w)] + [a for d in dirs for a in _copy(d, w)]}, ensure_ascii=False, indent=2))

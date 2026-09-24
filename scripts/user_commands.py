@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """user_commands.py — 个性化指令：用户自定义指令格式（名称/描述/参数占位符/步骤模板）存 <SMS_HOME>/commands/user_commands.json；步骤三类：script:调 SMS 脚本（参数按 token 传递，Windows 路径/带空格值不破坏，写盘仍经 emit 门控）、delegate:必须回 SMS 由 dispatch 派托管 skill 执行、say:提示文本；add/rm/list/expand/run。"""
 import os, sys, json, subprocess, shlex
-HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, HERE)
+HERE = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, HERE)
 def load(sms):
     try: return json.load(open(os.path.join(sms, "commands", "user_commands.json"), encoding="utf-8"))
     except Exception: return {"schema": "sms_user_commands", "version": "1.0.0", "commands": []}
