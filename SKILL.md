@@ -4,7 +4,7 @@ description: >
   技能操作系统（SMS）：只调取与管理技能及其副产物、本身不作答——读固定路径注册表，识别用户意图，按日期建会话五元组
   （对话/用户链/逻辑链/技能/权限），五 lane 并发拆分·整合与进程注册、权限门控，
   支持错误自愈、本地/云端安装、多客户端同步与信任链审查；并提供时区地区检查、
-  正反双辩论逻辑链、命令系统（help/intent/show/use）、删除 skill 与子技能回主接口；创建/修改目标 skill 与子 skill 均委托 Skill_Generator；技能间依赖库 deps.json（关联 skill + 关联 python）；权限支持角色批量与 TTL 到期自动失效，敏感键 vault/verify 控凭据与验证协助；背景隐私采集默认关闭：须用户授权、每笔告知、类别留存到期清理，数据混淆/掩码/矩阵变换后仅存 SMS 固定目录。
+  正反双辩论逻辑链、完全个性化指令系统（alias 定义指令格式，如 skill-update→迭代 skill）、sms-shell 交互壳（操作已装 agent 客户端、按指令部署到其他目录）、界面顶面不打扰 HUD（任务进行时提示）、删除 skill 与子技能回主接口；创建/修改目标 skill 与子 skill 均委托 Skill_Generator；技能间依赖库 deps.json（关联 skill + 关联 python）；权限支持角色批量与 TTL 到期自动失效，敏感键 vault/verify 控凭据与验证协助；背景隐私采集默认关闭：须用户授权、每笔告知、类别留存到期清理，数据混淆/掩码/矩阵变换后仅存 SMS 固定目录。
 license: MIT
 metadata:
   category: meta
@@ -31,7 +31,7 @@ metadata:
 9. 安装：[install.py](scripts/install.py) 本地或 `gh:owner/repo[/sub]` 装入客户端 skills；云端需 network+write 且 `--accept-download` 用户确认下载，标 pending_review。
 10. 同步与信任：[sync_skills.py](scripts/sync_skills.py) hub pull/push/status；[trust.py](scripts/trust.py) 云端必审、本地抽查，fail → quarantine。
 11. 决策审查：[debate.py](scripts/debate.py) 对论断生成 pro/con 正反双链 + verdict → `sessions/<日期>/debate.json`。
-12. 命令系统：[commands.py](scripts/commands.py) 汇总内置与暴露接口 → `registry/commands.json`，`help/intent/show/use` 查看与调用。
+12. 命令系统：[commands.py](scripts/commands.py) 汇总内置/skill 接口/个性化指令 → `registry/commands.json`，`help/intent/show/use` 调用；个性化指令格式经 [user_commands.py](scripts/user_commands.py) `alias/unalias` 定义（`script:`调脚本、`delegate:`必回 SMS 派发、`say:`提示，`{arg}` 占位；如 skill-update→委托 Skill_Generator 迭代）；[shell.py](scripts/shell.py)（入口 [bin/sms-shell](bin/sms-shell)）交互壳操作已安装 agent 客户端使用 SMS 与 skills，经 [deploy.py](scripts/deploy.py) 按指令部署到其他目录/客户端；任务进行时 [hud.py](scripts/hud.py)+[hud_view.py](scripts/hud_view.py) 在界面顶面常显置顶·穿透·不抢焦点提示，任务结束 hide。
 13. 删除：[remove.py](scripts/remove.py) `--yes --write` 从客户端/hub 移除 skill（默认预览，拒删受保护本体）。
 
 ## 子技能
@@ -40,8 +40,8 @@ metadata:
 
 ## 数据契约与脚本
 
-- schemas/：register · interfaces · connections · session · task · process · scheduler · dispatch · memory · trust · error · [locality](schemas/locality.schema.json) · [debate](schemas/debate.schema.json) · [commands](schemas/commands.schema.json) · [sandbox](schemas/sandbox.schema.json) · [privacy](schemas/privacy.schema.json) · [deps](schemas/deps.schema.json)
-- [scripts/scripts.md](scripts/scripts.md)：resolve_home / sandbox / emit / bootstrap / register / pack / connect / deps / session / init_registry / task / process / permissions / privacy / privacy_cat / scheduler / dispatch / memory_list / cache_cleanup / skill_cache / auto_compress / trust / skill_errors / install / sync_skills / locality / debate / commands / remove
+- schemas/：register · interfaces · connections · session · task · process · scheduler · dispatch · memory · trust · error · [locality](schemas/locality.schema.json) · [debate](schemas/debate.schema.json) · [commands](schemas/commands.schema.json) · [sandbox](schemas/sandbox.schema.json) · [privacy](schemas/privacy.schema.json) · [deps](schemas/deps.schema.json) · [user_commands](schemas/user_commands.schema.json)
+- [scripts/scripts.md](scripts/scripts.md)：resolve_home / sandbox / emit / bootstrap / register / pack / connect / deps / session / init_registry / task / process / permissions / privacy / privacy_cat / scheduler / dispatch / memory_list / cache_cleanup / skill_cache / auto_compress / trust / skill_errors / install / sync_skills / locality / debate / commands / user_commands / shell / deploy / hud / hud_view / remove
 
 ## 红线
 

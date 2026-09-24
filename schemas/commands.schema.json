@@ -16,8 +16,10 @@
           "name": { "type": "string" },
           "description": { "type": "string" },
           "args": { "type": "string" },
-          "source": { "enum": ["sms", "skill"] },
-          "skill_id": { "type": "string" }
+          "source": { "enum": ["sms", "skill", "user"] },
+          "skill_id": { "type": "string" },
+          "steps": { "type": "array", "items": { "type": "string" } },
+          "arg_names": { "type": "array", "items": { "type": "string" } }
         }
       }
     }

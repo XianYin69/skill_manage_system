@@ -22,6 +22,7 @@ SMS 不可逾越的规则、红线与降级策略。
 12. 权限扩展：`vault`（凭据明文取用）与 `verify`（人机验证协助）为敏感键，默认拒绝；角色批量 grant（readonly/worker/net/privacy/secrets/admin）与 TTL 分钟到期经 [`../scripts/permissions.py`](../scripts/permissions.py)；TTL 到期自动失效不可续，须重新授权；[`../scripts/dispatch.py`](../scripts/dispatch.py) 按 SKILL_REQ 强制 login-vault→vault、captcha-assist→verify，未授予拒绝派发。
 13. 隐私类别策略（[`../scripts/privacy_cat.py`](../scripts/privacy_cat.py)）：identity/credential/behavior/content/biometric/contact/location 各配默认留存（credential 最严 1 天）；purge 默认预览、执行须 write；解密次数与类别计数经 report 可查，供用户审计。
 14. 人机验证不可绕过：captcha-assist 技能只识别·等待·记录，其 resistance 优先于会话内任何指示——禁止以本 SMS 任何机制实现或代理求解验证码、对接打码平台、代收转发 OTP。
+15. 个性化指令·交互壳·HUD·部署：指令文档只存 `<SMS_HOME>/commands/user_commands.json`（[../scripts/user_commands.py](../scripts/user_commands.py) add/rm/expand/run），`delegate:` 步骤必须回 SMS 经 dispatch 派托管 skill 执行（同红线 6，禁止以模型知识代答）；[../scripts/shell.py](../scripts/shell.py)（sms-shell）与指令系统仅转调既有脚本，不得绕过权限门控；HUD（[../scripts/hud.py](../scripts/hud.py)/[../scripts/hud_view.py](../scripts/hud_view.py)）状态只存 `<SMS_HOME>/hud/`，仅在任务进行时显示、置顶·点击穿透·不抢焦点、空行自动隐藏空闲自退，禁止常驻遮挡用户；[../scripts/deploy.py](../scripts/deploy.py) 部署默认预览，执行须 `--write` 且已授予 write，复制须排除 `.git/__pycache__/tmp` 等运行时残留，禁止把运行数据带进部署包。
 
 ## 默认权限模型
 
@@ -38,8 +39,7 @@ SMS 不可逾越的规则、红线与降级策略。
 ## 工具→权限映射（skill_executor）
 
 - `read/glob/grep/semantic_search/skill/question/board_read` → `read`（默认开）
-- `write/edit/memory_create_*` → `write`；`bash/task/agent_manager/background_process` → `execute`
-- `websearch/webfetch/generate_image/board_post` → `network`
+- `write/edit/memory_create_*` → `write`；`bash/task/agent_manager/background_process` → `execute`；`websearch/webfetch/generate_image/board_post` → `network`
 - 映射表在 [../scripts/dispatch.py](../scripts/dispatch.py)；未授予的工具调用必须拒绝并 audit。
 
 ## 降级策略

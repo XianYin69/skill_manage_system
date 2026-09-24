@@ -1,0 +1,3 @@
+#!/bin/sh
+# sms-shell — POSIX 启动入口：部署后把本 bin 目录加入 PATH 即可用 `sms-shell`
+exec python3 -B "$(dirname "$0")/../scripts/shell.py" "$@"

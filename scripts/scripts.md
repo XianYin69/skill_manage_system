@@ -18,29 +18,29 @@
 - [`connect.py`](connect.py)：生成技能间上下文连接 → connections.json。
 - [`deps.py`](deps.py) / [`deps_scan.py`](deps_scan.py)：依赖库 deps.json——deps_scan 以 AST 扫各技能 .py import 出「关联 python」（module→pip 发行名→安装状态，剔标准库/自带模块）；deps 于 .md 提及其他注册技能出「关联 skill」（独立于→independent，委托/依赖/调用→depends，其余 related，附证据片段）。
 - [`session.py`](session.py)：建立 `sessions/<日期>/` 五元组。
-- [`task.py`](task.py)：任务拆分·理解·整合 → task.json。
-- [`process.py`](process.py)：进程式注册生命周期 spawn/run/suspend/resume/kill → processes.json。
+- [`task.py`](task.py) / [`process.py`](process.py)：任务拆分·理解·整合 → task.json；进程式注册生命周期 spawn/run/suspend/resume/kill → processes.json。
 - [`permissions.py`](permissions.py)：权限 grant/deny/check/audit——支持角色批量（readonly/worker/net/privacy/secrets/admin）与 TTL 分钟到期自动失效；键含敏感 vault（凭据明文）/verify(验证协助)，审计留痕。
 - [`privacy.py`](privacy.py)：背景隐私采集 collect/notice/open：须 `grant privacy` 用户授权才可采集；每笔更新 NOTICE.md 告知用户；数据混淆+掩码+矩阵变换后存 `<SMS_HOME>/privacy/`；解密须 privacy+write 且写明必要理由并记审计。
 - [`privacy_cat.py`](privacy_cat.py)：类别策略——identity/credential/behavior/content/biometric/contact/location 各配默认留存天数（credential 最严 1 天）；`report` 各类计数+解密次数；`purge` 超期清理（默认预览，--write 且 grant write 才执行并刷新 NOTICE）。
-- [`scheduler.py`](scheduler.py)：五 lane 并发调度 → scheduler.json。
-- [`dispatch.py`](dispatch.py)：子任务→技能→工具→权限映射 → dispatch.json（skill_executor 使用；quarantine/pending_review 技能拒绝派发；login-vault/captcha-assist 按 SKILL_REQ 强制 vault/verify 键）。
-- [`init_registry.py`](init_registry.py)：初始设置一次性跑通 register → pack → connect → deps。
-- [`memory_list.py`](memory_list.py)：重要记忆列表 add/list/remove → memory.json（记录的日期/路径为清理钉选）。
+- [`scheduler.py`](scheduler.py) / [`dispatch.py`](dispatch.py)：五 lane 并发调度 → scheduler.json；子任务→技能→工具→权限映射 → dispatch.json（skill_executor 使用；quarantine/pending_review 拒绝派发；login-vault/captcha-assist 按 SKILL_REQ 强制 vault/verify 键）。
+- [`init_registry.py`](init_registry.py) / [`memory_list.py`](memory_list.py)：初始设置一次性跑通 register → pack → connect → deps；重要记忆列表 add/list/remove → memory.json（记录的日期/路径为清理钉选）。
 - [`cache_cleanup.py`](cache_cleanup.py) / [`skill_cache.py`](skill_cache.py)：缓存清理——cache_cleanup 删 sessions/ 早于 --keep-days 的日目录，memory 钉选保留（默认预览）；skill_cache 扫描 skill 目录缓存/运行时残留（`__pycache__`/`*.pyc` 删除，`tmp/`/`SMS/`/误落 config.json 迁入 `<SMS_HOME>/tmp/skill_legacy/`），默认预览、`--write` 且已授予 write 才执行。
 - [`auto_compress.py`](auto_compress.py)：自动上下文压缩：日目录超阈时折叠 dialogue.md 旧记录为提纲，原文归档 context_archive.md（sha1 回溯；手动运行默认预览）。
 - [`trust.py`](trust.py)：信任链标签 list/mark/review/audit：云端必 review，本地按日随机抽查，fail → quarantine。
 - [`skill_errors.py`](skill_errors.py)：skill 错误位置与日志记录 → errors/skill_errors.json；未解决 ≥3 → 提示启用 self_update。
 - [`install.py`](install.py)：本地 / `gh:owner/repo[/sub]` 安装到目标客户端 skills 文件夹（云端需 network+write 且 `--accept-download` 用户确认下载，标 pending_review）。
 - [`sync_skills.py`](sync_skills.py)：SMS/skills hub ↔ 客户端目录 pull/push/status（冲突取新，未审/隔离不推送）。
-- [`locality.py`](locality.py)：检查用户时区与地区（tz/locale/region）→ registry/locality.json，SMS 层接口。
-- [`debate.py`](debate.py)：正反双辩论逻辑链（pro/con 两链 + verdict）→ sessions/<日期>/debate.json。
-- [`commands.py`](commands.py)：命令系统 help/intent/show/use，汇总内置与暴露接口 → registry/commands.json。
+- [`locality.py`](locality.py) / [`debate.py`](debate.py)：检查用户时区与地区（tz/locale/region）→ registry/locality.json；对论断生成 pro/con 正反双链 + verdict → sessions/<日期>/debate.json。
+- [`commands.py`](commands.py)：命令系统 help/intent/show/use，汇总内置/skill 接口/个性化指令 → registry/commands.json；alias/unalias/hud/deploy/shell/temp/sandbox/privacy 路由转发。
+- [`user_commands.py`](user_commands.py)：完全个性化指令——用户自定义指令格式（名称/描述/arg_names/步骤模板）存 `<SMS_HOME>/commands/user_commands.json`；步骤前缀 `script:`（调 SMS 脚本，写盘仍经 emit 门控）/`delegate:`（必须回 SMS 由 dispatch 派托管 skill，如 `delegate:Skill_Generator 修改 {skill}` 实现 skill-update 迭代）/`say:`；expand 展开 `{arg}`/`{args}` 占位，run 逐步执行。
+- [`shell.py`](shell.py)：sms-shell 交互壳（入口 [`../bin/sms-shell`](../bin/sms-shell)）——skills/agents 列表、cmds/intent/use/alias 指令系统、session/grant 授权、hud 顶面提示、deploy 部署；转调既有脚本，SMS 本体不作答。
+- [`deploy.py`](deploy.py)：按指令部署 SMS 本体与托管 skills 到其他目录/客户端（位置参数目录或 `--clients a,b`；`--skills a,b|all`；复制排除 .git/__pycache__/tmp；默认预览，`--write` 且 grant write 才执行）。
+- [`hud.py`](hud.py) / [`hud_view.py`](hud_view.py)：界面顶面 HUD——任务进行时置顶·点击穿透·不抢焦点·只读，居屏幕顶中（alert 红/session/step 三行）；session/step/alert/hide/status；状态只存 `<SMS_HOME>/hud/`，查看进程后台拉起、空闲 120s 自退。
 - [`remove.py`](remove.py)：删除 skill（默认预览；--yes 确认 + --write 且已授予 write 才删；拒删受保护本体）。
 
 ## 数据契约
 
-见 [`../schemas/`](../schemas/register.schema.json)：register / interfaces / connections / session / task / process / scheduler / memory / trust / error / locality / debate / commands / sandbox / privacy / deps。
+见 [`../schemas/`](../schemas/register.schema.json)：register / interfaces / connections / session / task / process / scheduler / memory / trust / error / locality / debate / commands / sandbox / privacy / deps / [user_commands](../schemas/user_commands.schema.json)。
 
 ## 运行约定
 
