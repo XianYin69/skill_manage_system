@@ -27,7 +27,7 @@
 - [`dispatch.py`](dispatch.py)：子任务→技能→工具→权限映射 → dispatch.json（skill_executor 使用；quarantine/pending_review 技能拒绝派发；login-vault/captcha-assist 按 SKILL_REQ 强制 vault/verify 键）。
 - [`init_registry.py`](init_registry.py)：初始设置一次性跑通 register → pack → connect → deps。
 - [`memory_list.py`](memory_list.py)：重要记忆列表 add/list/remove → memory.json（记录的日期/路径为清理钉选）。
-- [`cache_cleanup.py`](cache_cleanup.py)：按天缓存清理：删 sessions/ 早于 --keep-days 的日目录，memory 钉选保留（默认预览）。
+- [`cache_cleanup.py`](cache_cleanup.py) / [`skill_cache.py`](skill_cache.py)：缓存清理——cache_cleanup 删 sessions/ 早于 --keep-days 的日目录，memory 钉选保留（默认预览）；skill_cache 扫描 skill 目录缓存/运行时残留（`__pycache__`/`*.pyc` 删除，`tmp/`/`SMS/`/误落 config.json 迁入 `<SMS_HOME>/tmp/skill_legacy/`），默认预览、`--write` 且已授予 write 才执行。
 - [`auto_compress.py`](auto_compress.py)：自动上下文压缩：日目录超阈时折叠 dialogue.md 旧记录为提纲，原文归档 context_archive.md（sha1 回溯；手动运行默认预览）。
 - [`trust.py`](trust.py)：信任链标签 list/mark/review/audit：云端必 review，本地按日随机抽查，fail → quarantine。
 - [`skill_errors.py`](skill_errors.py)：skill 错误位置与日志记录 → errors/skill_errors.json；未解决 ≥3 → 提示启用 self_update。
@@ -44,7 +44,7 @@
 
 ## 运行约定
 
-1. 使用项目默认 Python。
+1. 使用项目默认 Python，并以 `python -B`（PYTHONDONTWRITEBYTECODE）运行，避免字节码缓存写入 skill 目录；
 2. 数据写盘统一经 emit.py：默认预览；`--write` 且已授予 write 才落盘。
 3. 先 `session.py --write` 建会话，再 `permissions.py grant write --write` 授权，之后写盘才生效。
 4. 运行前先看 [`../resistance/resistance.md`](../resistance/resistance.md) 确认权限。

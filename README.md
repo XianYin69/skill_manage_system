@@ -7,7 +7,7 @@ Agent 工具的"技能操作系统"：本身不作答——一切用户请求经
 - [`SKILL.md`](SKILL.md)：入口（YAML frontmatter，可直接注入 agent）。
 - [`agent/`](agent/CLAUDE.md)：四格式提示词。
 - [`sub_skills/`](sub_skills/skill_register/SKILL.md)：五个子技能（register / packer / connector / scheduler / executor）。
-- [`scripts/`](scripts/scripts.md)：28 个 Python 脚本（英文名、均 ≤ 50 行，含 sandbox/privacy/deps/privacy_cat）。
+- [`scripts/`](scripts/scripts.md)：30 个 Python 脚本（英文名、均 ≤ 50 行，含 sandbox/privacy/deps/privacy_cat/skill_cache）。
 - [`schemas/`](schemas/register.schema.json)：十七份 JSON 数据契约（含 sandbox/privacy/deps）。
 - [`config/`](config/config.example.json)：用户配置模板（真实 config.json 存 `<SMS_HOME>/config/`，首读自动播种）。
 - [`resistance/`](resistance/resistance.md)：红线与降级策略。
