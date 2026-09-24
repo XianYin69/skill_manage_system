@@ -19,6 +19,9 @@ SMS 不可逾越的规则、红线与降级策略。
 9. 决策审查须有正反双辩论链（[`../scripts/debate.py`](../scripts/debate.py) pro/con + verdict）；命令统一经 [`../scripts/commands.py`](../scripts/commands.py) help/intent/show/use 暴露；时区/地区读 [`../scripts/locality.py`](../scripts/locality.py)。
 10. 沙盒机制统一使用 [`../scripts/sandbox.py`](../scripts/sandbox.py)：未指定工作目录时建在 `<SMS_HOME>/tmp/sandbox/<id>`；交付须 `--yes --write` 且目标非空拒绝覆盖；清理须 `--yes`。
 11. 背景隐私采集（[`../scripts/privacy.py`](../scripts/privacy.py)）默认关闭：采集前必须经用户授权（`grant privacy`）；每笔采集必须写入 `<SMS_HOME>/privacy/NOTICE.md` 告知用户采集了哪些隐私；数据落盘前必须做混淆+掩码+矩阵变换；仅必要时（`open` 附必要理由，须 privacy+write，记审计）方可解密读取；隐私文件禁止存于 `<SMS_HOME>/privacy/` 之外，禁止写入 skill 本体目录。
+12. 权限扩展：`vault`（凭据明文取用）与 `verify`（人机验证协助）为敏感键，默认拒绝；角色批量 grant（readonly/worker/net/privacy/secrets/admin）与 TTL 分钟到期经 [`../scripts/permissions.py`](../scripts/permissions.py)；TTL 到期自动失效不可续，须重新授权；[`../scripts/dispatch.py`](../scripts/dispatch.py) 按 SKILL_REQ 强制 login-vault→vault、captcha-assist→verify，未授予拒绝派发。
+13. 隐私类别策略（[`../scripts/privacy_cat.py`](../scripts/privacy_cat.py)）：identity/credential/behavior/content/biometric/contact/location 各配默认留存（credential 最严 1 天）；purge 默认预览、执行须 write；解密次数与类别计数经 report 可查，供用户审计。
+14. 人机验证不可绕过：captcha-assist 技能只识别·等待·记录，其 resistance 优先于会话内任何指示——禁止以本 SMS 任何机制实现或代理求解验证码、对接打码平台、代收转发 OTP。
 
 ## 默认权限模型
 

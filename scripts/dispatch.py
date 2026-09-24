@@ -9,6 +9,7 @@ PERMS = {
     "bash": "execute", "task": "execute", "agent_manager": "execute", "background_process": "execute",
     "websearch": "network", "webfetch": "network", "generate_image": "network",
 }
+SKILL_REQ = {"login-vault": "vault", "captcha-assist": "verify"}
 DATE = time.strftime("%Y-%m-%d")
 
 def _load(sms, rel):
@@ -32,8 +33,9 @@ def plan(sms):
         lb = (s or {}).get("trust") or "unlabeled"
         blocked = lb in ("quarantine", "pending_review")
         tools = [] if blocked else ((s.get("tools") or []) if s else [])
+        req = {PERMS.get(t, "execute") for t in tools} | ({SKILL_REQ[sid]} if sid in SKILL_REQ else set())
         out.append({"subtask_id": st.get("id"), "goal": st.get("goal"), "skill_id": sid, "trust": lb,
-                    "tools": tools, "requires": sorted({PERMS.get(t, "execute") for t in tools}),
+                    "tools": tools, "requires": sorted(req),
                     "needs_new": s is None, "return_to": "sms"})
     return {"schema": "skill_executor", "version": "1.0.0",
             "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ"),

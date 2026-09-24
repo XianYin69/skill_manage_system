@@ -20,10 +20,11 @@
 - [`session.py`](session.py)：建立 `sessions/<日期>/` 五元组。
 - [`task.py`](task.py)：任务拆分·理解·整合 → task.json。
 - [`process.py`](process.py)：进程式注册生命周期 spawn/run/suspend/resume/kill → processes.json。
-- [`permissions.py`](permissions.py)：权限 grant/deny/check/audit → permissions.json。
+- [`permissions.py`](permissions.py)：权限 grant/deny/check/audit——支持角色批量（readonly/worker/net/privacy/secrets/admin）与 TTL 分钟到期自动失效；键含敏感 vault（凭据明文）/verify(验证协助)，审计留痕。
 - [`privacy.py`](privacy.py)：背景隐私采集 collect/notice/open：须 `grant privacy` 用户授权才可采集；每笔更新 NOTICE.md 告知用户；数据混淆+掩码+矩阵变换后存 `<SMS_HOME>/privacy/`；解密须 privacy+write 且写明必要理由并记审计。
+- [`privacy_cat.py`](privacy_cat.py)：类别策略——identity/credential/behavior/content/biometric/contact/location 各配默认留存天数（credential 最严 1 天）；`report` 各类计数+解密次数；`purge` 超期清理（默认预览，--write 且 grant write 才执行并刷新 NOTICE）。
 - [`scheduler.py`](scheduler.py)：五 lane 并发调度 → scheduler.json。
-- [`dispatch.py`](dispatch.py)：子任务→技能→工具→权限映射 → dispatch.json（skill_executor 使用；quarantine/pending_review 技能拒绝派发）。
+- [`dispatch.py`](dispatch.py)：子任务→技能→工具→权限映射 → dispatch.json（skill_executor 使用；quarantine/pending_review 技能拒绝派发；login-vault/captcha-assist 按 SKILL_REQ 强制 vault/verify 键）。
 - [`init_registry.py`](init_registry.py)：初始设置一次性跑通 register → pack → connect → deps。
 - [`memory_list.py`](memory_list.py)：重要记忆列表 add/list/remove → memory.json（记录的日期/路径为清理钉选）。
 - [`cache_cleanup.py`](cache_cleanup.py)：按天缓存清理：删 sessions/ 早于 --keep-days 的日目录，memory 钉选保留（默认预览）。
