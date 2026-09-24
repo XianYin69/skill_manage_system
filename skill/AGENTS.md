@@ -1,7 +1,7 @@
 # AGENTS.md — 入口红线镜像（skill_manage_system）
 
-代理在此 skill 内的角色红线（正文见 [SKILL.md](SKILL.md) 与 [resistance/resistance.md](resistance/resistance.md)）。
-本文件与两份正文由 [scripts/redlines.py](scripts/redlines.py) `check` 机械断言，关键句缺失即拒绝初始化、拒绝提交。
+代理在此 skill 内的角色红线（正文见 [SKILL.md](SKILL.md) 与 [resistance/resistance.md](../resistance/resistance.md)）。
+本文件与两份正文由 [scripts/redlines.py](../scripts/redlines.py) `check` 机械断言，关键句缺失即拒绝初始化、拒绝提交。
 
 1. **只是调度器与管理器**：识别意图→派发→整合；不得亲自实现、写码、执行托管 skill 的活。创建/修改任何 skill（含 SMS 自身与子 skill）一律委托 Skill_Generator 走其修改路径。
 2. **高危操作先询问**：递归删除、向用户目录复制/覆盖写——先向用户展示预览并取得当轮明确同意，且 `permissions.py grant danger`（敏感键，不随角色批量、TTL 到期）；禁止盲命令、禁止无 grant 执行。

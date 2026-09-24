@@ -13,7 +13,7 @@
 - [`sandbox.py`](sandbox.py)：未指定路径的工作目录在 `<SMS_HOME>/tmp/sandbox/` 建立沙盒；create/list/deliver/clean（deliver/clean 默认预览，`--yes` 执行）。
 - [`emit.py`](emit.py)：统一写盘门控（默认预览；已授予 write 才落盘；会话日目录写盘后自动触发上下文压缩）。
 - [`bootstrap.py`](bootstrap.py)：确保 Skill_Generator 可用（查技能目录与 `<SMS_HOME>/config/config.json` 的 skill_generator，缺失则 GitHub 拉取）；创建目标 skill/子 skill 走其创建路径、修改（含 SMS 自身）走其修改路径。
-- [`register.py`](register.py)：扫描技能安装位置与所用工具（默认根 = 用户 config 的 scan_roots）→ register.json。
+- [`register.py`](register.py)：扫描技能安装位置与所用工具（默认根 = 用户 config 的 scan_roots；顶层 `SKILL.md` 或工具式嵌套 `skill/SKILL.md` 均登记，entry 记相对路径）→ register.json。
 - [`pack.py`](pack.py) / [`connect.py`](connect.py)：描述技能用途与接口 → interfaces.json；生成技能间上下文连接 → connections.json。
 - [`deps.py`](deps.py) / [`deps_scan.py`](deps_scan.py)：依赖库 deps.json——deps_scan 以 AST 扫各技能 .py import 出「关联 python」（module→pip 发行名→安装状态，剔标准库/自带模块）；deps 于 .md 提及其他注册技能出「关联 skill」（独立于→independent，委托/依赖/调用→depends，其余 related，附证据片段）。
 - [`session.py`](session.py)：建立 `sessions/<日期>/` 五元组。
@@ -28,13 +28,13 @@
 - [`trust.py`](trust.py)：信任链标签 list/mark/review/audit：云端必 review，本地按日随机抽查，fail → quarantine。
 - [`skill_errors.py`](skill_errors.py)：skill 错误位置与日志记录 → errors/skill_errors.json；未解决 ≥3 → 提示启用 self_update。
 - [`install.py`](install.py) / [`sync_skills.py`](sync_skills.py)：本地 / `gh:owner/repo[/sub]` 安装到目标客户端 skills 文件夹（云端需 network+write 且 `--accept-download` 确认，标 pending_review）；SMS/skills hub ↔ 客户端目录 pull/push/status（冲突取新，未审/隔离不推送）。
-- [`shell.py`](shell.py)：sms-shell 入口（有图形服务器→GUI，否则 TUI，`--tui/--gui` 强制，GUI 探测失败自动回退）；入口 [`../bin/sms-shell`](../bin/sms-shell)（POSIX，可执行位）与 `sms-shell.cmd`（Windows）经 [`../bin/locate.py`](../bin/locate.py) 三级定位（相邻→env SMS_SKILL→配置 sms_skill）——bin 文件单独复制到任意指定路径仍可用。
+- [`shell.py`](shell.py)：sms-shell 入口（PySide6 可导入且有图形服务器→GUI，否则 TUI，`--tui/--gui` 强制，GUI 探测失败自动回退）；入口 [`../bin/sms-shell`](../bin/sms-shell)（POSIX，可执行位）与 `sms-shell.cmd`（Windows）经 [`../bin/locate.py`](../bin/locate.py) 三级定位（相邻→env SMS_SKILL→配置 sms_skill）——bin 文件单独复制到任意指定路径仍可用。
 - [`agent_stream.py`](agent_stream.py) / [`shell_core.py`](shell_core.py)：数据流引擎——检测电脑上已装 agent 的 CLI（claude/codex/cursor/kilocode/kilo/aider，用户配置 `agent_cli` 可增改 {bin,args}），把用户话语默认前置「使用 skill_manage_system 技能」指令送入 CLI、其 stdout 逐行流回前端，未检出即拒绝并引导配置（本体不作答），当前 agent/前缀状态只存 `<SMS_HOME>/shell/`；路由引擎——任意话语直达 agent、命中个性化指令名自动展开执行、`:` 元指令（agents/use/skill/cmds/intent/alias/unalias/hud/deploy/session/grant/help/quit）治理。
-- [`shell_tui.py`](shell_tui.py) / [`shell_gui.py`](shell_gui.py)：TUI 前端（免图形服务器，pwsh/bash/zsh 式即时对话，readline 历史+Tab 补全含个性化指令名）；GUI 前端（tkinter 窗口终端，工作线程流式回填不卡窗，`tui` 另起终端壳）。
+- [`shell_tui.py`](shell_tui.py) / [`shell_gui.py`](shell_gui.py)：TUI 前端（免图形服务器，pwsh/bash/zsh 式即时对话，readline 历史+Tab 补全含个性化指令名）；GUI 前端（PySide6 窗口终端，QTextEdit 只读输出+QLineEdit 输入，QThread 流式回填不卡窗，关窗即退）。
 - [`locality.py`](locality.py) / [`debate.py`](debate.py)：检查用户时区与地区（tz/locale/region）→ registry/locality.json；对论断生成 pro/con 正反双链 + verdict → sessions/<日期>/debate.json。
 - [`commands.py`](commands.py) / [`user_commands.py`](user_commands.py)：命令系统 help/intent/show/use，汇总内置/skill 接口/个性化指令 → registry/commands.json，alias/unalias/hud/deploy/shell/temp/sandbox/privacy 路由转发；个性化指令——自定义格式（名称/描述/arg_names/步骤模板）存 `<SMS_HOME>/commands/user_commands.json`，步骤前缀 `script:`（调 SMS 脚本，写盘仍经 emit 门控）/`delegate:`（必回 SMS 派发，如 `delegate:Skill_Generator 修改 {skill}` 实现 skill-update 迭代）/`say:`，`{arg}`/`{args}` 占位展开（script 步骤按 token 传参，Windows 路径与含空格值不破坏），run 逐步执行。
 - [`deploy.py`](deploy.py)：部署＝仅把 bin 启动文件复制到用户指定路径，绝不整包复制 skill（位置参数目录，或命名参数 `--Path P [--NewFolder Yes] [--FolderName F]`＝init 语义，flag 大小写不敏感、值保真；同时登记源安装路径到用户配置 `sms_skill` 供 [../bin/locate.py](../bin/locate.py) 回源定位；默认预览，`--write` 且 grant write 才执行）。
-- [`redlines.py`](redlines.py)：约束持久化机械自检——`check` 断言 AGENTS.md/SKILL.md/resistance.md 关键约束句存在、全 .md/.py ≤50 行、悬空链接=0、SKILL.md 含 frontmatter，任一失败 exit 1（初始化第一步与每轮 git 提交前必跑，禁止绕过）；`seal` 冻结三份入口文档 sha256 基线到 `<SMS_HOME>/redlines/baseline.json`，check 报告未 seal 漂移。
+- [`redlines.py`](redlines.py)：约束持久化机械自检——`check` 断言 skill/AGENTS.md、skill/SKILL.md、resistance/resistance.md 关键约束句存在、全 .md/.py ≤50 行、悬空链接=0、skill/SKILL.md 含 frontmatter，任一失败 exit 1（初始化第一步与每轮 git 提交前必跑，禁止绕过）；`seal` 冻结三份入口文档 sha256 基线到 `<SMS_HOME>/redlines/baseline.json`，check 报告未 seal 漂移。
 - [`hud.py`](hud.py) / [`hud_view.py`](hud_view.py)：界面顶面 HUD——任务进行时置顶·点击穿透·不抢焦点·只读，居屏幕顶中（alert 红/session/step 三行）；session/step/alert/hide/status；状态只存 `<SMS_HOME>/hud/`，查看进程后台拉起、空闲 120s 自退。
 - [`remove.py`](remove.py)：删除 skill（默认预览；--yes 确认 + --write 且已授予 write 才删；拒删受保护本体）。
 

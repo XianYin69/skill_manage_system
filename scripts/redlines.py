@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""redlines.py — 约束持久化机械自检：check 断言 AGENTS.md/SKILL.md/resistance.md 关键约束句未因压缩·改写丢失，全 .md/.py ≤50 行，悬空链接=0，SKILL.md 含 frontmatter；初始化第一步与每轮 git 提交前必跑，任一失败 exit 1 禁止继续；seal 把三份入口文档 sha256 基线冻结到 <SMS_HOME>/redlines/baseline.json，check 报告未 seal 的漂移（drift，不致失败）。"""
+"""redlines.py — 约束持久化机械自检：check 断言 skill/AGENTS.md、skill/SKILL.md、resistance/resistance.md 关键约束句未因压缩·改写丢失，全 .md/.py ≤50 行，悬空链接=0，skill/SKILL.md 含 frontmatter；初始化第一步与每轮 git 提交前必跑，任一失败 exit 1 禁止继续；seal 把三份入口文档 sha256 基线冻结到 <SMS_HOME>/redlines/baseline.json，check 报告未 seal 的漂移（drift，不致失败）。"""
 import os, sys, re, json, hashlib
 SK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MUST = {"AGENTS.md": ["调度器", "先询问", "委托 Skill_Generator", "仅复制 bin"],
-        "SKILL.md": ["委托 Skill_Generator", "redlines.py", "仅复制 bin", "直接回答"],
+MUST = {os.path.join("skill", "AGENTS.md"): ["调度器", "先询问", "委托 Skill_Generator", "仅复制 bin"],
+        os.path.join("skill", "SKILL.md"): ["委托 Skill_Generator", "redlines.py", "仅复制 bin", "直接回答"],
         os.path.join("resistance", "resistance.md"): ["grant danger", "部署＝", "先询问"]}
 def _scan():
     for root, ds, fs in os.walk(SK):
@@ -27,8 +27,8 @@ def _fails():
         n = sum(1 for _ in open(p, encoding="utf-8"))
         if n > 50: fails.append("超 50 行(%d): %s" % (n, os.path.relpath(p, SK)))
         if p.endswith(".md"): fails += ["悬空链接 %s: %s" % (os.path.relpath(p, SK), t) for t in _dangling(p)]
-    if not open(os.path.join(SK, "SKILL.md"), encoding="utf-8").read(4).startswith("---"):
-        fails.append("SKILL.md 缺 YAML frontmatter")
+    if not open(os.path.join(SK, "skill", "SKILL.md"), encoding="utf-8").read(4).startswith("---"):
+        fails.append("skill/SKILL.md 缺 YAML frontmatter")
     return fails
 if __name__ == "__main__":
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
