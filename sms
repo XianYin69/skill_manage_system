@@ -1,0 +1,5 @@
+#!/bin/sh
+# sms — POSIX 入口壳（macOS/Linux/WSL/Git-Bash）：定位随包 python 入口，python3 优先、回退 python
+D=$(dirname "$0")
+if command -v python3 >/dev/null 2>&1; then exec python3 -B "$D/sms.py" "$@"; fi
+exec python -B "$D/sms.py" "$@"

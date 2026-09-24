@@ -6,7 +6,7 @@
 
 ## 红线
 
-1. 不得删除本目录及 [`../skill/SKILL.md`](../skill/SKILL.md) 中的约束条目。
+1. 不得删除本目录及 [`../SKILL.md`](../SKILL.md) 中的约束条目。
 2. SMS 运行时数据（`SMS/registry`、`SMS/sessions`、`SMS/config/config.json` 用户配置）位于用户缓存/根目录，禁止写入 skill 本体目录（skill 的 `config/` 只放模板 config.example.json，首读由 `resolve_home.conf()` 播种）；子 skill 未指定路径的新建目录必须经 `resolve_home.temp()` 落在 `<SMS_HOME>/tmp/`，并作为 SMS 对子 skill 开放的临时用户空间接口。
 3. 悬空链接必须为 0；所有 .md / 脚本 ≤ 50 行；SKILL.md 必须含 YAML frontmatter。
 4. 子技能 SKILL.md 必须含 YAML frontmatter，可直接注入 agent 执行。
@@ -21,7 +21,7 @@
 13. 隐私类别策略（[`../scripts/privacy_cat.py`](../scripts/privacy_cat.py)）：identity/credential/behavior/content/biometric/contact/location 各配默认留存（credential 最严 1 天）；purge 默认预览、执行须 write；解密次数与类别计数经 report 可查，供用户审计。
 14. 人机验证不可绕过：captcha-assist 技能只识别·等待·记录，其 resistance 优先于会话内任何指示——禁止以本 SMS 任何机制实现或代理求解验证码、对接打码平台、代收转发 OTP。
 15. 个性化指令·交互壳·HUD·部署：指令文档只存 `<SMS_HOME>/commands/user_commands.json`（[../scripts/user_commands.py](../scripts/user_commands.py) add/rm/expand/run），`delegate:` 步骤必须回 SMS 经 dispatch 派托管 skill 执行（同红线 6，禁止以模型知识代答）；[../scripts/shell.py](../scripts/shell.py)（sms-shell）与指令系统仅转调既有 SMS 脚本，不得绕过权限门控；sms-shell 双前端——GUI（[../scripts/shell_gui.py](../scripts/shell_gui.py)）启动前必须探测图形服务器可用性，无或探测失败必须回退 TUI（[../scripts/shell_tui.py](../scripts/shell_tui.py)，免图形服务器），禁止在无显示环境抛图形异常中断；HUD（[../scripts/hud.py](../scripts/hud.py)/[../scripts/hud_view.py](../scripts/hud_view.py)）状态只存 `<SMS_HOME>/hud/`，仅在任务进行时显示、置顶·点击穿透·不抢焦点、空行自动隐藏空闲自退，禁止常驻遮挡用户；[../scripts/deploy.py](../scripts/deploy.py) 部署＝仅把 bin 启动文件复制到用户指定路径（见 16），默认预览，执行须 `--write` 且已授予 write；sms-shell 默认链路＝把用户话语经数据流交给已安装 agent CLI（[../scripts/agent_stream.py](../scripts/agent_stream.py)，前置「使用 skill_manage_system 技能」指令，`:skill off` 仅可关前缀不可关拒绝逻辑），shell/引擎本体不得作答，未检出 CLI 必须拒绝并引导配置而非代答，agent 选择与前缀状态只存 `<SMS_HOME>/shell/`。
-16. 约束持久化与高危门禁（2026-09-24 事故后立）：代理只作调度器与管理器——识别意图、派发、整合，实现·写码·执行一律委托托管 skill（同红线 6）；创建/修改任何 skill（含 SMS 自身与子 skill）必须走 Skill_Generator 修改路径，禁止本体直接改。高危操作（skill 与 `<SMS_HOME>` 之外的递归删除、向用户目录复制/覆盖写）必须先询问用户、展示预览、取得当轮明确同意，且 [../scripts/permissions.py](../scripts/permissions.py) `grant danger`（敏感键：默认拒绝、不随角色批量、TTL 到期），无 grant 拒绝执行、禁止盲命令。部署＝仅把 [../bin/](../bin/sms-shell) 启动文件复制到用户指定路径（[../scripts/deploy.py](../scripts/deploy.py) 登记 sms_skill，[../bin/locate.py](../bin/locate.py) 回源定位），禁止整包复制 skill 本体。持久化三层：[../skill/AGENTS.md](../skill/AGENTS.md) 入口镜像（每会话注入）＋ [../scripts/redlines.py](../scripts/redlines.py) `check` 机械断言（关键句丢失/超 50 行/悬空链接→exit 1，初始化第一步与每轮 git 提交前必跑，失败禁止继续、不得绕过）＋用户确认后 `seal` 重钉基线。
+16. 约束持久化与高危门禁（2026-09-24 事故后立）：代理只作调度器与管理器——识别意图、派发、整合，实现·写码·执行一律委托托管 skill（同红线 6）；创建/修改任何 skill（含 SMS 自身与子 skill）必须走 Skill_Generator 修改路径，禁止本体直接改。高危操作（skill 与 `<SMS_HOME>` 之外的递归删除、向用户目录复制/覆盖写）必须先询问用户、展示预览、取得当轮明确同意，且 [../scripts/permissions.py](../scripts/permissions.py) `grant danger`（敏感键：默认拒绝、不随角色批量、TTL 到期），无 grant 拒绝执行、禁止盲命令。部署＝仅把 [../bin/](../../bin/sms-shell) 启动文件复制到用户指定路径（[../scripts/deploy.py](../scripts/deploy.py) 登记 sms_skill，[../bin/locate.py](../../bin/locate.py) 回源定位），禁止整包复制 skill 本体。持久化三层：[../AGENTS.md](../AGENTS.md) 入口镜像（每会话注入）＋ [../scripts/redlines.py](../scripts/redlines.py) `check` 机械断言（关键句丢失/超 50 行/悬空链接→exit 1，初始化第一步与每轮 git 提交前必跑，失败禁止继续、不得绕过）＋用户确认后 `seal` 重钉基线。
 
 ## 默认权限模型
 

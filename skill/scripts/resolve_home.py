@@ -20,7 +20,7 @@ def resolve():
 
 def conf(sms=None):
     p = os.path.join(sms or resolve(), "config", "config.json")
-    seed = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config", "config.example.json")
+    seed = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "config", "config.example.json")
     if not os.path.exists(p) and os.path.exists(seed):
         os.makedirs(os.path.dirname(p), exist_ok=True); open(p, "w", encoding="utf-8").write(open(seed, encoding="utf-8").read())
     return json.load(open(p, encoding="utf-8-sig")) if os.path.exists(p) else {}
