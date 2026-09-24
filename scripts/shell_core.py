@@ -1,34 +1,39 @@
 #!/usr/bin/env python3
-"""shell_core.py — sms-shell 共享命令引擎（TUI/GUI 前端通用）：skills/agents 列表、指令系统（cmds/intent/use/alias 个性化指令）、session/grant 授权、hud 顶面提示、deploy 部署到其他目录；一律转调 SMS 脚本，SMS 本体不作答。"""
-import os, sys, json, subprocess
+"""shell_core.py — sms-shell 共享路由引擎（TUI/GUI 前端通用）：像对 agent 说话一样——任意话语默认经数据流交给已安装 agent CLI 执行（agent_stream，前置 skill_manage_system 指令）；输入命中个性化指令名（user_commands）则展开执行；`:` 元指令仅做治理（切 agent、开关技能前缀、指令系统、hud/deploy/session/grant）；本体不作答。"""
+import os, sys, subprocess
 S = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, S)
-import resolve_home
-SMS = resolve_home.ensure()
-HELP = ("skills | agents | cmds [name] | intent <text> | use <name> [args] | alias <name> --desc= --args= --step= | unalias <name> | "
-        "session \"<task>\" | grant <key|role> [min] | hud session|step|alert <text> | hud hide | deploy <dir|--clients a,b> [--skills all] [--write] | tui | gui | quit")
-BANNER = "sms-shell — SMS 指令壳（操作已装 agent 客户端·SMS 本体不作答）· SMS_HOME=" + SMS
-def run(name, args):
-    p = subprocess.run([sys.executable, "-B", os.path.join(S, name)] + list(args), capture_output=True, text=True)
-    out = (p.stdout or p.stderr).strip()
-    try: return json.dumps(json.loads(out), ensure_ascii=False, indent=2)
-    except Exception: return out or "(no output)"
-def registry(key):
-    try: return json.load(open(os.path.join(SMS, "registry", key), encoding="utf-8"))
-    except Exception: return {}
-def exec_line(line):
-    parts = line.split(); c, a = parts[0], parts[1:]
-    if c == "skills": return "\n".join(s.get("id", "?") + " [" + s.get("kind", "?") + "] " + s.get("trust", "") for s in registry("register.json").get("skills", [])) or "无注册表：init_registry.py --write"
-    if c == "agents":
-        import sync_skills
-        return "\n".join(k + " -> " + v for k, v in sorted(sync_skills.clients().items())) or "未检出已安装 agent 客户端"
-    if c == "cmds": return run("commands.py", ["help"] if not a else ["show"] + a)
-    if c == "session": return run("session.py", a)
-    if c == "grant": return run("permissions.py", ["grant"] + a + ["--write"])
-    if c in ("intent", "use"): return run("commands.py", [c] + a)
-    if c in ("hud", "deploy"): return run(c + ".py", a)
-    if c == "alias": return run("user_commands.py", ["add"] + a)
-    if c == "unalias": return run("user_commands.py", ["rm"] + a)
-    return None
+import agent_stream as ag
+SMS = ag.SMS
+HELP = ("直接输入任何话语＝交给当前 agent（默认带 skill_manage_system 指令）· 命中个性化指令名则展开执行\n"
+        ":agents 看/选 · :use <name> · :skill on|off 技能前缀 · :cmds [name] · :intent <话语> · :alias/:unalias 个性化指令\n"
+        ":hud session|step|alert|hide · :deploy <dir|--clients a,b> [--launcher] · :session \"<任务>\" · :grant <键|角色> [分钟] · :quit")
+def banner():
+    return "sms-shell · SMS_HOME=" + SMS + " · 当前 agent：" + (ag.current() or "未检出（:agents 查看）") + " · 技能前缀：" + ("on" if ag.prefix_on() else "off")
+def run_script(name, args):
+    p = subprocess.run([sys.executable, "-B", os.path.join(S, name)] + list(args), capture_output=True, text=True, encoding="utf-8", errors="replace")
+    return (p.stdout or p.stderr).strip() or "(无输出)"
+def _meta(m, a, on_line):
+    if m == "agents": on_line("检出：" + ("、".join(ag.detected()) or "无") + " · 当前：" + (ag.current() or "-") + " · 技能前缀：" + ("on" if ag.prefix_on() else "off") + "\n可用适配器（含未装）：" + "、".join(ag.adapters()))
+    elif m == "use" and a: on_line(ag.use(a[0]))
+    elif m == "skill": on_line(ag.skill(not (a and a[0] == "off")))
+    elif m in ("hud", "deploy", "session"): on_line(run_script(m + ".py", a))
+    elif m == "grant": on_line(run_script("permissions.py", ["grant"] + a + ["--write"]))
+    elif m == "cmds": on_line(run_script("commands.py", ["help"] if not a else ["show"] + a))
+    elif m == "intent": on_line(run_script("commands.py", ["intent"] + a))
+    elif m == "alias": on_line(run_script("user_commands.py", ["add"] + a))
+    elif m == "unalias": on_line(run_script("user_commands.py", ["rm"] + a))
+    elif m in ("help", "?"): on_line(HELP)
+    else: on_line("未知元指令 :" + m + "（:help）")
+def handle(line, on_line):
+    if not line.strip(): return None
+    if line.strip() in ("quit", "exit", ":quit", ":q", ":exit"): return "exit"
+    if line.startswith(":"):
+        p = line[1:].split(); _meta(p[0], p[1:], on_line); return None
+    import user_commands
+    parts = line.split()
+    if user_commands.find(user_commands.load(SMS), parts[0]):
+        on_line(run_script("user_commands.py", ["run"] + parts)); return None
+    ag.ask(line, on_line); return None
 if __name__ == "__main__":
-    print(json.dumps({"engine": "use shell_tui.py / shell_gui.py", "help": HELP}, ensure_ascii=False, indent=2))
+    print(banner() + "\n" + HELP)
