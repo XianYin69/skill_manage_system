@@ -4,7 +4,7 @@ description: >
   技能操作系统（SMS）：读取固定路径注册表，识别用户意图，按日期建会话五元组
   （对话/用户链/逻辑链/技能/权限），五 lane 并发拆分·整合与进程注册、权限门控，
   支持错误自愈、本地/云端安装、多客户端同步与信任链审查；并提供时区地区检查、
-  正反双辩论逻辑链、命令系统（help/intent/show/use）、删除 skill 与子技能回主接口；创建/修改目标 skill 与子 skill 均委托 Skill_Generator；背景隐私采集默认关闭：须用户授权、每笔告知，数据混淆/掩码/矩阵变换后仅存 SMS 固定目录。
+  正反双辩论逻辑链、命令系统（help/intent/show/use）、删除 skill 与子技能回主接口；创建/修改目标 skill 与子 skill 均委托 Skill_Generator；技能间依赖库 deps.json（关联 skill + 关联 python）；背景隐私采集默认关闭：须用户授权、每笔告知，数据混淆/掩码/矩阵变换后仅存 SMS 固定目录。
 license: MIT
 metadata:
   category: meta
@@ -21,7 +21,7 @@ metadata:
 ## 运行流程
 
 1. 解析 SMS_HOME，读 `SMS/registry/register.json`（含信任标签）；[locality.py](scripts/locality.py) 检查时区/地区 → `registry/locality.json` 供会话读取。
-2. 缺失 → 初始设置：[init_registry.py](scripts/init_registry.py) 跑 register → pack → connect。
+2. 缺失 → 初始设置：[init_registry.py](scripts/init_registry.py) 跑 register → pack → connect → deps。
 3. 识别意图，[session.py](scripts/session.py) 建 `SMS/sessions/<日期>/` 五元组（dialogue/user_chain/logic_chain/skills/permissions）。
 4. 数据写盘前先授权：`permissions.py grant write`（默认只读，未授予 emit 拒绝落盘）。
 5. 拆分·整合（[task.py](scripts/task.py)）+ 五 lane 并发（[scheduler.py](scripts/scheduler.py)）+ 进程生命周期（[process.py](scripts/process.py)）。
@@ -40,8 +40,8 @@ metadata:
 
 ## 数据契约与脚本
 
-- schemas/：register · interfaces · connections · session · task · process · scheduler · dispatch · memory · trust · error · [locality](schemas/locality.schema.json) · [debate](schemas/debate.schema.json) · [commands](schemas/commands.schema.json) · [sandbox](schemas/sandbox.schema.json) · [privacy](schemas/privacy.schema.json)
-- [scripts/scripts.md](scripts/scripts.md)：resolve_home / sandbox / emit / bootstrap / register / pack / connect / session / init_registry / task / process / permissions / privacy / scheduler / dispatch / memory_list / cache_cleanup / auto_compress / trust / skill_errors / install / sync_skills / locality / debate / commands / remove
+- schemas/：register · interfaces · connections · session · task · process · scheduler · dispatch · memory · trust · error · [locality](schemas/locality.schema.json) · [debate](schemas/debate.schema.json) · [commands](schemas/commands.schema.json) · [sandbox](schemas/sandbox.schema.json) · [privacy](schemas/privacy.schema.json) · [deps](schemas/deps.schema.json)
+- [scripts/scripts.md](scripts/scripts.md)：resolve_home / sandbox / emit / bootstrap / register / pack / connect / deps / session / init_registry / task / process / permissions / privacy / scheduler / dispatch / memory_list / cache_cleanup / auto_compress / trust / skill_errors / install / sync_skills / locality / debate / commands / remove
 
 ## 红线
 

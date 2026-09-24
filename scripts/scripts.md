@@ -16,6 +16,7 @@
 - [`register.py`](register.py)：扫描技能安装位置与所用工具（默认根 = 用户 config 的 scan_roots）→ register.json。
 - [`pack.py`](pack.py)：描述技能用途与接口 → interfaces.json。
 - [`connect.py`](connect.py)：生成技能间上下文连接 → connections.json。
+- [`deps.py`](deps.py) / [`deps_scan.py`](deps_scan.py)：依赖库 deps.json——deps_scan 以 AST 扫各技能 .py import 出「关联 python」（module→pip 发行名→安装状态，剔标准库/自带模块）；deps 于 .md 提及其他注册技能出「关联 skill」（独立于→independent，委托/依赖/调用→depends，其余 related，附证据片段）。
 - [`session.py`](session.py)：建立 `sessions/<日期>/` 五元组。
 - [`task.py`](task.py)：任务拆分·理解·整合 → task.json。
 - [`process.py`](process.py)：进程式注册生命周期 spawn/run/suspend/resume/kill → processes.json。
@@ -23,7 +24,7 @@
 - [`privacy.py`](privacy.py)：背景隐私采集 collect/notice/open：须 `grant privacy` 用户授权才可采集；每笔更新 NOTICE.md 告知用户；数据混淆+掩码+矩阵变换后存 `<SMS_HOME>/privacy/`；解密须 privacy+write 且写明必要理由并记审计。
 - [`scheduler.py`](scheduler.py)：五 lane 并发调度 → scheduler.json。
 - [`dispatch.py`](dispatch.py)：子任务→技能→工具→权限映射 → dispatch.json（skill_executor 使用；quarantine/pending_review 技能拒绝派发）。
-- [`init_registry.py`](init_registry.py)：初始设置一次性跑通 register → pack → connect。
+- [`init_registry.py`](init_registry.py)：初始设置一次性跑通 register → pack → connect → deps。
 - [`memory_list.py`](memory_list.py)：重要记忆列表 add/list/remove → memory.json（记录的日期/路径为清理钉选）。
 - [`cache_cleanup.py`](cache_cleanup.py)：按天缓存清理：删 sessions/ 早于 --keep-days 的日目录，memory 钉选保留（默认预览）。
 - [`auto_compress.py`](auto_compress.py)：自动上下文压缩：日目录超阈时折叠 dialogue.md 旧记录为提纲，原文归档 context_archive.md（sha1 回溯；手动运行默认预览）。
@@ -38,7 +39,7 @@
 
 ## 数据契约
 
-见 [`../schemas/`](../schemas/register.schema.json)：register / interfaces / connections / session / task / process / scheduler / memory / trust / error / locality / debate / commands / privacy。
+见 [`../schemas/`](../schemas/register.schema.json)：register / interfaces / connections / session / task / process / scheduler / memory / trust / error / locality / debate / commands / sandbox / privacy / deps。
 
 ## 运行约定
 
