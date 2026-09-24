@@ -3,7 +3,7 @@
 import os, sys, json, time
 
 BUILTIN = {"help": "列出所有可用命令", "intent": "按一句话意图匹配候选命令 <utterance>",
-           "show": "查看某命令详情 <name>", "use": "使用/调用命令 <name> [args...]（转 dispatch/skill_executor）",
+           "show": "查看某命令详情 <name>", "use": "使用/调用命令 <name> [args...]（转 dispatch/skill_executor；SMS 不自行作答）",
            "temp": "子 skill 未指定路径的新建目录 → <SMS_HOME>/tmp", "sandbox": "SMS 沙盒：create/list/deliver/clean → <SMS_HOME>/tmp/sandbox", "privacy": "背景隐私采集 notice/collect/open：须 grant privacy 授权，每笔告知，混淆/掩码/矩阵变换 → <SMS_HOME>/privacy/"}
 
 

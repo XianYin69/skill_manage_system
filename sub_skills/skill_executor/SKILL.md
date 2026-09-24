@@ -45,5 +45,5 @@ metadata:
 ## 红线
 
 - 只写 `SMS/registry/dispatch.json`；未授予对应权限的工具必须拒绝并 audit。
-- 子技能运行完必须回到 SMS（`return_to=sms`），不得在子技能内直接结束或直接回复用户。
+- 子技能运行完必须回到 SMS（`return_to=sms`），不得在子技能内直接结束或直接回复用户；SMS 只整合 skill 结果作答，不用模型自身知识代答。
 - 悬空链接 = 0；本文件 ≤ 50 行；SKILL.md 含 YAML frontmatter。

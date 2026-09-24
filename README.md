@@ -1,6 +1,6 @@
 # skill_manage_system（SMS）
 
-Agent 工具的"技能操作系统"：像 OS 调度进程一样发现、打包、连接、拆分、并发调度、进程注册并调度技能（子技能运行完回到 SMS），支持按天缓存清理、上下文自动压缩、本地/云端安装（下载须确认）、多客户端同步与信任链审查，创建目标 skill/子 skill 与修改（含 SMS 自身）均委托 Skill_Generator，并以依赖库 deps.json 记录各技能的关联 skill（depends/independent/related）与关联 python（import→pip 名→安装状态），权限支持角色批量与 TTL 到期、敏感键 vault/verify 门控凭据与验证协助技能，隐私采集按类别留存到期清理（privacy_cat），并暴露时区地区、正反双辩论、删除 skill、命令系统（help/intent/show/use）与背景隐私采集（须用户授权+每笔告知+混淆/掩码/矩阵变换）接口。
+Agent 工具的"技能操作系统"：本身不作答——一切用户请求经 dispatch 派给托管 skill 执行、由 SMS 整合结果作答（无匹配→委托 Skill_Generator 创建）；像 OS 调度进程一样发现、打包、连接、拆分、并发调度、进程注册并调度技能（子技能运行完回到 SMS），支持按天缓存清理、上下文自动压缩、本地/云端安装（下载须确认）、多客户端同步与信任链审查，创建目标 skill/子 skill 与修改（含 SMS 自身）均委托 Skill_Generator，并以依赖库 deps.json 记录各技能的关联 skill（depends/independent/related）与关联 python（import→pip 名→安装状态），权限支持角色批量与 TTL 到期、敏感键 vault/verify 门控凭据与验证协助技能，隐私采集按类别留存到期清理（privacy_cat），并暴露时区地区、正反双辩论、删除 skill、命令系统（help/intent/show/use）与背景隐私采集（须用户授权+每笔告知+混淆/掩码/矩阵变换）接口。
 
 ## 结构
 
@@ -46,5 +46,5 @@ python scripts/dispatch.py --write
 
 ## 红线摘要
 
-- 不删 resistance/ 约束；SMS 运行时数据不进 skill 本体目录；隐私文件仅存 `<SMS_HOME>/privacy/`，采集须授权+告知，解密须必要理由。
+- 不删 resistance/ 约束；SMS 运行时数据不进 skill 本体目录；隐私文件仅存 `<SMS_HOME>/privacy/`，采集须授权+告知，解密须必要理由；SMS 不直接作答用户需求，一律 dispatch→托管 skill→整合 链路。
 - 悬空链接 = 0；所有 .md / 脚本 ≤ 50 行；SKILL.md 含 YAML frontmatter；写盘经 emit 门控：默认预览，`--write` 且已授予 write 才落盘。

@@ -13,7 +13,7 @@ SMS 不可逾越的规则、红线与降级策略。
 3. 悬空链接必须为 0；所有 .md / 脚本 ≤ 50 行；SKILL.md 必须含 YAML frontmatter。
 4. 子技能 SKILL.md 必须含 YAML frontmatter，可直接注入 agent 执行。
 5. 数据写盘经 [`../scripts/emit.py`](../scripts/emit.py) 门控：默认预览；仅当 `--write` 且会话已授予 `write` 才落盘，否则拒绝。
-6. 子技能运行完必须回到 SMS（`dispatch.return_to=sms`），禁止在子技能内直接结束或直接回复用户。
+6. 子技能运行完必须回到 SMS（`dispatch.return_to=sms`），禁止在子技能内直接结束或直接回复用户；SMS 本体同理**不得直接回答用户需求**——只做调取·管理·整合，一切作答来自托管 skill 执行结果（无匹配→委托 Skill_Generator 创建后执行；不可得→拒绝并说明）。
 7. 通过网络下载子 skill 到目标 skill 目录须 network+write 且用户显式确认（`install.py --accept-download`），否则拒绝。
 8. 删除 skill 须 [`../scripts/remove.py`](../scripts/remove.py) `--yes` 确认 + write 授权（默认预览）；禁止删除 SMS 本体与五个受保护子技能。
 9. 决策审查须有正反双辩论链（[`../scripts/debate.py`](../scripts/debate.py) pro/con + verdict）；命令统一经 [`../scripts/commands.py`](../scripts/commands.py) help/intent/show/use 暴露；时区/地区读 [`../scripts/locality.py`](../scripts/locality.py)。
