@@ -7,7 +7,7 @@ import agent_stream as ag
 SMS = ag.SMS
 HELP = ("直接输入任何话语＝交给当前 agent（默认带 skill_manage_system 指令）· 命中个性化指令名则展开执行\n"
         ":agents 看/选 · :use <name> · :skill on|off 技能前缀 · :cmds [name] · :intent <话语> · :alias/:unalias 个性化指令\n"
-        ":hud session|step|alert|hide · :deploy <dir|--Path P --FolderName F>（部署＝仅复制 bin 文件） · :session \"<任务>\" · :grant <键|角色> [分钟] · :dream status|run · :image <文件> 附下一话语图片 · :config status|get|set · :web start|stop|token · :ext status|enable|enroll · :quit")
+        ":hud session|step|alert|hide · :deploy <dir|--Path P --FolderName F>（部署＝仅复制 bin 文件） · :session \"<任务>\" · :grant <键|角色> [分钟] · :dream status|run · :image <文件> 附下一话语图片 · :config status|get|set · :web start|stop|token · :ext status|enable|enroll · :net search|fetch|download|status（firefox lite 内核·须 grant net）· :tts say|test|on|off|voices（阿林娜 alina 朗读）· :learn from-url|note|recall|distill|stats · :file read|write|list|copy|move|delete|stat · :path resolve|which|glob|tree|env · :quit")
 def banner():
     return "sms-shell · SMS_HOME=" + SMS + " · 当前 agent：" + (ag.current() or "未检出（:agents 查看）") + " · 技能前缀：" + ("on" if ag.prefix_on() else "off")
 def run_script(name, args):
@@ -23,6 +23,7 @@ def _meta(m, a, on_line):
     elif m == "skill": on_line(ag.skill(not (a and a[0] == "off")))
     elif m in ("hud", "deploy", "session"): on_line(run_script(m + ".py", a))
     elif m in ("config", "web", "ext"): on_line(run_script({"config": "settings", "web": "web_shell", "ext": "external"}.get(m, m) + ".py", a or ["status"]))
+    elif m in ("net", "tts", "learn", "file", "path"): on_line(run_script({"net": "ff_lite", "file": "file_ops", "path": "path_ops"}.get(m, m) + ".py", a or (["status"] if m in ("tts", "net") else [])))
     elif m == "grant": on_line(run_script("permissions.py", ["grant"] + a + ["--write"]))
     elif m == "dream": on_line(run_script("dream.py", a or ["status"]))
     elif m == "cmds": on_line(run_script("commands.py", ["help"] if not a else ["show"] + a))

@@ -37,6 +37,7 @@
 - [`redlines.py`](redlines.py)：约束持久化机械自检——`check` 断言 AGENTS.md、SKILL.md、resistance/resistance.md 关键约束句存在、全 .md/.py ≤50 行、悬空链接=0、SKILL.md 含 frontmatter，任一失败 exit 1（初始化第一步与每轮 git 提交前必跑，禁止绕过）；`seal` 冻结三份入口文档 sha256 基线到 `<SMS_HOME>/redlines/baseline.json`，check 报告未 seal 漂移。根入口运行方式：`python -B skill/scripts/redlines.py check`。
 - [`hud.py`](hud.py) / [`hud_view.py`](hud_view.py)：界面顶面 HUD——任务进行时置顶·点击穿透·不抢焦点·只读，居屏幕顶中（alert 红/session/step 三行）；session/step/alert/hide/status；状态只存 `<SMS_HOME>/hud/`，查看进程后台拉起、空闲 120s 自退。
 - [`remove.py`](remove.py)：删除 skill（默认预览；--yes 确认 + --write 且已授予 write 才删；拒删受保护本体）。
+- [`ff_lite.py`](ff_lite.py) / [`tts.py`](tts.py) / [`learn.py`](learn.py) / [`file_ops.py`](file_ops.py) / [`path_ops.py`](path_ops.py)：firefox lite 内核（resistance #19）——`ff_lite`＝无头 Firefox（playwright 随包内核，缺则 urllib 回退，绝不自动装依赖）联网 `search`（Bing/DDG lite·失败互投）·`fetch` 取正文·`download` 只落 `<SMS_HOME>/downloads/`·限尺寸·覆盖须 `--force`＋grant danger，动作须 `grant network`、记 tool_call 链；`tts`＝TTS「阿林娜 alina」旧导航/屏幕阅读器式机械女声（Windows SAPI5·SSML 平调·文本本机合成不出网），默认关闭，`:tts on` 后 agent_stream 逐句朗读模型输出，`say/test/on/off/voices/status`；`learn`＝联动十一链与做梦的学习脚本，`from-url`（经 ff_lite 蒸馏网页）/`from-session`/`note` 入 knowledge+logic 链并惰性触发做梦、`recall` 向量+频次检索、`stats`；`file_ops`/`path_ops`＝file_ops 子技能引擎（文件读写/复制/移动/删除/列举 · 路径 resolve/which/glob/tree/temp），写经 grant write·高危经 grant danger·禁触碰 skill 本体目录。
 
 ## 数据契约
 
@@ -44,7 +45,6 @@
 
 ## 运行约定
 
-1. 使用项目默认 Python，并以 `python -B`（PYTHONDONTWRITEBYTECODE）运行，避免字节码缓存写入 skill 目录；
-2. 数据写盘统一经 emit.py：默认预览；`--write` 且已授予 write 才落盘。
-3. 先 `session.py --write` 建会话，再 `permissions.py grant write --write` 授权，之后写盘才生效。
-4. 运行前先看 [`../resistance/resistance.md`](../resistance/resistance.md) 确认权限；初始化与 git 提交前必跑 `redlines.py check`（失败禁止继续，高危须 `grant danger`，红线 16）。
+1. 使用项目默认 Python，并以 `python -B`（PYTHONDONTWRITEBYTECODE）运行，避免字节码缓存写入 skill 目录；数据写盘统一经 emit.py：默认预览，`--write` 且已授予 write 才落盘。
+2. 先 `session.py --write` 建会话，再 `permissions.py grant write --write` 授权，之后写盘才生效。
+3. 运行前先看 [`../resistance/resistance.md`](../resistance/resistance.md) 确认权限；初始化与 git 提交前必跑 `redlines.py check`（失败禁止继续，高危须 `grant danger`，红线 16）。

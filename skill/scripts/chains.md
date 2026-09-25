@@ -28,6 +28,11 @@
 
 - `chains.<链>` 覆盖 `chains.default{enabled, merge_thr, prune_days, min_freq}`：enabled=false 停写该链（chain_store 建库时读取、add 拒绝并提示恢复命令），merge/修剪按链取阈值与天数；`dream.enabled`／`dream.interval_min` 控制做梦（旧键 dream_interval_min 兼容）；knowledge 钉选链不参与修剪停用。改法：`python -B settings.py set chains.tool_call.enabled false`、壳内 `:config set ...`、或网页壳「链设置」区；每次变更记 event 链（契约 [../schemas/settings.schema.json](../schemas/settings.schema.json)）。
 
+## 学习脚本（learn.py，联动做梦·resistance #17/#19）
+
+- `note "<语句>"` 手工记 knowledge＋logic 链（ref/causal 边）；`from-url <url>` 经 firefox lite 内核（ff_lite.fetch·须 grant network）取页→split→KEY 打分→top-N 入 knowledge（相邻碎片 causal 成链）；`from-session` 从当日 dialogue.md 蒸馏。
+- 每次学习写入自动 `dream.maybe()`——做梦合并近义·修剪低频·高频 knowledge 同步 memory.json 钉选；`recall "<问>"`＝knowledge+logic 域向量+频次检索（命中 bump 频次）；`stats` 计数与做梦到期；`distill [--sync]` 手动做梦。用法：`python -B skill/scripts/learn.py note|from-url|from-session|recall|distill|stats`。
+
 ## 目标
 
 每次发送大模型的记忆链＝简短而精准的碎片 Top-K（向量定位＋频次加权＋语义邻域），配合每输入新对话隔离，保证输出快且准。
