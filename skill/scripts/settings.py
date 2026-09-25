@@ -30,14 +30,15 @@ def set(path, value, sms=None):
     json.dump(doc, open(p, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
     chains.record("event", "config set " + path + "=" + str(maskv(ks[-1], value))[:80]); return get(path, sms=sms)
 def status(sms=None):
-    import model_meta, dream, net_util, ext_net
+    import model_meta, dream, net_util, ext_net, ff_lite, tts
     sms = sms or resolve_home.ensure(); e = eff(sms); g = e["llm_gateway"]; base = e["chains"].get("default", {})
     key = os.environ.get(g.get("api_key_env") or "", "") or g.get("api_key")
     return {"gateway": {"enabled": g.get("enabled"), "base_url": g.get("base_url"), "model": g.get("model"), "api_key": "set" if key else "missing", "temperature": g.get("temperature"), "top_p": g.get("top_p"), "max_tokens": g.get("max_tokens")},
      "model_meta": model_meta.summary(), "dream": {"enabled": e["dream"]["enabled"], "interval_min": e["dream"]["interval_min"], "due": dream.due(sms)},
      "chains": {c: {**base, **(e["chains"].get(c) or {})} for c in CH},
      "web_shell": {**e["web_shell"], "running": net_util.running("web_shell")},
-     "external": {**e["external"], "running": net_util.running("external"), "backend": ext_net.backend()}}
+     "external": {**e["external"], "running": net_util.running("external"), "backend": ext_net.backend()},
+     "ff_lite": ff_lite.status(), "tts": json.loads(tts.status())}
 if __name__ == "__main__":
     a = sys.argv[1:] or ["status"]; cmd = a[0]; pj = lambda o, i=None: print(json.dumps(o, ensure_ascii=False, default=str, indent=i))
     if cmd == "status": pj(status(), 1)
