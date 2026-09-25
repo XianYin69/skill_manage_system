@@ -45,4 +45,4 @@ if __name__ == "__main__":
     elif c == "copy": print(move_copy(argv[0], argv[1], False, Y, not W, SMS))
     elif c == "move": print(move_copy(argv[0], argv[1], True, Y, not W, SMS))
     elif c == "delete": print(delete(argv[0], Y, SMS))
-    else: print(__doc__.strip().splitlines()[1])
+    else: print(__doc__.strip()); sys.exit(1)

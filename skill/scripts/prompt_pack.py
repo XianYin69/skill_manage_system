@@ -33,4 +33,4 @@ if __name__ == "__main__":
     op = a[0] if a else ""
     print("\n".join(split(" ".join(a[1:]))) if op == "split" else simplify(" ".join(a[1:])) if op == "simplify"
           else "合并 %d 对近义碎片" % merge(resolve_home.ensure(), a[1] if len(a) > 1 else "memory") if op == "merge"
-          else pack(" ".join(a[1:])) if op == "pack" else __doc__.strip().splitlines()[1])
+          else pack(" ".join(a[1:])) if op == "pack" else (print(__doc__.strip()), sys.exit(1))[0])

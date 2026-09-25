@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """ext_net.py — 后量子非对称核（对外端口验签）：后端自动探测——cryptography.mldsa（ML-DSA-65，FIPS 204 后量子签名）首选，退回 ed25519（classic）；公钥 DER·base64，指纹＝sha256(公钥DER)；信任表 <SMS_HOME>/shell/external/trusted.json（须本地端 `external.py enroll` 批准，存 pub/note/到期）；挑战 nonce 60 秒一次性匹配。用法：python -B ext_net.py backend|keygen|fpr <pub_b64>|list|revoke <fpr>。"""
 import os, sys, json, time, base64, hashlib, threading
 from cryptography.hazmat.primitives.serialization import load_der_public_key, Encoding, PublicFormat

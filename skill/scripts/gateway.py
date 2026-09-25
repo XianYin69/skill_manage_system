@@ -47,4 +47,4 @@ if __name__ == "__main__":
     a = sys.argv[1:] or ["doctor"]; cmd, arg, c = a[0], " ".join(a[1:]), cfg()
     if cmd == "doctor": print(json.dumps({"enabled": bool(c.get("enabled")), "base_url": c.get("base_url"), "model": c.get("model"), "key": "set" if c.get("api_key") else "missing"}, ensure_ascii=False))
     elif cmd == "models": data, err = _req("/models"); print("\n".join(x["id"] for x in (data or {}).get("data", [])) or "ERR " + err)
-    else: run(arg or "你好", print, images=[p for p in a[1:] if os.path.isfile(p)] or None)
+    else: run(arg or "你好", print, images=[p for p in a[1:] if os.path.isfile(p) and not p.startswith("-")] or None) if not cmd.startswith("-") else (print(__doc__.strip()), sys.exit(1))
