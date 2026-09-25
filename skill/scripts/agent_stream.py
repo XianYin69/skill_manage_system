@@ -27,6 +27,8 @@ def ask(text, on_line):
     dream.maybe(SMS); ag = current()
     if not ag: on_line("拒绝：未检出 agent CLI 且原生网关未启用（config llm_gateway.enabled=true）——sms-shell 只经数据流执行，本体不作答"); return None
     spec = adapters()[ag]; conv = chains.session_id(); chains.record("session", "open:" + conv)
+    want = _state("current_agent")
+    if want and want != ag: on_line("注意：所选 agent " + want + " 未检出，本次经 " + ag + " 执行（:agents 查看）")
     body = text if not prefix_on() else SKILL_DIRECTIVE + "\n" + chains.conversation(text)
     chains.record("dialogue", "user@" + conv + " " + text[:200]); rc = 0
     if spec.get("native"):
@@ -35,9 +37,9 @@ def ask(text, on_line):
             p = bl[-1][3:-1].strip(); body = "\n".join(bl[:-1]); imgs = [p] if os.path.isfile(p) else None
         gateway.run(body, on_line, images=imgs)
     else:
-        args, env = list(spec.get("args", [])), dict(os.environ, PYTHONIOENCODING="utf-8"); stdin = subprocess.PIPE if spec.get("prompt_stdin") else None
+        args, env = list(spec.get("args", [])), dict(os.environ, PYTHONIOENCODING="utf-8"); env.update(spec.get("env") or {}); stdin = subprocess.PIPE if spec.get("prompt_stdin") else subprocess.DEVNULL
         p = subprocess.Popen([spec.get("bin", ag)] + args + ([] if stdin else [body]), stdin=stdin, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace", env=env)
-        if stdin: p.stdin.write(body); p.stdin.close()
+        if spec.get("prompt_stdin"): p.stdin.write(body); p.stdin.close()
         for ln in iter(p.stdout.readline, ""):
             if ln.strip(): on_line(ln.rstrip())
         rc = p.wait()

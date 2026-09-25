@@ -10,7 +10,7 @@
     "comment": "无匹配技能时：先查目标技能目录与配置是否含 skill_generator；缺失则由 skill/scripts/bootstrap.py 从 repo 拉取（需 network + write 授权）。"
   },
   "agent_cli": {
-    "_comment": "sms-shell 数据流适配器：内置检测 claude/codex/cursor/kilocode/kilo/aider；在此增改 {名称:{bin,args}}，args 后自动追加话语参数（默认前置 skill_manage_system 指令，可在 shell 里 :skill off 关闭）"
+    "_comment": "sms-shell 数据流适配器：内置检测 claude/codex/cursor/kilocode/kilo/aider；在此增改 {名称:{bin,args,prompt_stdin,env}}——args 后自动追加话语参数（prompt_stdin=true 改为经标准输入送话语），env 为子进程注入环境变量（如 OPENAI_API_KEY）；默认前置 skill_manage_system 指令，可在 shell 里 :skill off 关闭"
   },
   "llm_gateway": {
     "enabled": false,
