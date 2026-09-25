@@ -27,7 +27,7 @@ function Show-MetaHelp {
   Write-Line ':help 帮助 · :config status|show|get <path>|set <path> <json> 配置 · :agents 看/选 agent · :use <name> · :skill on|off'
   Write-Line ':image <文件> 附下句话语图片 · :quit 退出（内置、零依赖）'
   Write-Dim '以下经托管引擎执行（外部程序·与系统 shell 调命令同理）：'
-  Write-Line ':cmds [name] · :intent <话语> · :alias/:unalias 个性化指令 · :grant <键|角色> [分钟] · :deploy <dir|--Path P --FolderName F>'
+  Write-Line ':cmds [name] · :intent <话语> · :skills 托管技能清单 · :index [<路径>] 看/登记扫描根并重建注册表 · :alias/:unalias 个性化指令 · :grant <键|角色> [分钟] · :deploy <dir|--Path P --FolderName F>'
   Write-Line ':session "<任务>" · :hud s|t|a|h · :dream status|run · :api formats|detect|show|validate|export · :web start|stop|token'
   Write-Line ':ext status|enable|enroll · :net search|fetch|download|status · :tts say|test|on|off|voices · :learn from-url|note|recall|distill|stats'
   Write-Line ':file read|write|list|copy|move|delete|stat · :path resolve|which|glob|tree|env'

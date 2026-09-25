@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""register.py — 扫描技能安装位置与所用工具，生成 registry/register.json；默认扫描根读用户 config 的 scan_roots。"""
+"""register.py — 扫描技能安装位置与所用工具，生成 registry/register.json；默认扫描根读 skills_config（<SMS_HOME>/config/skills.json 的 scan_roots），--add-root <path> 登记本地目录/文件为扫描根。"""
 import os, sys, time, glob
 
 TOOLS = ["read", "write", "edit", "glob", "grep", "bash", "task", "skill", "websearch", "webfetch"]
@@ -39,10 +39,10 @@ def build(sms, roots):
 
 if __name__ == "__main__":
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    import resolve_home
-    sms = resolve_home.ensure()
-    cfg = resolve_home.conf(sms)
-    roots = [a for a in sys.argv[1:] if not a.startswith("--")] or [os.path.expanduser(x) for x in cfg.get("scan_roots") or []] or DEFAULT_ROOTS
+    import resolve_home, skills_config
+    sms = resolve_home.ensure(); args = sys.argv[1:]
+    if "--add-root" in args: v = args[args.index("--add-root") + 1]; print(skills_config.add_root(v, sms)); args = [a for a in args if not a.startswith("--") and a != v]
+    roots = args or skills_config.roots(sms) or DEFAULT_ROOTS
     out, doc = build(sms, roots)
     import emit
     print(emit.write_json(out, doc, sms, "--write" not in sys.argv))

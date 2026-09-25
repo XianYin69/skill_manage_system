@@ -5,7 +5,7 @@ S = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, S)
 import agent_stream as ag, settings, user_commands, skill_route
 SMS = ag.SMS; IMG = []
 HELP = ("直接输入任何话语＝交给系统（默认原生网关直连·流式）· 命中个性化指令名则展开执行\n"
-        ":agents 看/选回退 CLI · :use <name> · :skill on|off 技能前缀 · :cmds [name] · :intent <话语> · :alias/:unalias 个性化指令 · :hud session|step|alert|hide · :deploy <dir|--Path P --FolderName F>（部署＝仅复制 bin 文件） · :session \"<任务>\" · :grant <键|角色> [分钟] · :api formats|detect|show|validate|export（格式 API·原 sms-api） · :dream status|run · :image <文件> 附下一话语图片 · :config status|show|get|set 设置系统（<SMS_HOME>/config/config.json） · :web start|stop|token · :ext status|enable|enroll · :net search|fetch|download|status（firefox lite 内核·须 grant net）· :tts say|test|on|off|voices（阿林娜 alina 朗读）· :learn from-url|note|recall|distill|stats · :file read|write|list|copy|move|delete|stat · :path resolve|which|glob|tree|env · :quit · 系统原生用法：sms-shell <话语|:元指令> 单发执行即退 · Textual TUI：左右分屏（右栏显工作区/修改文件/链会话/步骤类型）· F1/Alt+M 主菜单 · Ctrl+K 托管技能菜单 · Alt+C 图形化配置编辑（↑↓方向键·字母过滤·空格布尔取反/多选·Shift+Tab 编辑值） · Shift+Tab agent 菜单 · Tab 补全 · 上下历史 · Ctrl+Enter 提交 · Ctrl+L 清屏 · Ctrl+Q 退出\n裸词直达（不经大模型）：help/配置/config · 状态/status · 命令/cmds；裸 `config get|set|show <dot.path> <json>`（不带冒号同 :config）；`技能列表`/`哪些技能`/`skills list` 列可调用托管技能")
+        ":agents 看/选回退 CLI · :use <name> · :skill on|off 技能前缀 · :cmds [name] · :intent <话语> · :alias/:unalias 个性化指令 · :hud session|step|alert|hide · :deploy <dir|--Path P --FolderName F>（部署＝仅复制 bin 文件） · :session \"<任务>\" · :grant <键|角色> [分钟] · :api formats|detect|show|validate|export（格式 API·原 sms-api） · :dream status|run · :image <文件> 附下一话语图片 · :config status|show|get|set 设置系统（<SMS_HOME>/config/config.json） · :web start|stop|token · :ext status|enable|enroll · :net search|fetch|download|status（firefox lite 内核·须 grant net）· :tts say|test|on|off|voices（阿林娜 alina 朗读）· :learn from-url|note|recall|distill|stats · :file read|write|list|copy|move|delete|stat · :path resolve|which|glob|tree|env · :skills 托管技能清单 · :index [<路径>] 看/登记扫描根并重建注册表 · :quit · 系统原生用法：sms-shell <话语|:元指令> 单发执行即退 · Textual TUI：左右分屏（右栏显工作区/修改文件/链会话/步骤类型）· F1/Alt+M 主菜单 · Ctrl+K 托管技能菜单 · Alt+C 图形化配置编辑（↑↓方向键·字母过滤·空格布尔取反/多选·Shift+Tab 编辑值） · Shift+Tab agent 菜单 · Tab 补全 · 上下历史 · Ctrl+Enter 提交 · Ctrl+L 清屏 · Ctrl+Q 退出\n裸词直达（不经大模型）：help/配置/config · 状态/status · 命令/cmds；裸 `config get|set|show <dot.path> <json>`（不带冒号同 :config）；`技能列表`/`哪些技能`/`skills list` 列可调用托管技能")
 def banner():
     return "sms-shell · SMS_HOME=" + SMS + " · 当前 agent：" + (ag.current() or "未检出（:agents 查看）") + " · 技能前缀：" + ("on" if ag.prefix_on() else "off") + " · 设置系统：:config status|show|get <dot.path>|set <path> <json> · 原生用法：系统 shell 里 sms-shell <话语|:元指令> 单发执行即退"
 def run_script(name, args):
@@ -22,9 +22,9 @@ def _meta(m, a, on_line):
     elif m == "api": on_line(run_script("api.py", a or ["formats"]))
     elif m == "grant": on_line(run_script("permissions.py", ["grant"] + a + ["--write"]))
     elif m == "dream": on_line(run_script("dream.py", a or ["status"]))
-    elif m == "cmds": on_line(run_script("commands.py", ["help"] if not a else ["show"] + a))
-    elif m == "intent": on_line(run_script("commands.py", ["intent"] + a))
-    elif m in ("alias", "unalias"): on_line(run_script("user_commands.py", [("add" if m == "alias" else "rm")] + a))
+    elif m in ("cmds", "intent"): on_line(run_script("commands.py", ["help"] if (m == "cmds" and not a) else (["show"] + a if m == "cmds" else ["intent"] + a)))
+    elif m in ("index", "skills"): on_line(run_script("register.py" if (m == "index" and a) else ("skills_config.py" if m == "index" else "skill_route.py"), (["--add-root"] + a + ["--write"]) if (m == "index" and a) else (["roots"] if m == "index" else ["list"])))
+    elif m in ("alias", "unalias"): on_line(run_script("user_commands.py", [("add" if m == "alias" else "rm")] + a + ["--write"]))
     elif m in ("help", "?"): on_line(HELP)
     else: on_line("未知元指令 :" + m + "（:help）")
 HELPW, CFGW, CMDW = ("help", "?", "h", "帮助", "用法"), ("config", "设置", "配置", "状态", "status", "修改配置", "打开设置", "查看配置", "如何修改配置", "怎么修改配置", "如何查看配置", "修改配置文件"), ("cmds", "命令", "指令", "命令表")

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""bootstrap.py — 确保 Skill_Generator 可用：查技能目录与 <SMS_HOME>/config/config.json；缺失则从 GitHub 拉取。"""
+"""bootstrap.py — 确保 Skill_Generator 可用：查技能目录与 <SMS_HOME>/config/skills.json 的 skill_generator；缺失则从 GitHub 拉取。"""
 import os, sys, json, glob
 
 ID = "skill_generator"
@@ -22,8 +22,8 @@ def in_folders():
 
 
 def in_config(sms):
-    import resolve_home
-    sg = resolve_home.conf(sms).get("skill_generator") or {}
+    import resolve_home, skills_config
+    sg = skills_config.get("skill_generator", {}, sms) or {}
     path = os.path.expanduser(sg.get("path") or "")
     if sg.get("repo") or (path and os.path.isdir(path)):
         return {"repo": sg.get("repo"), "path": path or None}
