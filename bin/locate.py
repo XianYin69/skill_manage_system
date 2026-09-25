@@ -13,20 +13,23 @@ def _home():
     for cand in (os.path.join(c, "SMS"), os.path.join(home, "SMS")):
         if os.path.isfile(os.path.join(cand, "config", "config.json")): return cand
     return os.path.join(c, "SMS")
-def _skill_base():
+def find_base():
+    """三级定位回源（相邻→SMS_SKILL→sms_skill 配置），失败返回 None 不退出——供 bin/sms-shell.py 启动器探测。"""
     env = os.environ.get("SMS_SKILL") or ""
-    cands = [os.path.normpath(os.path.join(HERE, ".."))]
-    if env: cands.append(env)
+    cands = [os.path.normpath(os.path.join(HERE, ".."))] + ([env] if env else [])
     conf = os.path.join(_home(), "config", "config.json")
     if os.path.isfile(conf):
         try: cands.append(json.load(open(conf, encoding="utf-8-sig")).get("sms_skill") or "")
         except Exception: pass
     for b in cands:
         if b:
-            base = _base_of(b)
-            if base: return base
-    print("未定位到 skill_manage_system：运行过 deploy.py 会登记 sms_skill 到 <SMS_HOME>/config/config.json；也可设 env SMS_SKILL=<skill 绝对路径>", file=sys.stderr)
-    sys.exit(1)
+            p = _base_of(b)
+            if p: return p
+    return None
+def _skill_base():
+    p = find_base()
+    if p is None: print("未定位到 skill_manage_system：运行过 deploy.py 会登记 sms_skill 到 <SMS_HOME>/config/config.json；也可设 env SMS_SKILL=<skill 绝对路径>", file=sys.stderr); sys.exit(1)
+    return p
 def _base_of(root):
     for rel in ("skill" + os.sep, ""):
         p = os.path.normpath(os.path.join(root, rel))
