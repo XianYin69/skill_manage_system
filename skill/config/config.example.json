@@ -28,6 +28,8 @@
   "dream": { "enabled": true, "interval_min": 360, "comment": "做梦开关·间隔（分钟），旧键 dream_interval_min 兼容" },
   "web_shell": { "enabled": true, "host": "127.0.0.1", "port": 8737, "comment": "本地加密网页壳（web_shell.py）：HTTPS 自签指纹证书＋配对 token；:web start|stop|token" },
   "external": { "enabled": false, "interface": "0.0.0.0", "port": 8738, "pq_mode": "auto", "session_ttl_min": 240, "max_fail_per_min": 5, "comment": "对外端口（external.py）默认关；enable --yes 才开；ML-DSA-65 指纹证书挑战验签＋限速；strict＝无 PQ 拒启；推荐 SSH 隧道（:ext tunnel）" },
+  "ff_lite": { "engine": "bing", "timeout_s": 30, "headless": true, "max_page_chars": 8000, "download_dir": "downloads", "max_download_mb": 200, "comment": "firefox lite 内核（ff_lite.py，壳内 :net）：联网搜索·取页·下载须 grant network（默认拒绝）；engine=bing|duckduckgo 失败自动互投；渲染优先 playwright 无头 Firefox、缺则 urllib（绝不自动装）；下载只落 <SMS_HOME>/downloads/，覆盖须 --force＋grant danger" },
+  "tts": { "enabled": false, "engine": "sapi5", "profile_name": "阿林娜", "voice": "Microsoft Huihui Desktop - Chinese (China)", "rate": -1, "pitch": "+0st", "volume": 100, "max_chars": 400, "comment": "TTS 阿林娜 alina（tts.py，壳内 :tts）：旧导航/屏幕阅读器式机械女声——SAPI5 本地合成、文本不出本机；默认关，:tts on 或 enabled=true 开启后模型输出逐句朗读；voice/rate(-10..10)/pitch/volume 可调" },
   "permissions_default": {
     "read": true,
     "write": false,

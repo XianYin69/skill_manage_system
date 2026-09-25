@@ -31,5 +31,7 @@
     "session_ttl_min": 240,
     "max_fail_per_min": 5,
     "comment": "对外端口（external.py）默认关闭；enable --yes 才开；ML-DSA-65（cryptography PQ，FIPS 204）指纹证书挑战验签后才给会话 token；pq_mode strict＝无 PQ 拒启（降级仅 classic/auto）；建议配合 SSH 隧道访问"
-  }
+  },
+  "ff_lite": { "engine": "bing", "timeout_s": 30, "headless": true, "max_page_chars": 8000, "download_dir": "downloads", "max_download_mb": 200, "comment": "firefox lite 内核（ff_lite.py）：联网搜索·取页·下载——动作须 grant network（默认拒绝）；engine=bing|duckduckgo（ddg lite 端点国内常不可达故默认 bing，search 失败自动改投另一引擎）；渲染优先 playwright 随包无头 Firefox，缺失回退 urllib（明确提示·绝不自动装依赖）；下载只落 <SMS_HOME>/downloads/，覆盖须 --force＋grant danger" },
+  "tts": { "enabled": false, "engine": "sapi5", "profile_name": "阿林娜", "voice": "Microsoft Huihui Desktop - Chinese (China)", "rate": -1, "pitch": "+0st", "volume": 100, "max_chars": 400, "comment": "TTS 阿林娜（alina）：旧导航/屏幕阅读器式机械女声——Windows SAPI5 本地合成、文本不出本机；默认关，壳内 :tts on 开启后模型输出逐句朗读；voice/rate(-10..10)/pitch/volume 可调" }
 }

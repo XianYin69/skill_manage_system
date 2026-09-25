@@ -5,7 +5,7 @@
 ## 结构
 
 - 根 [`sms.py`](sms.py)＋[`sms`](sms)/[`sms.cmd`](sms.cmd)：跨 OS（Win/macOS/Linux）入口程序——**开箱即用**（建 SMS_HOME、播种配置、红线自检）→**依赖嗅探与修补**（PySide6/git/agent CLI，`--rebuild` 重建注册表、`--install-deps` 经同意装 PySide6）→**引导至 CLI**（交棒 sms-shell）；`sms.py doctor` 只诊断不启动。
-- [`skill/`](skill/SKILL.md)：工具全部层——[SKILL.md](skill/SKILL.md)（YAML frontmatter 入口）、[AGENTS.md](skill/AGENTS.md)（入口红线镜像，redlines.py 机械断言）、[agent/](skill/agent/CLAUDE.md)（四格式提示词）、[scripts/](skill/scripts/scripts.md)（引擎，53 脚本 ≤50 行；十一链记忆体系见 [chains.md](skill/scripts/chains.md)）、[schemas/](skill/schemas/register.schema.json)（20 份 JSON 契约）、[config/](skill/config/config.example.json)（模板，真实 config 首读播种到 `<SMS_HOME>/config/`）、[resistance/](skill/resistance/resistance.md)（红线，不得删改）、[sub_skills/](skill/sub_skills/skill_register/SKILL.md)（五个子技能）。
+- [`skill/`](skill/SKILL.md)：工具全部层——[SKILL.md](skill/SKILL.md)（YAML frontmatter 入口）、[AGENTS.md](skill/AGENTS.md)（入口红线镜像，redlines.py 机械断言）、[agent/](skill/agent/CLAUDE.md)（四格式提示词）、[scripts/](skill/scripts/scripts.md)（引擎，58 脚本 ≤50 行；十一链记忆体系见 [chains.md](skill/scripts/chains.md)）、[schemas/](skill/schemas/register.schema.json)（20 份 JSON 契约）、[config/](skill/config/config.example.json)（模板，真实 config 首读播种到 `<SMS_HOME>/config/`）、[resistance/](skill/resistance/resistance.md)（红线，不得删改）、[sub_skills/](skill/sub_skills/skill_register/SKILL.md)（六个子技能，含 [file_ops](skill/sub_skills/file_ops/SKILL.md) 基本操作）。
 - [`bin/`](bin/sms-shell)：交互入口部署包＝sms-shell(.cmd)＋[locate.py](bin/locate.py)（相邻→SMS_SKILL→sms_skill 三级定位回源）＋格式 API sms-api(.cmd)／[sms_api.py](bin/sms_api.py)／[sms_formats.py](bin/sms_formats.py)——claude SKILL.md 格式、claude-code（CLAUDE.md＋斜杠指令）、OpenAI 全系（Chat/Responses tools·Assistants·realtime/Codex）互转导出；部署＝仅把这些文件复制到指定路径，目标处直接运行。
 
 ## 快速开始

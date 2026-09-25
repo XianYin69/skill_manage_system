@@ -12,3 +12,4 @@
 7. **十一链记忆·对话隔离·做梦**：会话碎片链存 `<SMS_HOME>/chains/`（含向量/频次/边）；所有链必须 git 管理（chains_git.py 自动建仓＋写入自动提交）；每次用户输入＝开新对话（压缩记忆＋当前输入），agent 的 skill 必须开新子会话并收口（resistance #17）。
 8. 全部 .md/脚本 ≤50 行；悬空链接 = 0；数据写盘一律经 emit 门控（默认预览）。
 9. **配置系统与网络壳（resistance #18）**：配置增改唯一经 settings.py（api_key 恒掩码）；model_meta 抓上游模型 Token/上下文/RPM 只写用户缓存；网页壳只绑 127.0.0.1＋指纹证书＋配对 token；对外端口默认关闭——`enable --yes` 当轮确认才置位，外部请求须本地 enroll 指纹＋ML-DSA 验签，只开对话面、限速封禁，证书/密钥/token 不落 skill 目录。
+10. **firefox lite 内核·TTS·学习·基本操作（resistance #19）**：ff_lite.py 搜索/取页/下载须 grant network（默认拒绝），下载只落 `<SMS_HOME>/downloads/`、覆盖须 --yes 语义的 `--force`＋grant danger、缺渲染内核回退报错绝不自动装依赖；tts.py 阿林娜（alina）机械女声默认关闭，仅用户开启后逐句朗读模型输出、文本本机合成不出网；file_ops/path_ops（sub_skills/file_ops）写盘 grant write、拒写删 skill 本体目录、复制/移动/删除须预览＋grant danger；learn.py 学习产物只入 knowledge/logic 链并联动做梦。
