@@ -29,8 +29,7 @@ class Menus:
         rows = [("#pick_file", "＋ 索引本地文件：选目录/SKILL.md 加入 scan_roots 并重建注册表")]
         for s in skill_route.skills():
             rows.append(("call:" + str(s.get("id", "")), "%s → %s" % (s.get("id", ""), os.path.join(str(s.get("install_path", "")), str(s.get("entry", "SKILL.md"))))))
-        self.menu("SKILL.md 索引（Enter：技能＝填调用语句·首项＝打开文件选择 · / 或 Alt+K 打开）", rows)
-    def action_skill_index(self): self.action_menu_skill_index()
+        self.menu("SKILL.md 索引（Enter：技能＝填调用语句·首项＝打开文件选择 · / 或 F2 打开）", rows)
     def action_pick_file(self):
         from shell_tui_files import Files
         self.push_screen(Files(), self._file_picked)
