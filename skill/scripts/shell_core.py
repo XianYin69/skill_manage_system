@@ -22,7 +22,7 @@ def _meta(m, a, on_line):
     elif m == "use" and a: on_line(ag.use(a[0]))
     elif m == "skill": on_line(ag.skill(not (a and a[0] == "off")))
     elif m in ("hud", "deploy", "session"): on_line(run_script(m + ".py", a))
-    elif m in ("config", "web", "ext"): on_line(run_script({"config": "settings", "ext": "external"}.get(m, m) + ".py", a or ["status"]))
+    elif m in ("config", "web", "ext"): on_line(run_script({"config": "settings", "web": "web_shell", "ext": "external"}.get(m, m) + ".py", a or ["status"]))
     elif m == "grant": on_line(run_script("permissions.py", ["grant"] + a + ["--write"]))
     elif m == "dream": on_line(run_script("dream.py", a or ["status"]))
     elif m == "cmds": on_line(run_script("commands.py", ["help"] if not a else ["show"] + a))
