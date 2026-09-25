@@ -1,22 +1,22 @@
 # skill_manage_system（SMS）— 独立智能体工具
 
-技能操作系统的**独立智能体工具**（非客户端 skill 包）：以 `sms-shell` 为交互入口、`skill/scripts/` 为引擎，调度电脑上已安装的 agent CLI 与技能生态——本身不作答，一切用户请求经数据流派给已装 agent / 托管 skill 执行、由 SMS 整合结果作答（无匹配→委托 Skill_Generator 创建后执行，不可得→明确拒绝）。工具全部层集中于 `skill/`：skill 身份（SKILL.md/AGENTS.md/agent/ 四格式提示词）、`scripts/` 引擎、`schemas/` 契约、`config/` 模板、`resistance/` 红线、`sub_skills/` 子技能；根目录只留跨 OS 入口（sms.py/sms/sms.cmd）与部署包 `bin/`（sms-shell·sms-api 格式 API 启动文件），工具本体不依赖客户端发现机制。
+技能操作系统的**独立智能体工具**（非客户端 skill 包）：以 `sms-shell` 为交互入口、`skill/scripts/` 为引擎，调度电脑上已安装的 agent CLI 与技能生态——本身不作答，一切用户请求经数据流派给已装 agent / 托管 skill 执行、由 SMS 整合结果作答（无匹配→委托 Skill_Generator 创建后执行，不可得→明确拒绝）。工具全部层集中于 `skill/`：skill 身份（SKILL.md/AGENTS.md/agent/ 四格式提示词）、`scripts/` 引擎、`schemas/` 契约、`config/` 模板、`resistance/` 红线、`sub_skills/` 子技能；根目录只留跨 OS 入口（sms.py/sms/sms.cmd）与部署包 `bin/`（sms-shell 统一入口：交互壳＋`api` 格式 API 子命令），工具本体不依赖客户端发现机制。
 
 ## 结构
 
 - 根 [`sms.py`](sms.py)＋[`sms`](sms)/[`sms.cmd`](sms.cmd)：跨 OS（Win/macOS/Linux）入口程序——**开箱即用**（建 SMS_HOME、播种配置、红线自检）→**依赖嗅探与修补**（PySide6/git/agent CLI，`--rebuild` 重建注册表、`--install-deps` 经同意装 PySide6）→**引导至 CLI**（交棒 sms-shell）；`sms.py doctor` 只诊断不启动。
 - [`skill/`](skill/SKILL.md)：工具全部层——[SKILL.md](skill/SKILL.md)（YAML frontmatter 入口）、[AGENTS.md](skill/AGENTS.md)（入口红线镜像，redlines.py 机械断言）、[agent/](skill/agent/CLAUDE.md)（四格式提示词）、[scripts/](skill/scripts/scripts.md)（引擎，58 脚本 ≤50 行；十一链记忆体系见 [chains.md](skill/scripts/chains.md)）、[schemas/](skill/schemas/register.schema.json)（20 份 JSON 契约）、[config/](skill/config/config.example.json)（模板，真实 config 首读播种到 `<SMS_HOME>/config/`）、[resistance/](skill/resistance/resistance.md)（红线，不得删改）、[sub_skills/](skill/sub_skills/skill_register/SKILL.md)（六个子技能，含 [file_ops](skill/sub_skills/file_ops/SKILL.md) 基本操作）。
-- [`bin/`](bin/sms-shell)：交互入口部署包＝sms-shell(.cmd)＋[locate.py](bin/locate.py)（相邻→SMS_SKILL→sms_skill 三级定位回源）＋格式 API sms-api(.cmd)／[sms_api.py](bin/sms_api.py)／[sms_formats.py](bin/sms_formats.py)——claude SKILL.md 格式、claude-code（CLAUDE.md＋斜杠指令）、OpenAI 全系（Chat/Responses tools·Assistants·realtime/Codex）互转导出；部署＝仅把这些文件复制到指定路径，目标处直接运行。
+- [`bin/`](bin/sms-shell)：统一入口部署包＝sms-shell(.cmd)＋[locate.py](bin/locate.py)（相邻→SMS_SKILL→sms_skill 三级定位回源；首参 `api`＝格式 API·原 sms-api，壳内 `:api` 同径）＋[sms_formats.py](bin/sms_formats.py)（claude SKILL.md 格式、claude-code（CLAUDE.md＋斜杠指令）、OpenAI 全系（Chat/Responses tools·Assistants·realtime/Codex）互转导出）；部署＝仅把这些文件复制到指定路径，目标处直接运行。
 
 ## 快速开始
 
 ```bash
-# 根入口（跨 OS）：三段齐走后进 sms-shell——进去就像对 agent 说话，话语经数据流交给已装 agent CLI（GUI=PySide6 窗口终端，探测失败自动回退 TUI）
+# 根入口（跨 OS）：三段齐走后进 sms-shell——进去就像对系统说话，话语默认直达原生网关流式回显（GUI=PySide6 窗口终端，探测失败自动回退 TUI；系统终端原生中文）
 python -B sms.py                        # 或 ./sms（POSIX）/ sms.cmd（Windows）；诊断：python -B sms.py doctor；部署后亦可用 <目标>/sms-shell(.cmd)
-# 例：`查天气然后写报告` → 流式回显 agent 输出；`:agents` 看检测到的 CLI；`:use codex` 换；`:skill off` 关指令前缀
-# 部署＝仅复制 bin 启动文件到指定路径（locate 回源定位，禁止整包复制工具本体）；sms-api＝多格式 skill 接口
+# 例：`查天气然后写报告` → 流式回显输出；`:agents` 看回退 CLI；`:use codex` 换；`:skill off` 关指令前缀
+# 部署＝仅复制 bin 启动文件到指定路径（locate 回源定位，禁止整包复制工具本体）；格式 API＝`api` 子命令（原 sms-api 并入）
 python -B skill/scripts/deploy.py D:\agents --write
-python -B bin/sms_api.py export <skill路径或id> --out <dir> --format all   # claude/claude-code/openai，默认预览，--write 落盘
+python -B bin/sms-shell.cmd api export <skill路径或id> --out <dir> --format all   # claude/claude-code/openai，默认预览，--write 落盘
 # 治理命令流（可选）：建会话 → 授 write → 初始设置 → 拆分/调度/派发
 python -B skill/scripts/session.py "查天气，然后写报告" --write
 python -B skill/scripts/permissions.py grant write --write

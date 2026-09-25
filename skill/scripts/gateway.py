@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""gateway.py — SMS 原生大模型网关（OpenAI 兼容）：config llm_gateway{enabled,base_url,api_key,api_key_env,model}；对话/工具/视觉不依赖 agent CLI——run() 工具循环（exec→回填）、附图 base64（>800KB 经可选 Pillow 缩为 JPEG）；每次调用记 tool_call 链。用法：python gateway.py ask|models|doctor "<文本>" [图片路径…]。"""
+"""gateway.py — SMS 原生大模型网关（OpenAI 兼容·TUI 默认直连）：config llm_gateway{enabled,base_url,api_key,api_key_env,model}；对话/工具/视觉不依赖 agent CLI——run() 工具循环（exec→回填·子进程 UTF-8 中文）、附图 base64（>800KB 经可选 Pillow 缩为 JPEG）；每次调用记 tool_call 链。用法：python gateway.py ask|models|doctor "<文本>" [图片路径…]。"""
 import os, sys, json, base64, subprocess, urllib.request; sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import resolve_home, chains
 def _b64img(p):
@@ -40,7 +40,7 @@ def run(text, on_line=lambda ln: None, images=None, max_steps=5):
         msgs.append(m)
         for tc in tcs:
             cmd = (json.loads(tc["function"]["arguments"]) or {}).get("cmd", ""); on_line("$ " + cmd)
-            r = subprocess.run(cmd, shell=True, capture_output=True, text=True, encoding="utf-8", errors="replace")
+            r = subprocess.run(("chcp 65001 >nul & " + cmd) if os.name == "nt" else cmd, shell=True, capture_output=True, text=True, encoding="utf-8", errors="replace", env=dict(os.environ, PYTHONIOENCODING="utf-8"))
             msgs.append({"role": "tool", "tool_call_id": tc["id"], "content": ((r.stdout or "") + (r.stderr or ""))[:4000] or "(无输出)"})
     on_line("达到 max_steps，中止"); return None
 if __name__ == "__main__":

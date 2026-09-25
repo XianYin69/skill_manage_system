@@ -1,3 +1,4 @@
 #!/bin/sh
-# sms-shell — POSIX 启动入口：部署＝把本 bin 的文件复制到指定路径；locate.py 三级定位回源安装的 skill_manage_system
+# sms-shell — POSIX 启动入口（合并版）：普通参数＝交互壳（GUI/TUI），首参 api＝格式 API（原 sms-api，命令面不变）；部署＝把本 bin 的文件复制到指定路径；locate.py 三级定位回源安装的 skill_manage_system
+export PYTHONUTF8=1 PYTHONIOENCODING=utf-8
 exec python3 -B "$(dirname "$0")/locate.py" "$@"

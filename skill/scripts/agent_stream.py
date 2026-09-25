@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""agent_stream.py — sms-shell 数据流引擎：优先原生网关（config llm_gateway.enabled→gateway，OpenAI 兼容直连、不依赖 CLI），否则检测已装 agent CLI（claude/codex 等，agent_cli 可增改）；每次输入＝新开一次对话（chains.conversation 压缩记忆＋双层规则，红线 17），逐行流回、收口记链；尾行 [图:<路径>] 为网关视觉附图；状态存 <SMS_HOME>/shell/；皆无则拒绝（本体不作答）。"""
+"""agent_stream.py — sms-shell 数据流引擎：默认直达系统原生网关（config llm_gateway.enabled→gateway，OpenAI 兼容直连·SSE 流式、不经外部 agent CLI），网关未启用才回退已装 agent CLI（claude/codex 等，agent_cli 可增改，:use 手选）；每次输入＝新开一次对话（chains.conversation 压缩记忆＋双层规则，红线 17），逐行流回、收口记链；尾行 [图:<路径>] 为网关视觉附图；状态存 <SMS_HOME>/shell/；皆无则拒绝（本体不作答）。"""
 import os, sys, shutil, subprocess
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import resolve_home, chains, dream, gateway, model_meta, tts
@@ -19,7 +19,7 @@ def _state(name, default=""):
 def _put(name, val): os.makedirs(STATE, exist_ok=True); open(os.path.join(STATE, name), "w", encoding="utf-8").write(val)
 def current():
     det = detected(); cur = _state("current_agent")
-    return cur if cur in det else ("gateway" if "gateway" in det else next(iter(det), None))
+    return next((k for k, v in det.items() if v.get("native")), cur if cur in det else next(iter(det), None))
 def prefix_on(): return _state("skill_prefix", "on") != "off"
 def use(name): _put("current_agent", name); return "切到 agent：" + name + ("" if name in detected() else "（未检出其 CLI——配置 agent_cli {bin,args} 并确保在 PATH）")
 def skill(on): _put("skill_prefix", "on" if on else "off"); return "skill_manage_system 前缀：" + _state("skill_prefix", "on")
@@ -28,7 +28,7 @@ def ask(text, on_line):
     if not ag: on_line("拒绝：未检出 agent CLI 且原生网关未启用（config llm_gateway.enabled=true）——sms-shell 只经数据流执行，本体不作答"); return None
     spec = adapters()[ag]; conv = chains.session_id(); chains.record("session", "open:" + conv)
     want = _state("current_agent")
-    if want and want != ag: on_line("注意：所选 agent " + want + " 未检出，本次经 " + ag + " 执行（:agents 查看）")
+    if want and want != ag and not spec.get("native"): on_line("注意：所选 agent " + want + " 未检出，本次经 " + ag + " 执行（:agents 查看）")
     body = text if not prefix_on() else SKILL_DIRECTIVE + "\n" + chains.conversation(text)
     chains.record("dialogue", "user@" + conv + " " + text[:200]); rc = 0
     if spec.get("native"):

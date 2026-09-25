@@ -1,3 +1,0 @@
-#!/bin/sh
-# sms-api — POSIX 启动入口（随 bin 部署）：多格式 skill API（claude / claude-code / openai 全系），详见 sms_api.py 头注释
-exec python3 -B "$(dirname "$0")/sms_api.py" "$@"

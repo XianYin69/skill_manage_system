@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""shell_core.py — sms-shell 共享路由引擎（TUI/GUI 前端通用）：像对 agent 说话一样——任意话语默认经数据流交给已安装 agent CLI 执行（agent_stream，前置 skill_manage_system 指令）；输入命中个性化指令名（user_commands）则展开执行；`:` 元指令仅做治理（切 agent、开关技能前缀、指令系统、hud/deploy/session/grant）；本体不作答。"""
+"""shell_core.py — sms-shell 共享路由引擎（TUI/GUI 前端通用）：像对系统说话一样——任意话语默认直达原生网关（agent_stream→gateway，OpenAI 兼容直连·流式、不经外部 agent CLI；本体不作答）；输入命中个性化指令名（user_commands）则展开执行；`:` 元指令仅做治理（切回退 agent、开关技能前缀、指令系统、api/deploy/session/grant 等）。"""
 import os, sys, subprocess, shlex
 S = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, S)
 import agent_stream as ag
 SMS = ag.SMS
-HELP = ("直接输入任何话语＝交给当前 agent（默认带 skill_manage_system 指令）· 命中个性化指令名则展开执行\n"
-        ":agents 看/选 · :use <name> · :skill on|off 技能前缀 · :cmds [name] · :intent <话语> · :alias/:unalias 个性化指令\n"
-        ":hud session|step|alert|hide · :deploy <dir|--Path P --FolderName F>（部署＝仅复制 bin 文件） · :session \"<任务>\" · :grant <键|角色> [分钟] · :dream status|run · :image <文件> 附下一话语图片 · :config status|get|set · :web start|stop|token · :ext status|enable|enroll · :net search|fetch|download|status（firefox lite 内核·须 grant net）· :tts say|test|on|off|voices（阿林娜 alina 朗读）· :learn from-url|note|recall|distill|stats · :file read|write|list|copy|move|delete|stat · :path resolve|which|glob|tree|env · :quit")
+HELP = ("直接输入任何话语＝交给系统（默认原生网关直连·流式）· 命中个性化指令名则展开执行\n"
+        ":agents 看/选回退 CLI · :use <name> · :skill on|off 技能前缀 · :cmds [name] · :intent <话语> · :alias/:unalias 个性化指令\n"
+        ":hud session|step|alert|hide · :deploy <dir|--Path P --FolderName F>（部署＝仅复制 bin 文件） · :session \"<任务>\" · :grant <键|角色> [分钟] · :api formats|detect|show|validate|export（格式 API·原 sms-api） · :dream status|run · :image <文件> 附下一话语图片 · :config status|get|set · :web start|stop|token · :ext status|enable|enroll · :net search|fetch|download|status（firefox lite 内核·须 grant net）· :tts say|test|on|off|voices（阿林娜 alina 朗读）· :learn from-url|note|recall|distill|stats · :file read|write|list|copy|move|delete|stat · :path resolve|which|glob|tree|env · :quit")
 def banner():
     return "sms-shell · SMS_HOME=" + SMS + " · 当前 agent：" + (ag.current() or "未检出（:agents 查看）") + " · 技能前缀：" + ("on" if ag.prefix_on() else "off")
 def run_script(name, args):
@@ -24,6 +24,7 @@ def _meta(m, a, on_line):
     elif m in ("hud", "deploy", "session"): on_line(run_script(m + ".py", a))
     elif m in ("config", "web", "ext"): on_line(run_script({"config": "settings", "web": "web_shell", "ext": "external"}.get(m, m) + ".py", a or ["status"]))
     elif m in ("net", "tts", "learn", "file", "path"): on_line(run_script({"net": "ff_lite", "file": "file_ops", "path": "path_ops"}.get(m, m) + ".py", a or (["status"] if m in ("tts", "net") else [])))
+    elif m == "api": on_line(run_script("api.py", a or ["formats"]))
     elif m == "grant": on_line(run_script("permissions.py", ["grant"] + a + ["--write"]))
     elif m == "dream": on_line(run_script("dream.py", a or ["status"]))
     elif m == "cmds": on_line(run_script("commands.py", ["help"] if not a else ["show"] + a))

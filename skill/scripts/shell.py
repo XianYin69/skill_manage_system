@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
-"""shell.py — sms-shell 入口：PySide6 可用且有图形服务器→GUI 窗口版（shell_gui），否则 TUI 终端版（shell_tui，pwsh/bash/zsh 式、免图形服务器）；`--tui`/`--gui` 强制选择，GUI 探测失败自动回退 TUI。部署后其他路径可直接执行 bin/sms-shell(.cmd) 定位起的 shell.py。"""
+"""shell.py — sms-shell 入口：PySide6 可用且有图形服务器→GUI 窗口版（shell_gui），否则 TUI 终端版（shell_tui，pwsh/bash/zsh 式、免图形服务器）；`--tui`/`--gui` 强制选择，GUI 探测失败自动回退 TUI。部署后其他路径可直接执行 bin/sms-shell(.cmd) 定位起的 shell.py。全链 UTF-8 中文（reconfigure＋PYTHONUTF8 传给子进程）。"""
 import os, sys, subprocess
+for s in (sys.stdout, sys.stderr):
+    try: s.reconfigure(encoding="utf-8", errors="replace")
+    except Exception: pass
+os.environ["PYTHONUTF8"] = "1"; os.environ["PYTHONIOENCODING"] = "utf-8"
 S = os.path.dirname(os.path.abspath(__file__))
 def has_display():
     if os.name == "nt" or sys.platform == "darwin": return True
