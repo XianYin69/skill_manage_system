@@ -11,7 +11,7 @@
 ## 快速开始
 
 ```bash
-# 根入口（跨 OS）：三段齐走后进 sms-shell——进去就像对系统说话，主界面＝Textual TUI（流式·Tab 补全·历史回溯），缺 textual 回退原生 DOS 风格 TUI（蓝底白字边框·cmd→PowerShell·零 python），话语默认直达原生网关流式回显，裸内置词（help/状态/cmds）确定性路由零模型
+# 根入口（跨 OS）：三段齐走后进 sms-shell——进去就像对系统说话，主界面＝Textual TUI（富文本流式无转义乱码·工作线程不阻塞·F1/Alt+M 主菜单·Ctrl+K 技能菜单·Shift+Tab agent 菜单·Tab 补全·上下历史·Ctrl+L 清屏·Ctrl+Q 退出·进度条＋状态栏每步名称与本对话用时计时），缺 textual 回退原生 DOS 风格 TUI（蓝底白字边框·cmd→PowerShell·零 python），话语默认直达原生网关流式回显（先经 [skill_route](skill/scripts/skill_route.py) registry 技能路由·命中记 skill_call 链并强制读 SKILL.md 真调技能），裸内置词（help/状态/cmds）确定性路由零模型
 python -B sms.py                        # 或 ./sms（POSIX）/ sms.cmd（Windows）；诊断：python -B sms.py doctor；部署后亦可用 <目标>/sms-shell(.cmd)
 # 例：`查天气然后写报告` → 流式回显输出；`:agents` 看回退 CLI；`:use codex` 换；`:skill off` 关指令前缀
 # 部署＝仅复制 bin 启动文件到指定路径（locate 回源定位，禁止整包复制工具本体）；格式 API＝`api` 子命令（原 sms-api 并入）
