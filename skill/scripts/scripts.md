@@ -1,6 +1,6 @@
 # scripts（脚本库）
 
-本目录存放 SMS 的可执行脚本：路径解析、写盘门控、注册、打包、连接、会话、任务、进程、权限、并发调度、记忆与缓存清理、十一链记忆（链数据 git 管理）·提示词压缩·做梦、上下文自动压缩、安装同步与信任链。
+本目录存放 SMS 的可执行脚本：路径解析、写盘门控、注册、打包、连接、会话、任务、进程、权限、并发调度、记忆与缓存清理、十一链记忆（链数据 git 管理）·提示词压缩·做梦·各链设置、上下文自动压缩、配置系统与上游模型元数据（Token/上下文/RPM）、加密网页壳与对外端口（PQ 验签）、安装同步与信任链。
 
 ## 应存什么
 
@@ -28,9 +28,9 @@
 - [`trust.py`](trust.py)：信任链标签 list/mark/review/audit：云端必 review，本地按日随机抽查，fail → quarantine。
 - [`skill_errors.py`](skill_errors.py)：skill 错误位置与日志记录 → errors/skill_errors.json；未解决 ≥3 → 提示启用 self_update。
 - [`install.py`](install.py) / [`sync_skills.py`](sync_skills.py)：本地 / `gh:owner/repo[/sub]` 安装到目标客户端 skills 文件夹（云端需 network+write 且 `--accept-download` 确认，标 pending_review）；SMS/skills hub ↔ 客户端目录 pull/push/status（冲突取新，未审/隔离不推送）。
-- [`shell.py`](shell.py)：sms-shell 入口（PySide6 可导入且有图形服务器→GUI，否则 TUI，`--tui/--gui` 强制，GUI 探测失败自动回退）；入口 [`../bin/sms-shell`](../../bin/sms-shell)（POSIX，可执行位）与 `sms-shell.cmd`（Windows）经 [`../bin/locate.py`](../../bin/locate.py) 三级定位（相邻→env SMS_SKILL→配置 sms_skill）——bin 文件单独复制到任意指定路径仍可用。格式 API 亦在 bin：[`../bin/sms_api.py`](../../bin/sms_api.py)＋[`../bin/sms_formats.py`](../../bin/sms_formats.py)（sms-api formats/detect/show/validate/export，claude SKILL.md·claude-code CLAUDE.md·OpenAI 全系接口）。
-- [`agent_stream.py`](agent_stream.py) / [`gateway.py`](gateway.py) / [`shell_core.py`](shell_core.py)：数据流引擎——优先原生网关（config `llm_gateway`：OpenAI 兼容 base_url+key+model，对话/工具循环/视觉附图零 CLI 依赖，`gateway.py ask|models|doctor|image` 可单测），否则检测已装 agent CLI（claude/codex 等，`agent_cli` 可增改），每次输入＝新开对话：前置 skill_manage_system 指令＋[chains](chains.py) 压缩记忆块，输出结束收口记会话/对话/时间链，未检出即拒绝（本体不作答），状态存 `<SMS_HOME>/shell/`；路由引擎——任意话语直达 agent、个性化指令自动展开、`:` 元指令（agents/use/skill/image/cmds/intent/alias/unalias/hud/deploy/session/grant/dream/help/quit）治理。
-- [`shell_tui.py`](shell_tui.py) / [`shell_gui.py`](shell_gui.py)：TUI 前端（免图形服务器，pwsh/bash/zsh 式即时对话，readline 历史+Tab 补全含个性化指令名）；GUI 前端（PySide6 窗口终端，QTextEdit 只读输出+QLineEdit 输入，QThread 流式回填不卡窗，关窗即退）。
+- [`shell.py`](shell.py) / [`shell_tui.py`](shell_tui.py) / [`shell_gui.py`](shell_gui.py)：sms-shell 入口（PySide6 可导入且有图形服务器→GUI，否则 TUI，`--tui/--gui` 强制，探测失败自动回退；bin 复制独立可用＝[`../bin/sms-shell`](../../bin/sms-shell)·`sms-shell.cmd` 经 [`../bin/locate.py`](../../bin/locate.py) 相邻→SMS_SKILL→sms_skill 三级定位）；TUI 即时对话（readline 历史＋Tab 补全含个性化指令名）；GUI 窗口终端（QTextEdit 只读输出＋QLineEdit 输入，QThread 流式回填，关窗即退）；格式 API 亦在 bin：[`../bin/sms_api.py`](../../bin/sms_api.py)＋[`../bin/sms_formats.py`](../../bin/sms_formats.py)（formats/detect/show/validate/export，claude SKILL.md·claude-code·OpenAI 全系）。
+- [`settings.py`](settings.py) / [`model_meta.py`](model_meta.py) / [`web_certs.py`](web_certs.py) / [`net_util.py`](net_util.py) / [`ext_net.py`](ext_net.py) / [`web_shell.py`](web_shell.py) / [`external.py`](external.py)：配置系统——dot-path 读写用户配置（DEFAULTS＝[../config/settings.default.json](../config/settings.default.json) 深合并保兼容、api_key 恒掩码、变更记 event 链、契约 [../schemas/settings.schema.json](../schemas/settings.schema.json)），链设置 chains.<链>（enabled/merge_thr/prune_days/min_freq，chain_store 与 dream 联动）、模型参数 llm_gateway.temperature/top_p 随请求下发；model_meta 自动抓上游模型 Token/上下文长度/RPM（/models 扩展字段＋x-ratelimit 探测）缓存 `<SMS_HOME>/config/models.json`（source 如实标注）；web_shell 本地加密网页壳——127.0.0.1 TLS 自签指纹证书（web_certs）＋配对 token（常时比较·Host 防重绑定），页面 [web_page.html](web_page.html) 对话/配置/链/模型/网络五区，`:config/:web/:ext` 元指令同径；external 对外端口默认关闭——`enable --yes` 当轮确认，ext_net ML-DSA-65（FIPS 204，退回 ed25519 明示，strict 无 PQ 拒启）enroll 指纹＋nonce 挑战验签→Bearer TTL token→仅 /api/chat，失败限速封禁记 event 链，跨网推荐 SSH 隧道（resistance #18）。
+- [`agent_stream.py`](agent_stream.py) / [`gateway.py`](gateway.py) / [`shell_core.py`](shell_core.py)：数据流引擎——优先原生网关（config `llm_gateway`：OpenAI 兼容 base_url+key+model·temperature·top_p，对话/工具循环/视觉附图零 CLI 依赖，`gateway.py ask|models|doctor|image` 可单测；model_meta 到期自动重抓上游元数据），否则检测已装 agent CLI（claude/codex 等，`agent_cli` 可增改），每次输入＝新开对话：前置 skill_manage_system 指令＋[chains](chains.py) 压缩记忆块，输出结束收口记会话/对话/时间链，未检出即拒绝（本体不作答），状态存 `<SMS_HOME>/shell/`；路由引擎——任意话语直达 agent、个性化指令自动展开、`:` 元指令（agents/use/skill/image/cmds/intent/alias/unalias/hud/deploy/session/grant/dream/config/web/ext/help/quit）治理。
 - [`locality.py`](locality.py) / [`debate.py`](debate.py)：检查用户时区与地区（tz/locale/region）→ registry/locality.json；对论断生成 pro/con 正反双链 + verdict → sessions/<日期>/debate.json。
 - [`commands.py`](commands.py) / [`user_commands.py`](user_commands.py)：命令系统 help/intent/show/use，汇总内置/skill 接口/个性化指令 → registry/commands.json，alias/unalias/hud/deploy/shell/temp/sandbox/privacy 路由转发；个性化指令——自定义格式（名称/描述/arg_names/步骤模板）存 `<SMS_HOME>/commands/user_commands.json`，步骤前缀 `script:`（调 SMS 脚本，写盘仍经 emit 门控）/`delegate:`（必回 SMS 派发，如 `delegate:Skill_Generator 修改 {skill}` 实现 skill-update 迭代）/`say:`，`{arg}`/`{args}` 占位展开（script 步骤按 token 传参，Windows 路径与含空格值不破坏），run 逐步执行。
 - [`deploy.py`](deploy.py)：部署＝仅把 bin 启动·API 文件（sms-shell·sms-api·locate.py·sms_api.py·sms_formats.py）复制到用户指定路径，绝不整包复制 skill（位置参数目录，或命名参数 `--Path P [--NewFolder Yes] [--FolderName F]`＝init 语义，flag 大小写不敏感、值保真；同时登记源安装路径到用户配置 `sms_skill` 供 [../bin/locate.py](../../bin/locate.py) 回源定位；默认预览，`--write` 且 grant write 才执行）。
@@ -40,7 +40,7 @@
 
 ## 数据契约
 
-见 [`../schemas/`](../schemas/register.schema.json)：register / interfaces / connections / session / [chains](../schemas/chains.schema.json) / task / process / scheduler / memory / trust / error / locality / debate / commands / sandbox / privacy / deps / [user_commands](../schemas/user_commands.schema.json)。
+见 [`../schemas/`](../schemas/register.schema.json)：register / interfaces / connections / session / [chains](../schemas/chains.schema.json) / task / process / scheduler / memory / trust / error / locality / debate / commands / sandbox / privacy / deps / [user_commands](../schemas/user_commands.schema.json) / [settings](../schemas/settings.schema.json)。
 
 ## 运行约定
 

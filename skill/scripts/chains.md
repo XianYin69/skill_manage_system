@@ -24,6 +24,10 @@
 - 一次做梦：跨链合并近义碎片 → 修剪陈旧低频（knowledge 钉选除外）→ 重建 `chains/retrieval.md` → 高频 knowledge 同步 `memory.json` 钉选 → 审计对话开-收口与子会话悬挂（`chains/violations.md`）→ skill_errors≥3 记升级事件（user_commands `skill-update`→Skill_Generator 修改路径，实现所有 skill 自动迭代）→ event 链留痕。
 - 手动：`python dream.py run|maybe|status [--sync]`。
 
+## 各链与做梦设置（config 段 chains / dream，settings.py 统一改）
+
+- `chains.<链>` 覆盖 `chains.default{enabled, merge_thr, prune_days, min_freq}`：enabled=false 停写该链（chain_store 建库时读取、add 拒绝并提示恢复命令），merge/修剪按链取阈值与天数；`dream.enabled`／`dream.interval_min` 控制做梦（旧键 dream_interval_min 兼容）；knowledge 钉选链不参与修剪停用。改法：`python -B settings.py set chains.tool_call.enabled false`、壳内 `:config set ...`、或网页壳「链设置」区；每次变更记 event 链（契约 [../schemas/settings.schema.json](../schemas/settings.schema.json)）。
+
 ## 目标
 
 每次发送大模型的记忆链＝简短而精准的碎片 Top-K（向量定位＋频次加权＋语义邻域），配合每输入新对话隔离，保证输出快且准。

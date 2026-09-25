@@ -19,8 +19,15 @@
     "model": "auto",
     "max_tokens": 1024,
     "timeout": 120,
-    "comment": "SMS 原生对话引擎（scripts/gateway.py，OpenAI 兼容 /chat/completions·/models，含 tools 工具循环与 base64 视觉附图）：enabled=true 时 sms-shell 默认走网关、无需 agent CLI；密钥建议用 api_key_env 指向环境变量；shell :use <cli> 可切回 CLI 适配器"
+    "temperature": null,
+    "top_p": null,
+    "comment": "SMS 原生对话引擎（scripts/gateway.py，OpenAI 兼容 /chat/completions·/models，含 tools 工具循环与 base64 视觉附图）：enabled=true 时 sms-shell 默认走网关、无需 agent CLI；密钥建议用 api_key_env 指向环境变量；temperature/top_p＝模型参数（null 用上游默认）；shell :use <cli> 可切回 CLI 适配器；全量配置经 :config 或 web_shell 页面"
   },
+  "model_meta": { "auto_refresh": true, "refresh_interval_min": 720, "comment": "上游模型 Token/上下文/RPM 自动抓取（model_meta.py）→ <SMS_HOME>/config/models.json；defaults 兜底见 config/settings.default.json" },
+  "chains": { "default": { "enabled": true, "merge_thr": 0.92, "prune_days": 14, "min_freq": 1 }, "comment": "各链设置 chains.<链>.<键> 覆盖 default；enabled=false 停写该链；knowledge 钉选不修剪" },
+  "dream": { "enabled": true, "interval_min": 360, "comment": "做梦开关·间隔（分钟），旧键 dream_interval_min 兼容" },
+  "web_shell": { "enabled": true, "host": "127.0.0.1", "port": 8737, "comment": "本地加密网页壳（web_shell.py）：HTTPS 自签指纹证书＋配对 token；:web start|stop|token" },
+  "external": { "enabled": false, "interface": "0.0.0.0", "port": 8738, "pq_mode": "auto", "session_ttl_min": 240, "max_fail_per_min": 5, "comment": "对外端口（external.py）默认关；enable --yes 才开；ML-DSA-65 指纹证书挑战验签＋限速；strict＝无 PQ 拒启；推荐 SSH 隧道（:ext tunnel）" },
   "permissions_default": {
     "read": true,
     "write": false,
