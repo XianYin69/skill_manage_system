@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
-"""shell_core.py — sms-shell 共享路由引擎（TUI/GUI 前端通用）：像对系统说话一样——任意话语默认直达原生网关（agent_stream→gateway，OpenAI 兼容直连·流式、不经外部 agent CLI；本体不作答）；输入命中个性化指令名（user_commands）则展开执行；`:` 元指令仅做治理（切回退 agent、开关技能前缀、指令系统、api/deploy/session/grant 等）。"""
-import os, sys, subprocess, shlex
+"""shell_core.py — sms-shell 共享路由引擎（TUI/GUI 前端通用）：像对系统说话一样——任意话语默认直达原生网关（agent_stream→gateway，OpenAI 兼容直连·流式、不经外部 agent CLI；本体不作答）；输入命中个性化指令名（user_commands）则展开执行；问 SMS 自身设置/命令则确定性自管理路由（不经大模型）；`:` 元指令仅做治理（切回退 agent、开关技能前缀、指令系统、api/deploy/session/grant 等）。"""
+import os, sys, subprocess, shlex, re
 S = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, S)
 import agent_stream as ag
 SMS = ag.SMS
 HELP = ("直接输入任何话语＝交给系统（默认原生网关直连·流式）· 命中个性化指令名则展开执行\n"
-        ":agents 看/选回退 CLI · :use <name> · :skill on|off 技能前缀 · :cmds [name] · :intent <话语> · :alias/:unalias 个性化指令\n"
-        ":hud session|step|alert|hide · :deploy <dir|--Path P --FolderName F>（部署＝仅复制 bin 文件） · :session \"<任务>\" · :grant <键|角色> [分钟] · :api formats|detect|show|validate|export（格式 API·原 sms-api） · :dream status|run · :image <文件> 附下一话语图片 · :config status|get|set · :web start|stop|token · :ext status|enable|enroll · :net search|fetch|download|status（firefox lite 内核·须 grant net）· :tts say|test|on|off|voices（阿林娜 alina 朗读）· :learn from-url|note|recall|distill|stats · :file read|write|list|copy|move|delete|stat · :path resolve|which|glob|tree|env · :quit")
+        ":agents 看/选回退 CLI · :use <name> · :skill on|off 技能前缀 · :cmds [name] · :intent <话语> · :alias/:unalias 个性化指令 · :hud session|step|alert|hide · :deploy <dir|--Path P --FolderName F>（部署＝仅复制 bin 文件） · :session \"<任务>\" · :grant <键|角色> [分钟] · :api formats|detect|show|validate|export（格式 API·原 sms-api） · :dream status|run · :image <文件> 附下一话语图片 · :config status|show|get|set 设置系统（<SMS_HOME>/config/config.json） · :web start|stop|token · :ext status|enable|enroll · :net search|fetch|download|status（firefox lite 内核·须 grant net）· :tts say|test|on|off|voices（阿林娜 alina 朗读）· :learn from-url|note|recall|distill|stats · :file read|write|list|copy|move|delete|stat · :path resolve|which|glob|tree|env · :quit · 系统原生用法：sms-shell <话语|:元指令> 单发执行即退")
 def banner():
-    return "sms-shell · SMS_HOME=" + SMS + " · 当前 agent：" + (ag.current() or "未检出（:agents 查看）") + " · 技能前缀：" + ("on" if ag.prefix_on() else "off")
+    return "sms-shell · SMS_HOME=" + SMS + " · 当前 agent：" + (ag.current() or "未检出（:agents 查看）") + " · 技能前缀：" + ("on" if ag.prefix_on() else "off") + " · 设置系统：:config status|show|get|set · 原生用法：系统 shell 里 sms-shell <话语|:元指令> 单发执行即退"
 def run_script(name, args):
     p = subprocess.run([sys.executable, "-B", os.path.join(S, name)] + list(args), capture_output=True, text=True, encoding="utf-8", errors="replace")
     return (p.stdout or p.stderr).strip() or "(无输出)"
@@ -43,6 +42,7 @@ def handle(line, on_line):
     except ValueError: parts = line.split()
     if user_commands.find(user_commands.load(SMS), parts[0]):
         on_line(run_script("user_commands.py", ["run"] + parts)); return None
+    if re.search(r"(?i)\bsms\b|sms[\s\-]*shell", line) and re.search("设置|配置|命令|指令|config", line): on_line("SMS 壳自管理（确定性路由·不经大模型）：设置系统＝:config status|show|get <dot.path>|set <path> <json>（配置存 <SMS_HOME>/config/config.json·api_key 恒掩码）· 命令汇总＝:cmds · 元指令全表＝:help · 系统原生单发＝sms-shell \":config show\""); return None
     line2 = line + ("\n[图:" + IMG[0] + "]" if IMG else "")
     if IMG: IMG.clear()
     ag.ask(line2, on_line); return None

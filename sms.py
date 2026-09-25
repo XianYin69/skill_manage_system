@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""sms.py — 根入口程序（Windows/macOS/Linux，纯标准库）：①开箱即用：解析/创建 SMS_HOME、播种用户配置、红线自检（失败即停）；②依赖嗅探与修补（含做梦机制状态）：python/PySide6/git/agent CLI 逐项报告，注册表产物缺失或 --rebuild 时重建（emit 门控），--install-deps 经同意才 pip 装 PySide6；③引导至 CLI：交棒 skill/scripts/shell.py（--gui/--tui 透传）。用法：python sms.py [doctor|shell] [--rebuild] [--install-deps] [shell 参数…]；doctor 只诊断不启动。"""
+"""sms.py — 根入口程序（Windows/macOS/Linux，纯标准库）：①开箱即用：解析/创建 SMS_HOME、播种用户配置、红线自检（失败即停）；②依赖嗅探与修补（含做梦机制状态）：python/PySide6/git/agent CLI 逐项报告，注册表产物缺失或 --rebuild 时重建（emit 门控），--install-deps 经同意才 pip 装 PySide6；③引导至 CLI：交棒 bin/sms-shell 原生启动器（cmd/sh→PowerShell DOS TUI，零 python；--gui/--tui 透传后由壳内回退调 skill/scripts/shell.py）。用法：python sms.py [doctor|shell] [--rebuild] [--install-deps] [shell 参数…]；doctor 只诊断不启动。"""
 import importlib.util, json, os, shutil, subprocess, sys, time
 ROOT = os.path.dirname(os.path.abspath(__file__))
 S = os.path.join(ROOT, "skill", "scripts")
@@ -42,9 +42,10 @@ def main():
         print("[2/3]", ln)
     if "doctor" in argv:
         sys.exit(0)
-    print("[3/3 引导至 CLI] 启动 sms-shell（--gui/--tui 可强制前端）…")
+    print("[3/3 引导至 CLI] 启动原生 sms-shell（系统 shell 内运行·DOS 风格 TUI·壳本体零 python；--gui/--tui 透传回退 Python 前端）…")
     args = [a for a in argv if a not in ("doctor", "--rebuild", "--install-deps")]
-    sys.exit(subprocess.call([sys.executable, "-B", os.path.join(S, "shell.py"), *args], cwd=ROOT))
+    e = os.path.join(ROOT, "bin", "sms-shell.cmd" if os.name == "nt" else "sms-shell")
+    sys.exit(subprocess.call(subprocess.list2cmdline([e] + args), cwd=ROOT, shell=True) if os.name == "nt" else subprocess.call(["sh", e, *args], cwd=ROOT))
 
 if __name__ == "__main__":
     main()

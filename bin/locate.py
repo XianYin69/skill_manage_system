@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""locate.py — bin 统一启动定位器（sms-shell 与格式 API 已合并为本入口）：部署＝把 bin 内文件复制到任意指定路径后，本文件负责找回源安装的 skill_manage_system——1) 相邻安装（../skill/scripts/shell.py，兼容旧 ../scripts/shell.py）2) env SMS_SKILL 3) <SMS_HOME>/config/config.json 的 sms_skill（SMS_HOME：env → %LOCALAPPDATA%|~/Library/Caches|~/.cache 下 SMS → ~/SMS）；首参 api → 格式 API（原 sms-api 命令面），其余以 shell.py 为 __main__ 运行，参数原样透传。"""
+"""locate.py — python 回退启动定位器（主前端＝原生 PowerShell DOS TUI sms_shell.ps1·零 python；本文件仅在 PowerShell 缺失、--gui/--tui 强制、或首参 api＝格式 API 时被 sms-shell(.cmd) 调起）：部署＝把 bin 内文件复制到任意指定路径后，本文件负责找回源安装的 skill_manage_system——1) 相邻安装（../skill/scripts/shell.py，兼容旧 ../scripts/shell.py）2) env SMS_SKILL 3) <SMS_HOME>/config/config.json 的 sms_skill（SMS_HOME：env → %LOCALAPPDATA%|~/Library/Caches|~/.cache 下 SMS → ~/SMS）；首参 api → 格式 API（原 sms-api 命令面），其余以 shell.py 为 __main__ 运行，参数原样透传。"""
 import os, sys, json, runpy
 for s in (sys.stdout, sys.stderr):
     try: s.reconfigure(encoding="utf-8", errors="replace")

@@ -6,7 +6,7 @@ import resolve_home, chains, dream, gateway, model_meta, tts
 SMS = resolve_home.ensure()
 STATE = os.path.join(SMS, "shell")
 ADAPTERS = {"claude": {"bin": "claude", "args": ["-p"]}, "codex": {"bin": "codex", "args": ["exec"]}, "cursor": {"bin": "cursor-agent", "args": []}, "kilocode": {"bin": "kilocode", "args": ["run"]}, "kilo": {"bin": "kilo", "args": ["run"]}, "aider": {"bin": "aider", "args": ["--message"]}}
-SKILL_DIRECTIVE = "使用 skill_manage_system 技能完成本请求（SMS 只调取·管理技能并整合结果、不得以模型知识代答）；以下已按规则开新对话并附压缩记忆。原始请求："
+SKILL_DIRECTIVE = "本请求经 skill_manage_system（SMS）治理：SMS 只调取与管理技能及其副产物，不得以模型自身常识代答（勿扯 Android/adb/其它无关软件）；问到 sms-shell 设置/命令/配置时，先经 exec 工具执行 settings.py show 或 commands.py help 查证，再据实作答。"
 def adapters():
     extra = {k: v for k, v in (resolve_home.conf(SMS).get("agent_cli") or {}).items() if not k.startswith("_") and isinstance(v, dict)}
     out = dict(ADAPTERS, **extra)
@@ -29,7 +29,7 @@ def ask(text, on_line):
     spec = adapters()[ag]; conv = chains.session_id(); chains.record("session", "open:" + conv)
     want = _state("current_agent")
     if want and want != ag and not spec.get("native"): on_line("注意：所选 agent " + want + " 未检出，本次经 " + ag + " 执行（:agents 查看）")
-    body = text if not prefix_on() else SKILL_DIRECTIVE + "\n" + chains.conversation(text)
+    body = text if not prefix_on() else chains.conversation(text + "\n\n[" + SKILL_DIRECTIVE + "]")
     chains.record("dialogue", "user@" + conv + " " + text[:200]); rc = 0
     if spec.get("native"):
         bl = body.split("\n"); imgs = None

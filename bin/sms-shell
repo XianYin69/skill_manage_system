@@ -1,4 +1,12 @@
 #!/bin/sh
-# sms-shell — POSIX 启动入口（合并版）：普通参数＝交互壳（GUI/TUI），首参 api＝格式 API（原 sms-api，命令面不变）；部署＝把本 bin 的文件复制到指定路径；locate.py 三级定位回源安装的 skill_manage_system
+# sms-shell 原生启动器（POSIX）：壳本体在系统 shell 中运行——有 PowerShell（pwsh/powershell）即用 bin/sms_shell.ps1 DOS 风格 TUI（零 python；参数合并为单串传入）；首参 api 或无 PowerShell 时回退 python 引擎（locate.py）。部署＝把 bin 全部文件复制到目标路径。
+D=$(dirname "$0")
+if [ "${1:-}" = "api" ]; then export PYTHONUTF8=1 PYTHONIOENCODING=utf-8; exec python3 -B "$D/locate.py" "$@"; fi
+for PS in pwsh powershell; do
+  if command -v "$PS" >/dev/null 2>&1; then
+    if [ "$#" -eq 0 ]; then exec "$PS" -NoProfile -ExecutionPolicy Bypass -File "$D/sms_shell.ps1"; fi
+    exec "$PS" -NoProfile -ExecutionPolicy Bypass -File "$D/sms_shell.ps1" "$*"
+  fi
+done
 export PYTHONUTF8=1 PYTHONIOENCODING=utf-8
-exec python3 -B "$(dirname "$0")/locate.py" "$@"
+exec python3 -B "$D/locate.py" "$@"
