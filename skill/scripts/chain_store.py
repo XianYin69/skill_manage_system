@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """chain_store.py — 十一链（用户/记忆/逻辑/时间/事件/会话/调用skill/调用工具/子会话/对话/钉选knowledge）碎片存储层：每条链为 JSON 碎片（语句化/最小化），含向量（64 维哈希投影，语句指向）、频次（使用计数）、边（语义/时间/因果/引用，树形·神经网络型）。数据 <SMS_HOME>/chains/<链>/<id>.json；纯标准库、零依赖。"""
-import os, json, re, time, math, hashlib
+import os, sys, json, re, time, math, hashlib; sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import chains_git
 def _toks(s):
     s = s.lower(); return re.findall(r"[a-z0-9]+", s) + [a + b for a, b in zip(s, s[1:]) if "\u4e00" <= a <= "\u9fff" and "\u4e00" <= b <= "\u9fff"]
 def vec(t):
@@ -9,9 +9,9 @@ def vec(t):
     n = math.sqrt(sum(q * q for q in v)) or 1.0; return [round(q / n, 4) for q in v]
 def cos(a, b): return sum(x * y for x, y in zip(a, b))
 def _ld(p): return json.load(open(p, encoding="utf-8"))
-def _wj(p, d): json.dump(d, open(p, "w", encoding="utf-8"), ensure_ascii=False)
+def _wj(p, d): json.dump(d, open(p, "w", encoding="utf-8"), ensure_ascii=False); chains_git.touch()
 class Store:
-    def __init__(self, sms): self.root = os.path.join(sms, "chains")
+    def __init__(self, sms): self.root = os.path.join(sms, "chains"); chains_git.ensure(self.root)
     def _p(self, c, fid): return os.path.join(self.root, c, fid + ".json")
     def _cof(self, fid): return next((c for c in (sorted(os.listdir(self.root)) if os.path.isdir(self.root) else []) if os.path.exists(self._p(c, fid))), None)
     def add(self, chain, text, edges=None):
@@ -29,7 +29,7 @@ class Store:
         if c: d = _ld(self._p(c, fid)); d["freq"] += 1; _wj(self._p(c, fid), d)
         return bool(c)
     def remove(self, fid):
-        return next((os.remove(self._p(c, fid)) or True for c in (self._cof(fid),) if c), None)
+        return next((os.remove(self._p(c, fid)) or chains_git.touch() or True for c in (self._cof(fid),) if c), None)
     def link(self, a, b, rel="semantic", w=1.0):
         c = self._cof(a)
         if c:

@@ -1,4 +1,4 @@
-# 十一链记忆体系（chain_store / chains / prompt_pack / dream）
+# 十一链记忆体系（chain_store / chains / chains_git / prompt_pack / dream）
 
 十一链：user 用户链 · memory 记忆链 · knowledge 钉选链 · logic 逻辑链 · time 时间链 · event 事件链 · session 会话链 · skill_call 调用skill链 · tool_call 调用工具链 · subsession 子会话链 · dialogue 代理对话链。
 
@@ -6,6 +6,7 @@
 
 - 碎片＝语句化·最小化 JSON：`{"id","chain","ts","text","vec","freq","edges"}`，存 `<SMS_HOME>/chains/<链>/<id>.json`，禁止入 skill 目录。
 - 向量 `vec`：64 维哈希投影（语句指向，纯 stdlib）；数值 `freq`：检索命中自动 +1（使用频次）；边 `edges`：`[目标id, 关系, 权重]`，关系∈semantic/temporal/causal/ref（树形·神经网络型语义关系）。
+- 所有链必须 git 管理（chains_git.py，2026-09-25 用户红线）：首次触链自动 `git init <SMS_HOME>/chains` 并把既有全部链导入首笔提交；之后任何链写入防抖 5 秒自动 commit、进程退出兜底 flush；git 缺失静默降级不阻断记录。手动：`python chains_git.py status|log [n]`。
 
 ## 记录与对话隔离（chains.py）
 

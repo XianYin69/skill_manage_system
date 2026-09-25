@@ -1,6 +1,6 @@
 # scripts（脚本库）
 
-本目录存放 SMS 的可执行脚本：路径解析、写盘门控、注册、打包、连接、会话、任务、进程、权限、并发调度、记忆与缓存清理、十一链记忆·提示词压缩·做梦、上下文自动压缩、安装同步与信任链。
+本目录存放 SMS 的可执行脚本：路径解析、写盘门控、注册、打包、连接、会话、任务、进程、权限、并发调度、记忆与缓存清理、十一链记忆（链数据 git 管理）·提示词压缩·做梦、上下文自动压缩、安装同步与信任链。
 
 ## 应存什么
 
@@ -16,7 +16,7 @@
 - [`register.py`](register.py)：扫描技能安装位置与所用工具（默认根 = 用户 config 的 scan_roots；顶层 `SKILL.md` 或工具式嵌套 `skill/SKILL.md` 均登记，entry 记相对路径）→ register.json。
 - [`pack.py`](pack.py) / [`connect.py`](connect.py)：描述技能用途与接口 → interfaces.json；生成技能间上下文连接 → connections.json。
 - [`deps.py`](deps.py) / [`deps_scan.py`](deps_scan.py)：依赖库 deps.json——deps_scan 以 AST 扫各技能 .py import 出「关联 python」（module→pip 发行名→安装状态，剔标准库/自带模块）；deps 于 .md 提及其他注册技能出「关联 skill」（独立于→independent，委托/依赖/调用→depends，其余 related，附证据片段）。
-- [`session.py`](session.py)：建立 `sessions/<日期>/` 五元组，并同步登记十一链（time/event/user）；十一链记忆体系（chain_store/chains/prompt_pack/dream）详见 [chains.md](chains.md)。
+- [`session.py`](session.py)：建立 `sessions/<日期>/` 五元组，并同步登记十一链（time/event/user）；十一链记忆体系（chain_store/chains/chains_git/prompt_pack/dream，链数据 git 管理）详见 [chains.md](chains.md)。
 - [`task.py`](task.py) / [`process.py`](process.py)：任务拆分·理解·整合 → task.json；进程式注册生命周期 spawn/run/suspend/resume/kill → processes.json。
 - [`permissions.py`](permissions.py)：权限 grant/deny/check/audit——支持角色批量（readonly/worker/net/privacy/secrets/admin）与 TTL 分钟到期自动失效；键含敏感 vault（凭据明文）/verify(验证协助)，审计留痕。
 - [`privacy.py`](privacy.py)：背景隐私采集 collect/notice/open：须 `grant privacy` 用户授权才可采集；每笔更新 NOTICE.md 告知用户；数据混淆+掩码+矩阵变换后存 `<SMS_HOME>/privacy/`；解密须 privacy+write 且写明必要理由并记审计。
