@@ -1,7 +1,13 @@
 #!/bin/sh
-# sms-shell 原生启动器（POSIX）：壳本体在系统 shell 中运行——有 PowerShell（pwsh/powershell）即用 bin/sms_shell.ps1 DOS 风格 TUI（零 python；参数合并为单串传入）；首参 api 或无 PowerShell 时回退 python 引擎（locate.py）。部署＝把 bin 全部文件复制到目标路径。
+# sms-shell launcher (POSIX): python sms-shell.py (Textual TUI preferred); fallback ps1 native DOS TUI; api or no python -> locate.py.
 D=$(dirname "$0")
-if [ "${1:-}" = "api" ]; then export PYTHONUTF8=1 PYTHONIOENCODING=utf-8; exec python3 -B "$D/locate.py" "$@"; fi
+if [ "${1:-}" = "api" ]; then
+  export PYTHONUTF8=1 PYTHONIOENCODING=utf-8
+  exec python -B "$D/locate.py" "$@"
+fi
+if command -v python >/dev/null 2>&1; then
+  PYTHONUTF8=1 PYTHONIOENCODING=utf-8 exec python -B "$D/sms-shell.py" "$@"
+fi
 for PS in pwsh powershell; do
   if command -v "$PS" >/dev/null 2>&1; then
     if [ "$#" -eq 0 ]; then exec "$PS" -NoProfile -ExecutionPolicy Bypass -File "$D/sms_shell.ps1"; fi
@@ -9,4 +15,4 @@ for PS in pwsh powershell; do
   fi
 done
 export PYTHONUTF8=1 PYTHONIOENCODING=utf-8
-exec python3 -B "$D/locate.py" "$@"
+exec python -B "$D/locate.py" "$@"

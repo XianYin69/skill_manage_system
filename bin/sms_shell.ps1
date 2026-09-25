@@ -6,24 +6,30 @@ $script:IMG = $null
 $sink = { param($t) Write-Host -NoNewline $t }
 Import-Module PSReadLine -ErrorAction SilentlyContinue
 $HAS_PSL = [bool](Get-Module PSReadLine)
+$script:RLERR = ''
 function Read-Line {
+  if ($HAS_PSL) { try { return [Microsoft.PowerShell.PSConsoleReadLine]::ReadLine('') } catch { $script:RLERR = 'PSReadLine: ' + $_.Exception.Message } }
   if ([Console]::IsInputRedirected) { return [Console]::ReadLine() }
-  if ($HAS_PSL) { try { return [Microsoft.PowerShell.PSConsoleReadLine]::ReadLine('') } catch { } }
-  try { return (Read-Host '') } catch { return $null }
+  try { $l = (Read-Host ''); return $l } catch { $script:RLERR = 'Read-Host: ' + $_.Exception.Message; return $null }
 }
-$pos = @($Rest | Where-Object { $_ -notlike '--*' })
-$flags = @($Rest | Where-Object { $_ -like '--*' })
-if ($flags -contains '--gui' -or $flags -contains '--tui') { Run-Engine 'shell.py' $Rest; ChainsGit; exit $LASTEXITCODE }
+$pos = @($Rest | Where-Object { $_ -and $_ -notlike '--*' })
+$flags = @($Rest | Where-Object { $_ -and $_ -like '--*' })
+if ($flags -contains '--gui' -or $flags -contains '--tui') { Run-Engine 'shell.py' $pos; ChainsGit; exit $LASTEXITCODE }
 if ($pos.Count -gt 0) {
-  if (($pos[0]).ToLower() -eq 'api') { Run-Engine 'api.py' @($pos | Select-Object -Skip 1); exit $LASTEXITCODE }
+  if ($pos[0].ToLower() -eq 'api') { Run-Engine 'api.py' @($pos | Select-Object -Skip 1); exit $LASTEXITCODE }
   Handle-Line ($pos -join ' ') $sink | Out-Null; ChainsGit; exit 0
 }
 Init-Dos; Show-Banner
+$nulls = 0
 try {
   while ($true) {
     Write-Host -ForegroundColor White 'sms>' -NoNewline; Write-Host ' ' -NoNewline
     $line = Read-Line
-    if ($null -eq $line) { Write-Host ''; break }
+    if ($null -eq $line) {
+      if ($nulls -ge 1 -and -not [Console]::IsInputRedirected) { Write-Host ''; Write-Dim ('输入通道结束（' + $script:RLERR + '）·退出；可改用 Read-Host 模式或重开窗口'); break }
+      $nulls++; if ([Console]::IsInputRedirected) { Write-Host ''; break } else { continue }
+    }
+    $nulls = 0
     if (-not $line.Trim()) { continue }
     if ((Handle-Line $line $sink) -eq 'exit') { break }
   }
