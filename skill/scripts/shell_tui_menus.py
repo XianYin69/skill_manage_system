@@ -18,12 +18,18 @@ class Menus:
         if not sel: return
         ta = self.query_one("#input")
         if sel.startswith("call:"): ta.text = "请经 SMS 调用技能 " + sel[5:] + " 处理："; ta.focus()
+        elif sel.startswith("#"): getattr(self, "action_" + sel[1:])()
         elif sel.startswith(":"): self.submit(sel)
         else: ta.text = sel + " "; ta.focus()
-    def action_menu_main(self): self.menu("sms-shell 菜单（↑↓ 选择 · Enter 执行 · Esc 关闭）", [(":agents","查看/选择数据流 agent"),(":config status","配置系统状态"),(":cmds","命令总表"),(":session list","会话任务"),(":deploy ","部署＝仅复制 bin 到目录"),(":grant ","权限授予 <键|角色>"),(":api formats","格式 API"),(":dream run","做梦整理链"),(":hud session","HUD 浮窗"),(":tts status","TTS 朗读状态"),(":help","全部元指令说明")])
+    def action_config(self):
+        from shell_tui_config import Config
+        self.push_screen(Config(), self._cfg_picked)
+    def _cfg_picked(self, path):
+        if path: self.query_one("#input").text = ":config get " + path; self.query_one("#input").focus()
+    def action_menu_main(self): self.menu("sms-shell 菜单（↑↓ 选择 · Enter 执行 · Esc 关闭）", [("#config","图形化配置：方向键·字母过滤·空格改值·Shift+Tab 编辑"),(":agents","查看/选择数据流 agent"),(":config status","配置状态（文本）"),(":cmds","命令总表"),(":session list","会话任务"),(":deploy ","部署＝仅复制 bin 到目录"),(":grant ","权限授予 <键|角色>"),(":api formats","格式 API"),(":dream run","做梦整理链"),(":hud session","HUD 浮窗"),(":tts status","TTS 朗读状态"),(":help","全部元指令说明")])
     def action_menu_skill(self): self.menu("托管技能（Enter＝填入调用语句，回车经路由真调 skill_call）", [("call:" + str(s.get("id")), "%s｜%s" % (s.get("id"), str(s.get("description") or "")[:24])) for s in skill_route.skills()] or [(":cmds","注册表为空：先跑 register.py")])
     def agents_menu(self): self.menu("数据流 agent（Enter 切换）", [(":use " + n, "切到 " + n) for n in core.ag.detected()] or [(":agents","未检出 agent（:agents 查看）")])
     def action_agents_menu(self): self.agents_menu()
     def action_help_cmd(self): self.log_line(Text(core.HELP))
-    def action_clear_log(self): self.query_one("#log", LogRef).clear(); self.log_line(Text(core.banner(), style="bold cyan"))
+    def action_clear_log(self): r = self.query_one("#log"); r.clear(); self.log_line(Text(core.banner(), style="bold cyan"))
     def action_exit_app(self): self.exit()
