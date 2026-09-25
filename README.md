@@ -5,7 +5,7 @@
 ## 结构
 
 - 根 [`sms.py`](sms.py)＋[`sms`](sms)/[`sms.cmd`](sms.cmd)：跨 OS（Win/macOS/Linux）入口程序——**开箱即用**（建 SMS_HOME、播种配置、红线自检）→**依赖嗅探与修补**（PySide6/git/agent CLI，`--rebuild` 重建注册表、`--install-deps` 经同意装 PySide6）→**引导至 CLI**（交棒 sms-shell）；`sms.py doctor` 只诊断不启动。
-- [`skill/`](skill/SKILL.md)：工具全部层——[SKILL.md](skill/SKILL.md)（YAML frontmatter 入口）、[AGENTS.md](skill/AGENTS.md)（入口红线镜像，redlines.py 机械断言）、[agent/](skill/agent/CLAUDE.md)（四格式提示词）、[scripts/](skill/scripts/scripts.md)（引擎，44 脚本 ≤50 行；十一链记忆体系见 [chains.md](skill/scripts/chains.md)）、[schemas/](skill/schemas/register.schema.json)（19 份 JSON 契约）、[config/](skill/config/config.example.json)（模板，真实 config 首读播种到 `<SMS_HOME>/config/`）、[resistance/](skill/resistance/resistance.md)（红线，不得删改）、[sub_skills/](skill/sub_skills/skill_register/SKILL.md)（五个子技能）。
+- [`skill/`](skill/SKILL.md)：工具全部层——[SKILL.md](skill/SKILL.md)（YAML frontmatter 入口）、[AGENTS.md](skill/AGENTS.md)（入口红线镜像，redlines.py 机械断言）、[agent/](skill/agent/CLAUDE.md)（四格式提示词）、[scripts/](skill/scripts/scripts.md)（引擎，53 脚本 ≤50 行；十一链记忆体系见 [chains.md](skill/scripts/chains.md)）、[schemas/](skill/schemas/register.schema.json)（20 份 JSON 契约）、[config/](skill/config/config.example.json)（模板，真实 config 首读播种到 `<SMS_HOME>/config/`）、[resistance/](skill/resistance/resistance.md)（红线，不得删改）、[sub_skills/](skill/sub_skills/skill_register/SKILL.md)（五个子技能）。
 - [`bin/`](bin/sms-shell)：交互入口部署包＝sms-shell(.cmd)＋[locate.py](bin/locate.py)（相邻→SMS_SKILL→sms_skill 三级定位回源）＋格式 API sms-api(.cmd)／[sms_api.py](bin/sms_api.py)／[sms_formats.py](bin/sms_formats.py)——claude SKILL.md 格式、claude-code（CLAUDE.md＋斜杠指令）、OpenAI 全系（Chat/Responses tools·Assistants·realtime/Codex）互转导出；部署＝仅把这些文件复制到指定路径，目标处直接运行。
 
 ## 快速开始
@@ -33,10 +33,10 @@ python -B skill/scripts/hud.py session "SMS 任务进行中"
 python -B skill/scripts/chains.py user "偏好精简记忆"
 python -B skill/scripts/prompt_pack.py pack "当前问题关键词"
 python -B skill/scripts/dream.py run
-# 十一链记忆：语句碎片（向量/频次/语义边，存 <SMS_HOME>/chains/）·压缩检索·做梦整理
-python -B skill/scripts/chains.py user "偏好精简记忆"
-python -B skill/scripts/prompt_pack.py pack "当前问题关键词"
-python -B skill/scripts/dream.py run
+# 配置系统与上游模型元数据：settings.py dot-path 读写 · model_meta.py refresh（Token/上下文/RPM→<SMS_HOME>/config/models.json）
+python -B skill/scripts/settings.py status
+# 加密网页壳（127.0.0.1 TLS 指纹证书＋配对 token）；对外端口默认关闭（ML-DSA 指纹验签）
+python -B skill/scripts/web_shell.py start   # 或壳内 :web start；对外：:ext enable --yes → :ext start
 ```
 
 ## 固定路径 SMS
@@ -46,4 +46,4 @@ python -B skill/scripts/dream.py run
 ## 红线摘要
 
 - 不删 skill/resistance/ 约束；运行时数据（HUD 状态、个性化指令、部署登记）不进工具本体目录；隐私文件仅存 `<SMS_HOME>/privacy/`，采集须授权+告知，解密须必要理由；SMS 不直接作答用户需求，一律 dispatch→已装 agent/托管 skill→整合 链路。
-- 悬空链接 = 0；所有 .md / 脚本 ≤ 50 行；skill/SKILL.md 含 YAML frontmatter，创建/修改目标 skill 与子 skill 均可委托 Skill_Generator（2026-09-24 起非强制）；写盘经 emit 门控：默认预览，`--write` 且已授予 write 才落盘；高危操作先询问 + `grant danger`（敏感键）；约束持久化＝[skill/AGENTS.md](skill/AGENTS.md) 镜像 + [skill/scripts/redlines.py](skill/scripts/redlines.py) 机械断言 + seal 基线（resistance #16）；部署＝仅复制 bin 文件到指定路径。
+- 悬空链接 = 0；所有 .md / 脚本 ≤ 50 行；skill/SKILL.md 含 YAML frontmatter，创建/修改目标 skill 与子 skill 均可委托 Skill_Generator（2026-09-24 起非强制）；写盘经 emit 门控：默认预览，`--write` 且已授予 write 才落盘；高危操作先询问 + `grant danger`（敏感键）；约束持久化＝[skill/AGENTS.md](skill/AGENTS.md) 镜像 + [skill/scripts/redlines.py](skill/scripts/redlines.py) 机械断言 + seal 基线（resistance #16）；部署＝仅复制 bin 文件到指定路径；网络面（resistance #18）：配置改动一律 settings.py（api_key 掩码），网页壳只绑 127.0.0.1＋指纹证书＋配对 token，对外端口默认关闭、`enable --yes` 当轮确认＋ML-DSA 指纹验签＋限速封禁。

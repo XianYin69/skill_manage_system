@@ -9,5 +9,6 @@
 4. **本体不作答**：一切作答来自托管 skill 执行结果；无匹配→委托 Skill_Generator 创建后执行；不可得→明确拒绝并说明。
 5. **约束不得静默丢失**：初始化第一步与每次 git 提交前跑 `python -B skill/scripts/redlines.py check`；失败即停、向用户报告，不得绕过；经用户确认的约束变更完成后须 `redlines.py seal` 重钉基线。
 6. **根入口程序**：跨 OS 入口＝根目录 `sms.py`（三段：开箱即用→依赖嗅探与修补→引导至 CLI）＋ `sms`/`sms.cmd` 壳；初始化与诊断一律经它，三段职责不得并入其他脚本。
-7. **十一链记忆·对话隔离·做梦**：会话碎片链存 `<SMS_HOME>/chains/`（含向量/频次/边）；每次用户输入＝开新对话（压缩记忆＋当前输入），agent 的 skill 必须开新子会话并收口（resistance #17）。
+7. **十一链记忆·对话隔离·做梦**：会话碎片链存 `<SMS_HOME>/chains/`（含向量/频次/边）；所有链必须 git 管理（chains_git.py 自动建仓＋写入自动提交）；每次用户输入＝开新对话（压缩记忆＋当前输入），agent 的 skill 必须开新子会话并收口（resistance #17）。
 8. 全部 .md/脚本 ≤50 行；悬空链接 = 0；数据写盘一律经 emit 门控（默认预览）。
+9. **配置系统与网络壳（resistance #18）**：配置增改唯一经 settings.py（api_key 恒掩码）；model_meta 抓上游模型 Token/上下文/RPM 只写用户缓存；网页壳只绑 127.0.0.1＋指纹证书＋配对 token；对外端口默认关闭——`enable --yes` 当轮确认才置位，外部请求须本地 enroll 指纹＋ML-DSA 验签，只开对话面、限速封禁，证书/密钥/token 不落 skill 目录。

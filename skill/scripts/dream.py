@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""dream.py — 做梦机制（惰性触发，红线 17）：距上次超过间隔（config dream_interval_min，默认 360 分钟）即在入口/写盘/派发时后台运行——跨链合并近义碎片、修剪陈旧低频（knowledge 钉选除外）、重建 <SMS_HOME>/chains/retrieval.md、高频 knowledge 同步 memory.json 钉选、审计对话开-收口与子会话悬挂（violations.md）、skill_errors 未解决≥3 记升级事件（经 user_commands skill-update→Skill_Generator 修改路径）、事件入 event 链。用法：python dream.py run|maybe|status [--sync]。"""
+"""dream.py — 做梦机制（惰性触发，红线 17）：距上次超过间隔（config dream.interval_min，旧键 dream_interval_min 兼容，默认 360 分钟；dream.enabled=false 停做）即在入口/写盘/派发时后台运行——跨链合并近义碎片、修剪陈旧低频（knowledge 钉选除外）、重建 <SMS_HOME>/chains/retrieval.md、高频 knowledge 同步 memory.json 钉选、审计对话开-收口与子会话悬挂（violations.md）、skill_errors 未解决≥3 记升级事件（经 user_commands skill-update→Skill_Generator 修改路径）、事件入 event 链。用法：python dream.py run|maybe|status [--sync]。"""
 import os, sys, json, time, threading
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import resolve_home, chain_store as cs, chains
 def _last(sms):
     try: return float(open(os.path.join(sms, "chains", "last_run")).read())
     except Exception: return 0.0
-def due(sms): return time.time() - _last(sms) >= resolve_home.conf(sms).get("dream_interval_min", 360) * 60
+def due(sms): c = resolve_home.conf(sms); d = c.get("dream") or {}; return d.get("enabled", True) and time.time() - _last(sms) >= d.get("interval_min", c.get("dream_interval_min", 360)) * 60
 def maybe(sms):
     if due(sms):
         threading.Thread(target=run, args=(sms,), daemon=True).start(); return True
@@ -47,4 +47,4 @@ def _escalate(sms, r):
 if __name__ == "__main__":
     sms = resolve_home.ensure(); cmd = sys.argv[1] if len(sys.argv) > 1 else "status"; _m = (run(sms), True)[1] if "--sync" in sys.argv else maybe(sms)
     print(json.dumps(run(sms), ensure_ascii=False) if cmd == "run" else "spawned" if cmd == "maybe" and _m else
-          json.dumps({"last_run": _last(sms), "due": due(sms), "interval_min": resolve_home.conf(sms).get("dream_interval_min", 360)}))
+          json.dumps({"last_run": _last(sms), "due": due(sms), "interval_min": (resolve_home.conf(sms).get("dream") or {}).get("interval_min", resolve_home.conf(sms).get("dream_interval_min", 360))}))

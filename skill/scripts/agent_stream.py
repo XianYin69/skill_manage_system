@@ -1,45 +1,46 @@
 #!/usr/bin/env python3
-"""agent_stream.py — sms-shell 数据流引擎：检测电脑上已安装 agent 的非交互 CLI（claude/codex/kilocode/kilo/cursor/aider，可经用户配置 agent_cli 增改 {bin,args}），每次用户输入＝新开一次对话：进程级一次性调用＋前置压缩记忆块与双层对话规则（chains.conversation，红线 17），stdout 逐行流回、输出结束即收口并记录会话链；选中 agent 与技能前缀开关等状态只存 <SMS_HOME>/shell/；未检出 CLI 时明确拒绝（SMS 本体不作答）。"""
+"""agent_stream.py — sms-shell 数据流引擎：优先原生网关（config llm_gateway.enabled→gateway，OpenAI 兼容直连、不依赖 CLI），否则检测已装 agent CLI（claude/codex 等，agent_cli 可增改）；每次输入＝新开一次对话（chains.conversation 压缩记忆＋双层规则，红线 17），逐行流回、收口记链；尾行 [图:<路径>] 为网关视觉附图；状态存 <SMS_HOME>/shell/；皆无则拒绝（本体不作答）。"""
 import os, sys, shutil, subprocess
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import resolve_home, chains, dream
+import resolve_home, chains, dream, gateway, model_meta, model_meta
 SMS = resolve_home.ensure()
 STATE = os.path.join(SMS, "shell")
-ADAPTERS = {"claude": {"bin": "claude", "args": ["-p"]}, "codex": {"bin": "codex", "args": ["exec"]},
-            "cursor": {"bin": "cursor-agent", "args": []}, "kilocode": {"bin": "kilocode", "args": ["run"]},
-            "kilo": {"bin": "kilo", "args": ["run"]}, "aider": {"bin": "aider", "args": ["--message"]}}
+ADAPTERS = {"claude": {"bin": "claude", "args": ["-p"]}, "codex": {"bin": "codex", "args": ["exec"]}, "cursor": {"bin": "cursor-agent", "args": []}, "kilocode": {"bin": "kilocode", "args": ["run"]}, "kilo": {"bin": "kilo", "args": ["run"]}, "aider": {"bin": "aider", "args": ["--message"]}}
 SKILL_DIRECTIVE = "使用 skill_manage_system 技能完成本请求（SMS 只调取·管理技能并整合结果、不得以模型知识代答）；以下已按规则开新对话并附压缩记忆。原始请求："
 def adapters():
     extra = {k: v for k, v in (resolve_home.conf(SMS).get("agent_cli") or {}).items() if not k.startswith("_") and isinstance(v, dict)}
-    return dict(ADAPTERS, **extra)
-def detected():
-    return {k: v for k, v in adapters().items() if shutil.which(v.get("bin", k))}
+    out = dict(ADAPTERS, **extra)
+    if gateway.enabled(): out["gateway"] = {"native": True}
+    return out
+def detected(): return {k: v for k, v in sorted(adapters().items()) if v.get("native") or shutil.which(v.get("bin", k))}
 def _state(name, default=""):
     try: return open(os.path.join(STATE, name), encoding="utf-8").read().strip()
     except Exception: return default
 def _put(name, val): os.makedirs(STATE, exist_ok=True); open(os.path.join(STATE, name), "w", encoding="utf-8").write(val)
 def current():
-    cur = _state("current_agent"); return cur if cur in detected() else next(iter(sorted(detected())), None)
+    det = detected(); cur = _state("current_agent")
+    return cur if cur in det else ("gateway" if "gateway" in det else next(iter(det), None))
 def prefix_on(): return _state("skill_prefix", "on") != "off"
 def use(name): _put("current_agent", name); return "切到 agent：" + name + ("" if name in detected() else "（未检出其 CLI——配置 agent_cli {bin,args} 并确保在 PATH）")
 def skill(on): _put("skill_prefix", "on" if on else "off"); return "skill_manage_system 前缀：" + _state("skill_prefix", "on")
 def ask(text, on_line):
-    dream.maybe(SMS)
-    ag = current()
-    if not ag:
-        on_line("拒绝：未检出任何已安装 agent 的 CLI（候选：" + "、".join(adapters()) + "）。sms-shell 只经数据流操作已装 agent，本体不作答——请安装 agent 或在 <SMS_HOME>/config/config.json 配 agent_cli。")
-        return None
-    spec = adapters()[ag]
-    conv = chains.session_id(); chains.record("session", "open:" + conv)
+    dream.maybe(SMS); model_meta.maybe(); ag = current()
+    if not ag: on_line("拒绝：未检出 agent CLI 且原生网关未启用（config llm_gateway.enabled=true）——sms-shell 只经数据流执行，本体不作答"); return None
+    spec = adapters()[ag]; conv = chains.session_id(); chains.record("session", "open:" + conv)
+    want = _state("current_agent")
+    if want and want != ag: on_line("注意：所选 agent " + want + " 未检出，本次经 " + ag + " 执行（:agents 查看）")
     body = text if not prefix_on() else SKILL_DIRECTIVE + "\n" + chains.conversation(text)
-    chains.record("dialogue", "user@" + conv + " " + text[:200])
-    args, env = list(spec.get("args", [])), dict(os.environ, PYTHONIOENCODING="utf-8")
-    use_stdin = bool(spec.get("prompt_stdin"))
-    p = subprocess.Popen([spec.get("bin", ag)] + args + ([] if use_stdin else [body]), stdin=subprocess.PIPE if use_stdin else None,
-                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace", env=env)
-    if use_stdin: p.stdin.write(body); p.stdin.close()
-    for ln in iter(p.stdout.readline, ""):
-        if ln.strip(): on_line(ln.rstrip())
-    p.wait()
-    chains.record("session", "close:" + conv); chains.record("time", "对话 " + conv + " 收口 rc=" + str(p.returncode))
-    return {"agent": ag, "rc": p.returncode, "conv": conv}
+    chains.record("dialogue", "user@" + conv + " " + text[:200]); rc = 0
+    if spec.get("native"):
+        bl = body.split("\n"); imgs = None
+        if bl[-1].startswith("[图:") and bl[-1].endswith("]"):
+            p = bl[-1][3:-1].strip(); body = "\n".join(bl[:-1]); imgs = [p] if os.path.isfile(p) else None
+        gateway.run(body, on_line, images=imgs)
+    else:
+        args, env = list(spec.get("args", [])), dict(os.environ, PYTHONIOENCODING="utf-8"); env.update(spec.get("env") or {}); stdin = subprocess.PIPE if spec.get("prompt_stdin") else subprocess.DEVNULL
+        p = subprocess.Popen([spec.get("bin", ag)] + args + ([] if stdin else [body]), stdin=stdin, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace", env=env)
+        if spec.get("prompt_stdin"): p.stdin.write(body); p.stdin.close()
+        for ln in iter(p.stdout.readline, ""):
+            if ln.strip(): on_line(ln.rstrip())
+        rc = p.wait()
+    chains.record("session", "close:" + conv); chains.record("time", "对话 " + conv + " 收口 rc=" + str(rc)); return {"agent": ag, "rc": rc, "conv": conv}

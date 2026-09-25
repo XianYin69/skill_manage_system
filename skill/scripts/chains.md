@@ -1,4 +1,4 @@
-# 十一链记忆体系（chain_store / chains / prompt_pack / dream）
+# 十一链记忆体系（chain_store / chains / chains_git / prompt_pack / dream）
 
 十一链：user 用户链 · memory 记忆链 · knowledge 钉选链 · logic 逻辑链 · time 时间链 · event 事件链 · session 会话链 · skill_call 调用skill链 · tool_call 调用工具链 · subsession 子会话链 · dialogue 代理对话链。
 
@@ -6,6 +6,7 @@
 
 - 碎片＝语句化·最小化 JSON：`{"id","chain","ts","text","vec","freq","edges"}`，存 `<SMS_HOME>/chains/<链>/<id>.json`，禁止入 skill 目录。
 - 向量 `vec`：64 维哈希投影（语句指向，纯 stdlib）；数值 `freq`：检索命中自动 +1（使用频次）；边 `edges`：`[目标id, 关系, 权重]`，关系∈semantic/temporal/causal/ref（树形·神经网络型语义关系）。
+- 所有链必须 git 管理（chains_git.py，2026-09-25 用户红线）：首次触链自动 `git init <SMS_HOME>/chains` 并把既有全部链导入首笔提交；之后任何链写入防抖 5 秒自动 commit、进程退出兜底 flush；git 缺失静默降级不阻断记录。手动：`python chains_git.py status|log [n]`。
 
 ## 记录与对话隔离（chains.py）
 
@@ -22,6 +23,10 @@
 - `maybe()` 由 sms.py 入口、emit 会话写盘、agent_stream 派发调用；间隔＝config `dream_interval_min`（默认 360 分钟），`doctor` 显示状态。
 - 一次做梦：跨链合并近义碎片 → 修剪陈旧低频（knowledge 钉选除外）→ 重建 `chains/retrieval.md` → 高频 knowledge 同步 `memory.json` 钉选 → 审计对话开-收口与子会话悬挂（`chains/violations.md`）→ skill_errors≥3 记升级事件（user_commands `skill-update`→Skill_Generator 修改路径，实现所有 skill 自动迭代）→ event 链留痕。
 - 手动：`python dream.py run|maybe|status [--sync]`。
+
+## 各链与做梦设置（config 段 chains / dream，settings.py 统一改）
+
+- `chains.<链>` 覆盖 `chains.default{enabled, merge_thr, prune_days, min_freq}`：enabled=false 停写该链（chain_store 建库时读取、add 拒绝并提示恢复命令），merge/修剪按链取阈值与天数；`dream.enabled`／`dream.interval_min` 控制做梦（旧键 dream_interval_min 兼容）；knowledge 钉选链不参与修剪停用。改法：`python -B settings.py set chains.tool_call.enabled false`、壳内 `:config set ...`、或网页壳「链设置」区；每次变更记 event 链（契约 [../schemas/settings.schema.json](../schemas/settings.schema.json)）。
 
 ## 目标
 
