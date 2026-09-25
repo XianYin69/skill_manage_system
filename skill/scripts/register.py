@@ -9,9 +9,9 @@ def find_skills(roots):
     out = []
     for root in roots:
         for d in sorted(glob.glob(os.path.join(root, "*"))):
-            sk = os.path.join(d, "SKILL.md")
-            if os.path.isfile(sk):
-                out.append((os.path.basename(d), d, sk))
+            for rel in ("SKILL.md", "skill/SKILL.md"):
+                if os.path.isfile(os.path.join(d, rel)):
+                    out.append((os.path.basename(d), d, os.path.join(d, rel), rel)); break
     return out
 
 def meta(sk):
@@ -25,9 +25,9 @@ def meta(sk):
 def build(sms, roots):
     rows = []
     import trust
-    for n, d, sk in find_skills(roots):
+    for n, d, sk, rel in find_skills(roots):
         tools, desc = meta(sk)
-        rows.append({"id": n, "name": n, "install_path": d, "entry": "SKILL.md",
+        rows.append({"id": n, "name": n, "install_path": d, "entry": rel,
                      "kind": "sub_skill" if "sub_skills" in d else "skill",
                      "tools": tools, "description": desc,
                      "status": "active", "updated_at": time.strftime("%Y-%m-%d"),

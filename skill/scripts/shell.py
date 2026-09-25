@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""shell.py — sms-shell 入口：有图形服务器→GUI 窗口版（shell_gui），无→TUI 终端版（shell_tui，pwsh/bash/zsh 式、免图形服务器）；`--tui`/`--gui` 强制选择，GUI 探测失败自动回退 TUI。部署后其他路径可直接执行本 skill 的 bin/sms-shell(.cmd) 或 deploy.py --launcher 生成的启动器。"""
+"""shell.py — sms-shell 入口：PySide6 可用且有图形服务器→GUI 窗口版（shell_gui），否则 TUI 终端版（shell_tui，pwsh/bash/zsh 式、免图形服务器）；`--tui`/`--gui` 强制选择，GUI 探测失败自动回退 TUI。部署后其他路径可直接执行 bin/sms-shell(.cmd) 定位起的 shell.py。"""
 import os, sys, subprocess
 S = os.path.dirname(os.path.abspath(__file__))
 def has_display():
@@ -8,8 +8,8 @@ def has_display():
 def gui_ok():
     if not has_display(): return False
     try:
-        import tkinter
-        r = tkinter.Tk(); r.withdraw(); r.destroy(); return True
+        from PySide6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication(sys.argv); app.quit(); return True
     except Exception: return False
 def launch(mode):
     if mode == "gui" and not gui_ok():

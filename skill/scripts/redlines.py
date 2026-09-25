@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""redlines.py — 约束持久化机械自检：check 断言 AGENTS.md/SKILL.md/resistance.md 关键约束句未因压缩·改写丢失，全 .md/.py ≤50 行，悬空链接=0，SKILL.md 含 frontmatter；初始化第一步与每轮 git 提交前必跑，任一失败 exit 1 禁止继续；seal 把三份入口文档 sha256 基线冻结到 <SMS_HOME>/redlines/baseline.json，check 报告未 seal 的漂移（drift，不致失败）。"""
+"""redlines.py — 约束持久化机械自检：check 断言 AGENTS.md、SKILL.md、resistance.md 关键约束句未因压缩·改写丢失，全 .md/.py ≤50 行，悬空链接=0，SKILL.md 含 frontmatter；初始化第一步与每轮 git 提交前必跑，任一失败 exit 1 禁止继续；seal 把三份入口文档 sha256 基线冻结到 <SMS_HOME>/redlines/baseline.json，check 报告未 seal 的漂移（drift，不致失败）。"""
 import os, sys, re, json, hashlib
 SK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MUST = {"AGENTS.md": ["调度器", "先询问", "委托 Skill_Generator", "仅复制 bin"],
-        "SKILL.md": ["委托 Skill_Generator", "redlines.py", "仅复制 bin", "直接回答"],
-        os.path.join("resistance", "resistance.md"): ["grant danger", "部署＝", "先询问"]}
+MUST = {"AGENTS.md": ["调度器", "先询问", "委托 Skill_Generator", "仅复制 bin", "十一链记忆·对话隔离·做梦"],
+        "SKILL.md": ["委托 Skill_Generator", "redlines.py", "仅复制 bin", "直接回答", "十一链"],
+        os.path.join("resistance", "resistance.md"): ["grant danger", "部署＝", "先询问", "17. 记忆链·对话隔离·做梦"]}
 def _scan():
     for root, ds, fs in os.walk(SK):
         ds[:] = [d for d in ds if d not in (".git", ".kilo", "__pycache__", "tmp", "SMS")]

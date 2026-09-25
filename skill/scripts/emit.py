@@ -13,4 +13,5 @@ def write_json(path, doc, sms, dry):
     json.dump(doc, open(path, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
     if os.path.basename(os.path.dirname(os.path.dirname(path))) == "sessions":
         import auto_compress; auto_compress.maybe(sms)
+        import dream; dream.maybe(sms)
     return "OK " + path

@@ -1,0 +1,35 @@
+{
+  "llm_gateway": {
+    "enabled": false,
+    "base_url": "",
+    "api_key": "",
+    "api_key_env": null,
+    "model": "auto",
+    "max_tokens": 1024,
+    "timeout": 120,
+    "temperature": null,
+    "top_p": null,
+    "comment": "SMS 原生大模型网关（gateway.py）：base_url+api_key+model 即可对话；temperature/top_p 为模型参数（null＝不发送，用上游默认）；密钥可 api_key_env 指向环境变量"
+  },
+  "model_meta": {
+    "auto_refresh": true,
+    "refresh_interval_min": 720,
+    "defaults": { "context_length": 8192, "max_output_tokens": 1024, "rpm": null },
+    "comment": "上游模型元数据自动抓取（model_meta.py）：GET /models 扩展字段＋探测响应头 x-ratelimit；缓存 <SMS_HOME>/config/models.json；defaults＝上游未提供时的兜底标注"
+  },
+  "chains": {
+    "default": { "enabled": true, "merge_thr": 0.92, "prune_days": 14, "min_freq": 1 },
+    "comment": "各链设置：chains.<链名> 覆盖 default（user/memory/logic/time/event/session/skill_call/tool_call/subsession/dialogue）；enabled=false 即停写该链；knowledge 钉选链不受修剪影响"
+  },
+  "dream": { "enabled": true, "interval_min": 360, "comment": "做梦机制开关与间隔（分钟）；旧键 dream_interval_min 兼容" },
+  "web_shell": { "enabled": true, "host": "127.0.0.1", "port": 8737, "comment": "本地加密网页壳（web_shell.py）：HTTPS 自签指纹证书＋配对 token；:web start|stop|token" },
+  "external": {
+    "enabled": false,
+    "interface": "0.0.0.0",
+    "port": 8738,
+    "pq_mode": "auto",
+    "session_ttl_min": 240,
+    "max_fail_per_min": 5,
+    "comment": "对外端口（external.py）默认关闭；enable --yes 才开；ML-DSA-65（cryptography PQ，FIPS 204）指纹证书挑战验签后才给会话 token；pq_mode strict＝无 PQ 拒启（降级仅 classic/auto）；建议配合 SSH 隧道访问"
+  }
+}

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SMS 网页壳</title>
+<style>
+:root{--bg:#11151c;--panel:#1a212b;--line:#2b3644;--fg:#d7e1ec;--dim:#8595a7;--acc:#4da3ff;--warn:#ffb454;--ok:#6fd39a}
+*{box-sizing:border-box}body{margin:0;font:14px/1.6 "Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--fg)}
+header{display:flex;gap:10px;align-items:center;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+header b{color:var(--acc)}#net{margin-left:auto;font-size:12px;color:var(--dim)}
+main{display:flex;gap:12px;padding:12px;max-width:1280px;margin:0 auto}
+section{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;min-width:0}
+#chatcol{flex:2;display:flex;flex-direction:column}#side{flex:1;display:flex;flex-direction:column;gap:12px}
+#log{flex:1;min-height:320px;max-height:60vh;overflow-y:auto;border:1px solid var(--line);border-radius:8px;padding:10px;background:#0d1218}
+.msg{margin:0 0 10px}.msg .who{font-size:11px;color:var(--dim)}.msg pre{margin:2px 0 0;white-space:pre-wrap;word-break:break-word;font-family:inherit}
+.row{display:flex;gap:8px}input,select,button,td input{background:#0d1218;color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font:inherit}
+input:focus{outline:1px solid var(--acc)}button{cursor:pointer;background:#243244;border-color:#33475f}button:hover{background:#2c3d54}
+h3{margin:0 0 8px;font-size:13px;color:var(--acc)}table{width:100%;border-collapse:collapse;font-size:12px}
+td,th{border:1px solid var(--line);padding:4px 6px;text-align:left}th{color:var(--dim);font-weight:normal}
+label{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--dim)}
+.small{font-size:12px;color:var(--dim)}.warn{color:var(--warn)}.ok{color:var(--ok)}
+#gate{max-width:420px;margin:12vh auto;text-align:center}#gate input{width:100%;margin:10px 0}
+.kv{display:grid;grid-template-columns:1fr 2fr auto;gap:6px;align-items:center;margin:4px 0}
+.kv span{font-size:12px;color:var(--dim);word-break:break-all}
+footer{text-align:center;color:var(--dim);font-size:11px;padding:8px}
+</style>
+</head>
+<body>
+<div id="gate"><h2>SMS 网页壳</h2><p class="small">本壳仅监听 127.0.0.1 加密端口（自签证书，首次访问请在浏览器高级信任指纹 <b id="gfpr">……</b>）。<br>请输入配对 token（sms-shell 执行 <code>:web token</code>）：</p>
+<input id="tok" type="password" placeholder="配对 token"><div class="row"><button onclick="connect()" style="flex:1">连接</button></div><p class="small warn" id="gerr"></p></div>
+<div id="app" style="display:none">
+<header><b>SMS 网页壳</b><span class="small" id="banner">…</span><span id="net"></span></header>
+<main>
+<section id="chatcol">
+  <h3>对话（等同 sms-shell：话语走数据流，: 开头为元指令）</h3>
+  <div id="log"></div>
+  <div class="row" style="margin-top:8px"><input id="inp" style="flex:1" placeholder="输入话语或 :help …" autocomplete="off"><button onclick="send()">发送</button></div>
+</section>
+<div id="side">
+<section><h3>网关配置</h3><div id="gw"></div></section>
+<section><h3>做梦机制</h3><div id="dr"></div></section>
+<section><h3>链设置（各链启用·修剪·合并）</h3><table id="ch"></table></section>
+<section><h3>上游模型元数据</h3><button onclick="refreshModels()">refresh 抓取 Token/上下文/RPM</button> <span class="small" id="mts"></span><table id="md"></table></section>
+<section><h3>网络</h3><div id="nw"></div></section>
+</div>
+</main>
+<footer>skill_manage_system · web_shell · 数据仅存本机 &lt;SMS_HOME&gt;/shell/</footer>
+</div>
+<script>
+let T=sessionStorage.getItem("sms_tok")||"";
+const H=()=>({"Content-Type":"application/json","X-SMS-Token":T});
+async function api(p,body){const r=await fetch(p,body?{method:"POST",headers:H(),body:JSON.stringify(body)}:{headers:H()});if(r.status==401){sessionStorage.removeItem("sms_tok");location.reload();}return r.json()}
+function j(v){try{return JSON.parse(v)}catch(e){return v}}
+function esc(s){return String(s??"").replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]))}
+async function connect(){T=document.getElementById("tok").value.trim();if(!T)return;sessionStorage.setItem("sms_tok",T);try{const i=await api("/api/info");if(i.err)throw i.err;localStorage.setItem("sms_tok",T);boot(i)}catch(e){document.getElementById("gerr").textContent="连接失败："+(e.err||e.message||e)}}
+function boot(i){document.getElementById("gate").style.display="none";document.getElementById("app").style.display="";render(i)}
+function render(i){
+ document.getElementById("banner").textContent=`网关 ${i.gateway.enabled?"on":"off"} · 模型 ${i.gateway.model||"-"} · key ${i.gateway.api_key}`;
+ document.getElementById("net").innerHTML=`指纹 <b>${esc(i.fingerprint?.slice(0,16))}…</b> · token ${esc(i.token_prefix)}`;
+ const g=document.getElementById("gw");g.innerHTML="";
+ [["llm_gateway.base_url","基础 URL",i.gateway.base_url],["llm_gateway.model","模型",i.gateway.model],["llm_gateway.max_tokens","max_tokens",i.gateway.max_tokens],["llm_gateway.temperature","temperature",i.gateway.temperature??""],["llm_gateway.top_p","top_p",i.gateway.top_p??""],["llm_gateway.api_key","api_key（写覆盖）",""]].forEach(([p,l,v])=>{
+  const d=document.createElement("div");d.className="kv";d.innerHTML=`<span>${l}</span><input data-p="${p}" value="${esc(v)}" ${p.endsWith("api_key")?'placeholder="输入新密钥覆盖"':''}><button>存</button>`;
+  d.querySelector("button").onclick=()=>set(p,d.querySelector("input").value);g.appendChild(d)});
+ const sw=document.createElement("div");sw.className="kv";sw.innerHTML=`<span>enabled</span><input type="checkbox" data-p="llm_gateway.enabled" ${i.gateway.enabled?"checked":""} style="width:auto"><button>存</button>`;
+ sw.querySelector("button").onclick=()=>set("llm_gateway.enabled",sw.querySelector("input").checked);g.prepend(sw);
+ const d=document.getElementById("dr");d.innerHTML="";
+ [["dream.enabled","启用",i.dream.enabled,"bool"],["dream.interval_min","间隔（分钟）",i.dream.interval_min,""]].forEach(([p,l,v,t])=>{
+  const x=document.createElement("div");x.className="kv";
+  x.innerHTML=t=="bool"?`<span>${l}</span><input type="checkbox" ${v?"checked":""} style="width:auto"><button>存</button>`:`<span>${l}</span><input value="${esc(v)}"><button>存</button>`;
+  x.querySelector("button").onclick=()=>set(p,x.querySelector("input").checked!==undefined&&t=="bool"?x.querySelector("input").checked:j(x.querySelector("input").value));d.appendChild(x)});
+ const tb=document.getElementById("ch");tb.innerHTML="<tr><th>链</th><th>启用</th><th>合并阈值</th><th>修剪天数</th><th>最低频次</th><th></th></tr>";
+ Object.entries(i.chains).forEach(([c,v])=>{const r=document.createElement("tr");
+  r.innerHTML=`<td>${c}</td><td><input type="checkbox" ${v.enabled?"checked":""} style="width:auto"></td><td><input value="${v.merge_thr}" size=4></td><td><input value="${v.prune_days}" size=3></td><td><input value="${v.min_freq}" size=3></td><td><button>存</button>`;
+  r.querySelector("button").onclick=()=>set("chains."+c,{enabled:r.children[1].querySelector("input").checked,merge_thr:j(r.children[2].firstChild?.value??r.children[2].innerText),prune_days:j(r.children[3].querySelector("input").value),min_freq:j(r.children[4].querySelector("input").value)});tb.appendChild(r)});
+ mtable(i.model_meta&&i.model_meta.models_cache);
+ document.getElementById("mts").textContent=`上次抓取 ${i.model_meta?.ts||"无"} · 模型数 ${i.model_meta?.count||0} · 当前 ${JSON.stringify(i.model_meta?.current||{})}`;
+ const n=document.getElementById("nw");
+ n.innerHTML=`<div class="small">网页壳：${i.web_shell.running?"运行中 pid "+i.web_shell.running:"未运行"} · <a href="${i.web_shell.url||"#"}">本机入口</a>（当前页）</div>
+ <div class="small">对外端口：${i.external.running?"运行中 pid "+i.external.running:"关闭"} · 后端 ${i.external.backend} · 端口 ${i.external.port} · interface ${i.external.interface}</div>
+ <div class="row" style="margin:6px 0"><button onclick="rotate()">轮换 token</button><button onclick="toggleExt(${!i.external.enabled})" class="warn">${i.external.enabled?"关闭对外端口":"开启对外端口(危险·需确认)"}</button></div>
+ <div class="small">对外配置：TTL <input id="exttl" value="${i.external.session_ttl_min}" size=4> 分钟 · pq_mode <select id="extpq"><option ${i.external.pq_mode=="auto"?"selected":""}>auto</option><option ${i.external.pq_mode=="strict"?"selected":""}>strict</option><option ${i.external.pq_mode=="classic"?"selected":""}>classic</option></select> <button onclick="setExtParams()">存</button></div>
+ <div class="small">enroll 本地批准：<code>python -B skill/scripts/external.py enroll &lt;pub_b64&gt; [note] [ttl]</code>；隧道指引：<code>:ext tunnel</code></div>`;
+}
+async function set(p,v){const r=await api("/api/config",{path:p,value:typeof v=="string"?j(v):v});flash(`${p} → ${JSON.stringify(r.ok??r.err)}`)}
+function flash(m){const d=document.createElement("div");d.className="msg";d.innerHTML=`<span class="who">系统</span><pre>${esc(m)}</pre>`;document.getElementById("log").appendChild(d);d.scrollIntoView()}
+async function send(){const inp=document.getElementById("inp");const t=inp.value;if(!t.trim())return;inp.value="";
+ const d=document.createElement("div");d.className="msg";d.innerHTML=`<span class="who">我</span><pre>${esc(t)}</pre>`;document.getElementById("log").appendChild(d);
+ const r=await api("/api/chat",{text:t});const a=document.createElement("div");a.className="msg";
+ a.innerHTML=`<span class="who">${esc(r.meta&&r.meta.agent||"sms-shell")}</span><pre>${esc((r.lines||[]).join("\n")||"（无输出）")}</pre>`;
+ document.getElementById("log").appendChild(a);a.scrollIntoView();if(r.exit)flash("会话已收口 :quit")}
+async function refreshModels(){document.getElementById("mts").textContent="抓取中…";const r=await api("/api/models/refresh",{});document.getElementById("mts").textContent=`${r.ts||""} ${r.err?("err:"+r.err):("模型 "+Object.keys(r.models||{}).length)}`;mtable(r.models)}
+function mtable(ms){const t=document.getElementById("md");t.innerHTML="<tr><th>模型</th><th>上下文</th><th>输出</th><th>RPM</th><th>TPM</th><th>源</th></tr>";
+ Object.entries(ms||{}).slice(0,40).forEach(([k,v])=>{const r=document.createElement("tr");r.innerHTML=`<td>${esc(k)}</td><td>${v.context_length??"-"}</td><td>${v.max_output_tokens??"-"}</td><td>${v.rpm??"-"}</td><td>${v.tpm??"-"}</td><td class="${v.source=="upstream"||v.source=="probe"?"ok":"warn"}">${v.source}</td>`;t.appendChild(r)})}
+async function toggleExt(on){if(on&&!confirm("开启对外端口＝向网络暴露本机 SMS 会话通道（仅 /api/chat＋PQ 指纹验签＋限速），确认？"))return;
+ const body={path:"external.enabled",value:!!on};if(on)body.confirm="yes";const r=await api("/api/config",body);flash("对外端口 enabled → "+JSON.stringify(r.ok??r.err));const i=await api("/api/info");render(i)}
+async function setExtParams(){await set("external.session_ttl_min",j(document.getElementById("exttl").value));await set("external.pq_mode",document.getElementById("extpq").value)}
+async function rotate(){const r=await api("/api/token/rotate",{});T=r.token;sessionStorage.setItem("sms_tok",T);localStorage.setItem("sms_tok",T);flash("token 已轮换（旧 token 失效）")}
+document.getElementById("inp").addEventListener("keydown",e=>{if(e.key=="Enter"&&!e.shiftKey){e.preventDefault();send()}});
+if(T&&localStorage.getItem("sms_tok")==T){try{boot(await api("/api/info"))}catch(e){}}
+</script>
+</body>
+</html>

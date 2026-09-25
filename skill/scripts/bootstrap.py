@@ -4,8 +4,8 @@ import os, sys, json, glob
 
 ID = "skill_generator"
 REPO = "https://github.com/XianYin69/Skill_Generator.git"
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-ROOTS = [os.path.join(ROOT, "sub_skills"), os.path.expanduser("~/.kilocode/skills")]
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+ROOTS = [os.path.join(ROOT, "skill", "sub_skills"), os.path.expanduser("~/.kilocode/skills")]
 
 
 def _hit(s):
@@ -15,8 +15,9 @@ def _hit(s):
 def in_folders():
     for r in ROOTS:
         for d in glob.glob(os.path.join(r, "*")):
-            if _hit(os.path.basename(d)) and os.path.isfile(os.path.join(d, "SKILL.md")):
-                return d
+            if _hit(os.path.basename(d)):
+                for rel in ("SKILL.md", os.path.join("skill", "SKILL.md")):
+                    if os.path.isfile(os.path.join(d, rel)): return d
     return None
 
 
@@ -31,8 +32,7 @@ def in_config(sms):
 
 def acquire(sms, dry):
     cfg, folder = in_config(sms), in_folders()
-    if folder or cfg.get("path"):
-        return {"found": True, "folder": folder, "config_path": cfg.get("path")}
+    if folder or cfg.get("path"): return {"found": True, "folder": folder, "config_path": cfg.get("path")}
     repo, dest = cfg.get("repo") or REPO, os.path.join(ROOTS[1], "Skill_Generator")
     if dry:
         return {"found": False, "action": "would clone", "repo": repo, "target": dest}
