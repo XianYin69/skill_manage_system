@@ -41,7 +41,7 @@ class Menu(ModalScreen[str]):
     CSS = "Menu{align:center middle} Menu>Vertical{width:76;height:24;padding:1 2;background:#181825;border:round #89b4fa} #mt{color:#f9e2af} ListView{background:#181825}"
     BINDINGS = [("escape", "close", "关闭")]
     def __init__(self, title, items): self._t = title; self._i = items; super().__init__()
-    def compose(self): yield Vertical(Static(self._t, id="mt"), ListView(*[ListItem(Label(l), id="mi%d" % n) for n, (c, l) in enumerate(self._i)]))
+    def compose(self): yield Vertical(Static(Text(self._t), id="mt"), ListView(*[ListItem(Label(Text(l)), id="mi%d" % n) for n, (c, l) in enumerate(self._i)]))
     def action_close(self): self.dismiss(None)
     def on_list_view_selected(self, m):
         self.dismiss(self._i[m.index][0])

@@ -27,7 +27,7 @@ def _meta(m, a, on_line):
     elif m in ("alias", "unalias"): on_line(run_script("user_commands.py", [("add" if m == "alias" else "rm")] + a + ["--write"]))
     elif m in ("help", "?"): on_line(HELP)
     else: on_line("未知元指令 :" + m + "（:help）")
-HELPW, CFGW, CMDW = ("help", "?", "h", "帮助", "用法"), ("config", "设置", "配置", "状态", "status", "修改配置", "打开设置", "查看配置", "如何修改配置", "怎么修改配置", "如何查看配置", "修改配置文件"), ("cmds", "命令", "指令", "命令表")
+HELPW, CFGW, CMDW = ("help", "?", "h", "帮助", "用法"), ("config", "设置", "配置", "状态", "status", "修改配置", "打开设置", "查看配置", "如何修改配置", "怎么修改配置", "如何查看配置", "修改配置文件", "打开配置", "进入配置", "配置编辑器", "图形化配置"), ("cmds", "命令", "指令", "命令表")
 def _cfgline():
     g = settings.status()["gateway"]; return "gateway: enabled=%s base_url=%s model=%s api_key=%s max_tokens=%s · 文件=<SMS_HOME>/config/config.json\n改配置：:config set <path> <json> · 全量：:config show" % (g["enabled"], g["base_url"], g["model"], g["api_key"], g["max_tokens"])
 def handle(line, on_line, st=lambda n: None):
@@ -37,7 +37,7 @@ def handle(line, on_line, st=lambda n: None):
     if m: return handle(m.group(3), on_line, st) if m.group(3).strip() else on_line(HELP)
     if t.startswith((":", "：")): p = t.lstrip(":：").split(); st("元指令：" + p[0].lower()); _meta(p[0].lower(), p[1:], on_line); return None
     if (w := t.lower()) in HELPW: st("内置词：帮助"); on_line(HELP); return None
-    if w in CFGW: st("内置词：配置状态"); on_line(_cfgline()); return None
+    if w in CFGW: st("内置词：配置状态"); on_line(_cfgline()); return "config" if w in ("打开配置", "进入配置", "配置编辑器", "图形化配置", "打开设置") else None
     if w in CMDW: st("内置词：命令表"); on_line(run_script("commands.py", ["help"])); return None
     if (mc := re.match(r"(?i)^(?:config|设置|配置)[\s,，]+(\S.*)$", t)): st("内置词：配置命令"); _meta("config", mc.group(1).split(None, 2), on_line); return None
     if re.search(r"(哪些|那些|什么|可用|可以|能)[^。！!？?]{0,8}(技能|skills?\b)", t) or re.match(r"(?i)^skills?\s*list[\s!！。？?]*$|^(技能列表|可用技能|可调用技能)[\s!！。？?]*$", t): st("内置词：技能清单"); on_line(skill_route.listtext()); return None

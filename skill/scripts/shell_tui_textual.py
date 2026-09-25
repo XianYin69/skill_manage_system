@@ -40,6 +40,7 @@ class ShellApp(Menus, App):
     def _done(self, done):
         self.busy = False; self.query_one("#prog", ProgressBar).display = False; self.query_one("#status", StatusBar).end()
         if done == "exit": self.exit()
+        if done == "config": self.action_config()
 if __name__ == "__main__":
     pos = [a for a in sys.argv[1:] if not a.startswith("--")]
     if pos:

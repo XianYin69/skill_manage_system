@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """shell_tui_files.py — sms-shell TUI 本地文件选择菜单（用户要索引文件时触发：SKILL.md 索引首项「＋ 索引本地文件」→ push Files）：浏览文件系统——↑ 上级 · ✔ 选定当前目录 · 目录项进入 · .md 文件选定其路径，Enter 经 dismiss(str) 回 shell_tui_menus._file_picked → 提交 :index "<目录>" 加入 scan_roots 并重建注册表；Esc 关闭。默认起始＝skills_config.roots() 内最新存在根，否则用户主目录。"""
 import os
+from rich.text import Text
 from textual.containers import Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Label, ListView, ListItem, Static
@@ -30,8 +31,8 @@ class Files(ModalScreen[str]):
         return out
     def _reload(self):
         self.items = [("↑ 上级目录", os.path.dirname(self.cwd)), ("✔ 选定当前目录（登记为扫描根）", self.cwd)] + self.listing()
-        lv = self.query_one("#fl", ListView); lv.clear(); lv.extend(ListItem(Label(l)) for l, _ in self.items)
-        self.query_one("#fh", Static).update("索引目录：" + self.cwd + "\n↑↓ 浏览 · Enter 进入/选定 · 仅列目录与 .md · Esc 关闭")
+        lv = self.query_one("#fl", ListView); lv.clear(); lv.extend(ListItem(Label(Text(l))) for l, _ in self.items)
+        self.query_one("#fh", Static).update(Text("索引目录：" + self.cwd + "\n↑↓ 浏览 · Enter 进入/选定 · 仅列目录与 .md · Esc 关闭"))
     def on_list_view_selected(self, m):
         l, p = self.items[m.index or 0]
         if l.startswith("✔"): self.dismiss(p)
