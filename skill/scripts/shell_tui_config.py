@@ -45,6 +45,6 @@ class Config(ModalScreen[str]):
             try: val = json.loads(str(v))
             except Exception: val = str(v)
             self.wr(c["path"], val)
-        self.push_screen(Edit(c["path"], c["value"]), got)
+        self.app.push_screen(Edit(c["path"], c["value"]), got)
     def on_list_view_selected(self, m): self.edit_cur()
     def action_cm_close(self): self.dismiss(None)
