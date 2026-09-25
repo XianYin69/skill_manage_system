@@ -23,16 +23,22 @@ def match(text, sms=None):
     return [ss[i] for sc, i in ranked[:2] if sc >= 2]
 def catalog(sms=None, cap=620):
     return ("技能全表：" + "；".join("%s（%s）" % (s.get("id"), re.sub(r"\s+", "", str(s.get("description") or ""))[:26]) for s in skills(sms)))[:cap]
+def listtext(sms=None):
+    ss = skills(sms); return ("技能注册表为空：先运行 register.py 扫描安装根（config.scan_roots），或经 Skill_Generator 创建后重装。" if not ss else "可调用托管技能 %d 个（说法即自动路由，Ctrl+K 选填）：" % len(ss) + "；".join("%s（%s）" % (s.get("id"), re.sub(r"\s+", "", str(s.get("description") or ""))[:26]) for s in ss) + "。命中技能将注入其 SKILL.md 流程按其执行·结果由 SMS 整合作答；需本机真跑脚本/调设备时以 :use 切 agent CLI 承接。")[:1400]
+def _doc(s, cap=1400):
+    try: return open(os.path.join(str(s.get("install_path", "")), str(s.get("entry", "SKILL.md"))), encoding="utf-8", errors="ignore").read()[:cap]
+    except Exception: return ""
 def route(text, sms=None):
     hs = match(text, sms)
     for s in hs: chains.log("skill", "路由命中:" + str(s.get("id")))
     if hs:
         g = "；".join("%s→%s" % (s.get("id"), os.path.join(str(s.get("install_path", "")), str(s.get("entry", "SKILL.md")))) for s in hs)
-        return ",".join(str(s.get("id")) for s in hs), "[SMS 路由] 本输入命中托管技能（" + g + "）：先用 exec 读取其 SKILL.md 全文并严格按其流程执行、结果由 SMS 整合作答；禁止绕过技能以常识代答。"
+        docs = "\n".join("【%s SKILL.md】\n%s" % (s.get("id"), _doc(s)) for s in hs)
+        return ",".join(str(s.get("id")) for s in hs), "[SMS 路由] 本输入命中托管技能（" + g + "）：以下为其 SKILL.md 全文，请严格按其流程整合执行与作答；若流程含需本机执行的脚本/工具步骤，用 exec 工具一次性运行再据结果作答（禁止反复试探），无 exec 能力时如实说明并提示 :use 切 agent CLI 承接；禁止绕过技能以常识代答。\n" + docs
     return None, "[SMS 路由] 未命中托管技能，但必须优先从下表择最相关技能（exec 读其 SKILL.md 按其流程执行）；确无可用时明确回复「无匹配技能」并建议调整话语或经 Skill_Generator 创建，禁止常识代答。" + catalog(sms)
 if __name__ == "__main__":
     a = sys.argv[1:] or ["list"]
-    if a[0] == "list": print("\n".join("%s | %s" % (s.get("id"), s.get("install_path")) for s in skills()))
+    if a[0] == "list": print(listtext())
     elif a[0] == "match" and len(a) > 1:
         sid, inj = route(" ".join(a[1:])); print(json.dumps({"hit": sid, "inject": inj[:220]}, ensure_ascii=False))
     else: print(__doc__.strip().splitlines()[1]); sys.exit(1)

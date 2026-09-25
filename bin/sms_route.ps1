@@ -46,6 +46,8 @@ function Handle-Line($line, $sink) {
   if ($w -in @('help', '?', 'h', '帮助', '用法')) { Show-Help; return }
   if ($w -in @('config', '设置', '配置', '状态', 'status', '修改配置', '打开设置')) { Show-Cfg 'status' @(); Write-Line '改配置：:config set <path> <json> · 全量：:config show'; return }
   if ($w -in @('cmds', '命令', '指令', '命令表')) { Run-Engine 'commands.py' @('help'); return }
+  if ($t -match '^(?i)(?:config|设置|配置)[\s,，]+(\S.*)$') { $ca = $Matches[1] -split '\s+'; Show-Cfg $ca[0] $(if ($ca.Count -gt 1) { @($ca | Select-Object -Skip 1) } else { , @() }); return }
+  if (($t -match '(哪些|那些|什么|可用|可以|能)[^。！!？?]{0,8}(技能|skills?\b)') -or ($t -match '^(?i)skills?\s*list$' -or $w -in @('技能列表', '可用技能', '可调用技能'))) { Run-Engine 'skill_route.py' @('list'); return }
   if (($t -match '(?i)sms|shell|壳' -and $t -match '设置|配置|命令|指令|config') -or ($w -in @('显示提示词', '提示词', '你的提示词'))) { Show-Help; Write-Dim '（确定性路由·未经大模型·SMS 壳自身信息即上面两表）'; return }
   $first = ($t -split '\s+')[0]
   if (AliasFind $first) { Run-Engine 'user_commands.py' (@('run') + ($t -split '\s+')); return }
