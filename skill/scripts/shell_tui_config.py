@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""shell_tui_config.py — sms-shell TUI 图形化配置编辑（Alt+C 或主菜单「图形化配置」）：settings.flat() 全 dot-path 项（api_key 掩码）——↑↓ 选择·可打印字符增量过滤·Backspace 退格·空格＝布尔项取反即写回／其余项 ● 多选标记·Shift+Tab 或 Enter＝编辑当前值（子面板 Enter 确认·JSON 解析失败按原文·Esc 取消）·Esc 关面板；写回一律经 settings.set（落 <SMS_HOME>/config/config.json·记 event 链），并上报 app.touched 供右侧栏显示。"""
+"""shell_tui_config.py — sms-shell TUI 图形化配置编辑（F4/Alt+C 或主菜单「图形化配置」）：settings.flat() 全 dot-path 项（api_key 掩码·含 skills.json 技能列表段）——↑↓ 选择·可打印字符增量过滤·Backspace 退格·空格＝布尔项取反即写回／其余项 ● 多选标记·Shift+Tab 或 Enter＝编辑当前值（list/dict 值以 JSON 呈现可改·子面板 Enter 确认·JSON 解析失败按原文·Esc 取消）·Esc 关面板；写回一律经 settings.set（模型参数落 config.json·技能列表键按属主路由 skills_config 落 skills.json·记 event 链），并上报 app.touched 供右侧栏显示。"""
 import json
 from textual.containers import Vertical
 from textual.screen import ModalScreen
@@ -8,7 +8,7 @@ import settings
 class Edit(ModalScreen[str]):
     BINDINGS = [("escape", "cancel", "取消")]
     def __init__(self, path, cur): self.p = path; self.c = cur; super().__init__()
-    def compose(self): yield Vertical(Static("编辑 " + self.p + "（Enter 写入 · Esc 取消）", id="ebt"), Input(value="" if str(self.c) == "***" else str(self.c), placeholder="新值：JSON 或字面文本", id="ebi"))
+    def compose(self): yield Vertical(Static("编辑 " + self.p + "（Enter 写入 · Esc 取消）", id="ebt"), Input(value="" if str(self.c) == "***" else (json.dumps(self.c, ensure_ascii=False) if isinstance(self.c, (list, dict)) else str(self.c)), placeholder="新值：JSON 或字面文本", id="ebi"))
     def on_mount(self): self.query_one("#ebi", Input).focus()
     def on_input_submitted(self, m): self.dismiss(m.value)
     def action_cancel(self): self.dismiss(None)

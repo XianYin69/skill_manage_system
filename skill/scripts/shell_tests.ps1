@@ -24,6 +24,7 @@ T '裸 技能列表＝托管技能清单' @('技能列表') @('可调用托管�
 T '裸 哪些skill＝技能清单路由' @('你现在可以调用那些skill') @('可调用托管技能')
 T ':skills 元指令＝托管技能清单' @(':skills') @('可调用托管技能')
 T ':index 无参＝scan_roots 清单' @(':index') @('[')
+T 'config get scan_roots＝技能根经统一视图' @('config get scan_roots') @('.kilocode')
 $show = RunOne @(':config show')
 if (($show -like '*"***"*') -and ($show -notmatch 'freellmapi-a923')) { $lines += 'PASS api_key 恒掩码（show 不出真实值）' } else { $fail++; $lines += 'FAIL api_key 掩码' }
 T '未知元指令报错不崩' @(':nosuch') @('未知元指令')

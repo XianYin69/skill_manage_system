@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""settings.py — 配置系统：dot-path get/set <SMS_HOME>/config/config.json（DEFAULTS=config/settings.default.json 深合并保旧配置兼容）；段＝llm_gateway（api_key/base_url/model/温度·top_p）· model_meta（上游模型 Token·上下文·RPM 抓取）· chains（各链启用/修剪/合并）· dream（做梦开关·时间）· web_shell（本地加密网页壳）· external（对外端口）。api_key 恒掩码；变更记 event 链。用法：python -B settings.py status|show|get <path>|set <path> <json>|unset <path>|schema。"""
+"""settings.py — 配置系统：dot-path get/set，模型输入参数存 <SMS_HOME>/config/config.json（DEFAULTS=config/settings.default.json 深合并保旧配置兼容）；段＝llm_gateway（api_key/base_url/model/温度·top_p）· model_meta（上游模型 Token·上下文·RPM 抓取）· chains（各链启用/修剪/合并）· dream（做梦开关·时间）· web_shell（本地加密网页壳）· external（对外端口）。视图统一存储分离：eff/flat 同时读出 skills.json 技能列表段（scan_roots/skill_generator/sync_clients/Source_Remote/permissions_default），其写回按属主路由 skills_config.set（AGENTS #9 不变）。api_key 恒掩码；变更记 event 链。用法：python -B settings.py status|show|get <path>|set <path> <json>|unset <path>|schema。"""
 import os, sys, json
 from functools import reduce
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import resolve_home, chains
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import resolve_home, chains, skills_config
 DEFAULTS = json.load(open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config", "settings.default.json"), encoding="utf-8"))
 CH = [c for c in chains.CHAINS if c != "knowledge"]
 def _dm(a, b):
@@ -11,18 +10,18 @@ def _dm(a, b):
         if k != "comment": a[k] = _dm(a.get(k, {}) if isinstance(a.get(k), dict) else {}, v) if isinstance(v, dict) else v
     return a
 def eff(sms=None):
-    c = resolve_home.conf(sms or resolve_home.ensure())
+    sms = sms or resolve_home.ensure(); c = resolve_home.conf(sms)
     if "dream_interval_min" in c: c.setdefault("dream", {})["interval_min"] = c["dream_interval_min"]
-    return _dm(json.loads(json.dumps(DEFAULTS)), c)
+    return _dm(_dm(json.loads(json.dumps(DEFAULTS)), c), skills_config.load(sms))
 def _walk(d, path): return reduce(lambda a, k: a.get(k) if isinstance(a, dict) else None, path.split("."), d)
-def get(path, default=None, sms=None):
-    v = _walk(eff(sms), path); return default if v is None else v
+def get(path, default=None, sms=None): return default if (v := _walk(eff(sms), path)) is None else v
 def maskv(k, v): return "***" if k == "api_key" and v else v
 def mask(d): return {k: (mask(v) if isinstance(v, dict) else maskv(k, v)) for k, v in d.items() if k != "comment"}
 def flat(d=None, pre=""):
     d = eff() if d is None else d
     return [x for k, v in d.items() if k != "comment" for x in (flat(v, pre + k + ".") if isinstance(v, dict) else [{"path": pre + k, "value": maskv(k, v), "default": _walk(DEFAULTS, pre + k)}])]
 def set(path, value, sms=None):
+    if path.split(".")[0] in skills_config.SKILL_KEYS: return skills_config.set(path, value, sms)
     sms = sms or resolve_home.ensure(); p = os.path.join(sms, "config", "config.json"); ks = path.split(".")
     doc = json.load(open(p, encoding="utf-8-sig")) if os.path.exists(p) else {}
     cur = reduce(lambda a, k: a.setdefault(k, {}), ks[:-1], doc)

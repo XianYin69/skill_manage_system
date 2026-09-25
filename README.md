@@ -11,7 +11,7 @@
 ## 快速开始
 
 ```bash
-# 根入口（跨 OS）：三段齐走后进 sms-shell——进去就像对系统说话，主界面＝Textual TUI（富文本流式无转义乱码·长文自动换行·TopBar 顶栏左壳身份/中当前步骤滚动简述/右时钟·左右分屏——左输出·右栏显工作区/修改文件/链与会话/步骤类型·工作线程不阻塞·F1/Alt+M 主菜单·Ctrl+K 技能菜单·「/」或 Alt+K SKILL.md 索引（首项弹本地文件选择菜单→选定登记 scan_roots 重建注册表）·Alt+C 图形化配置（↑↓·字母过滤·空格布尔改值/多选·Shift+Tab 编辑值）·Shift+Tab agent 菜单·Tab 补全·上下历史·Ctrl+L 清屏·Ctrl+Q 退出·进度条＋状态栏每步名称与本对话用时计时），缺 textual 回退原生 DOS 风格 TUI（蓝底白字边框·cmd→PowerShell·零 python），话语默认直达原生网关流式回显（先经 [skill_route](skill/scripts/skill_route.py) registry 技能路由·命中记 skill_call 链并注入 SKILL.md 全文真调技能·提示词经 [prompt_builder](skill/scripts/prompt_builder.py) 对话初始化＋构建〔技能名＋模型身份/config 参数＋SKILL.md 索引＋用户输入〕），裸内置词（help/状态/cmds/技能列表·裸 config 子命令）确定性路由零模型
+# 根入口（跨 OS）：三段齐走后进 sms-shell——进去就像对系统说话，主界面＝Textual TUI（富文本流式无转义乱码·长文自动换行·TopBar 顶栏左壳身份/中当前步骤滚动简述/右时钟·左右分屏——左输出·右栏显工作区/修改文件/链与会话/步骤类型·工作线程不阻塞·F1/Alt+M 主菜单·Ctrl+K 技能菜单·「/」或 F2/Alt+K SKILL.md 索引（首项弹本地文件选择菜单→选定登记 scan_roots 重建注册表）·F3/Alt+H 帮助·F4/Alt+C 图形化配置（含 skills.json 技能列表段·↑↓·字母过滤·空格布尔改值/多选·Shift+Tab 编辑值·list/dict 以 JSON 编辑）·Shift+Tab agent 菜单·Tab 补全·上下历史·Ctrl+L 清屏·Ctrl+Q 退出·进度条＋状态栏每步名称与本对话用时计时），缺 textual 回退原生 DOS 风格 TUI（蓝底白字边框·cmd→PowerShell·零 python），话语默认直达原生网关流式回显（先经 [skill_route](skill/scripts/skill_route.py) registry 技能路由·命中记 skill_call 链并注入 SKILL.md 全文真调技能·提示词经 [prompt_builder](skill/scripts/prompt_builder.py) 对话初始化＋构建〔技能名＋模型身份/config 参数＋SKILL.md 索引＋用户输入〕），裸内置词（help/状态/cmds/技能列表·裸 config 子命令）确定性路由零模型
 python -B sms.py                        # 或 ./sms（POSIX）/ sms.cmd（Windows）；诊断：python -B sms.py doctor；部署后亦可用 <目标>/sms-shell(.cmd)
 # 例：`查天气然后写报告` → 流式回显输出；`:agents` 看回退 CLI；`:use codex` 换；`:skill off` 关指令前缀
 # 部署＝仅复制 bin 启动文件到指定路径（locate 回源定位，禁止整包复制工具本体）；格式 API＝`api` 子命令（原 sms-api 并入）
@@ -33,7 +33,7 @@ python -B skill/scripts/hud.py session "SMS 任务进行中"
 python -B skill/scripts/chains.py user "偏好精简记忆"
 python -B skill/scripts/prompt_pack.py pack "当前问题关键词"
 python -B skill/scripts/dream.py run
-# 配置系统与上游模型元数据：settings.py dot-path 读写模型参数（config.json） · skills_config.py 技能列表配置独立存 skills.json（roots/add-root/migrate·与模型参数分离） · prompt_builder.py 对话初始化与提示词构建（技能名＋模型身份＋config 参数＋SKILL.md 索引→＋用户输入） · model_meta.py refresh（Token/上下文/RPM→<SMS_HOME>/config/models.json）
+# 配置系统与上游模型元数据：settings.py dot-path 读写模型参数（config.json）·技能列表键（scan_roots 等）同视图读写、按属主路由 skills_config 落 skills.json（roots/add-root/migrate）· prompt_builder.py 对话初始化与提示词构建（技能名＋模型身份＋config 参数＋SKILL.md 索引→＋用户输入） · model_meta.py refresh（Token/上下文/RPM→<SMS_HOME>/config/models.json）
 python -B skill/scripts/settings.py status; python -B skill/scripts/skills_config.py roots; python -B skill/scripts/prompt_builder.py build "<话语>"
 # 加密网页壳（127.0.0.1 TLS 指纹证书＋配对 token）；对外端口默认关闭（ML-DSA 指纹验签）
 python -B skill/scripts/web_shell.py start   # 或壳内 :web start；对外：:ext enable --yes → :ext start
