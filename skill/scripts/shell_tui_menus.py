@@ -4,7 +4,7 @@ import os
 import shell_core as core, skill_route, user_index
 from rich.text import Text
 from shell_tui_widgets import Menu
-META = [":" + m for m in ("agents","use","skill","cmds","intent","index","skills","workspace","alias","unalias","hud","deploy","session","grant","api","config","web","ext","net","tts","learn","file","path","dream","image","help","quit")]
+META = [":" + m for m in ("agents","use","skill","cmds","intent","index","skills","workspace","debug","alias","unalias","hud","deploy","session","grant","api","config","web","ext","net","tts","learn","file","path","dream","image","help","quit")]
 class Menus:
     def complete(self, ta):
         try: names = [c["name"] for c in core.user_commands.load(core.SMS)["commands"]]

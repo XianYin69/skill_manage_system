@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """shell_tui_widgets.py — sms-shell Textual TUI 组件（配 shell_tui_textual）：Input（回车/ctrl+enter 提交·Tab 补全·Shift+Tab agent 菜单·「/」空行时打开 SKILL.md 技能索引（F5 为文件索引）·上下历史）、StatusBar（步进器＋每步名称轮询＋本对话用时计时，RichLog 之外的实时状态行）、TopBar（顶栏：左＝壳身份与数据流·中＝当前任务步骤滚动简述·右＝当前时间，0.5s 自刷新）、Menu（ModalScreen 快捷菜单：F1/Alt+M/Ctrl+K 打开，Enter 选择→命令串回 app.pick）。"""
-import time
+import time, debug
 from rich.text import Text
 from textual.containers import Container, Vertical
 from textual.screen import ModalScreen
@@ -31,7 +31,7 @@ class TopBar(Static):
     def on_mount(self): self.off = 0; self.set_interval(0.5, self._tick)
     def _tick(self):
         a = self.app; steps = list(getattr(a, "steps", [])); cur = (steps[-1] if steps else "") or "sms 托管技能数据流 · 就绪"
-        left = (getattr(a, "title", "") or "sms-shell") + " ▸ " + (getattr(a, "sub_title", "") or "")
+        left = (getattr(a, "title", "") or "sms-shell") + ("·DEB" if debug.enabled() else "") + " ▸ " + (getattr(a, "sub_title", "") or "")
         right = time.strftime("%H:%M:%S"); mid = max((self.size.width or 80) - len(left) - len(right) - 6, 8)
         if len(cur) <= mid: core = cur
         else:

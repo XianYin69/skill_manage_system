@@ -11,7 +11,7 @@ sys.path.insert(0, S)
 import shell_core as core
 try: import readline
 except ImportError: readline = None
-META = [":" + m for m in ("agents", "use", "skill", "cmds", "intent", "alias", "unalias", "hud", "deploy", "session", "workspace", "grant", "api", "config", "web", "ext", "net", "tts", "learn", "file", "path", "dream", "image", "help", "quit")]
+META = [":" + m for m in ("agents", "use", "skill", "cmds", "intent", "alias", "unalias", "hud", "deploy", "session", "workspace", "debug", "grant", "api", "config", "web", "ext", "net", "tts", "learn", "file", "path", "dream", "image", "help", "quit")]
 def _complete(text, state):
     try:
         import user_commands
@@ -24,7 +24,7 @@ def emit(x):
     t = str(x)
     sys.stdout.write(t + ("" if t.endswith("\n") else "\n")); sys.stdout.flush()
 def main():
-    pos = [a for a in sys.argv[1:] if not a.startswith("--")]
+    os.environ["SMS_DEBUG"] = "1" if "--debug" in sys.argv else os.environ.get("SMS_DEBUG", ""); pos = [a for a in sys.argv[1:] if not a.startswith("--")]
     if pos:
         core.handle(" ".join(pos), emit); return
     if readline:

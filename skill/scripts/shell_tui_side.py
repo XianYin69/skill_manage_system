@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""shell_tui_side.py — sms-shell TUI 右半侧栏（左右分屏各 1/2·0.5s 自刷新·重数据 5s 节流）：当前工作区（SMS_HOME＋登记工作区数·F6 可切换）/技能源·启动 cwd 路径·本次对话修改的文件（从网关 $ exec 回显抽取脚本/文件路径＋图形化配置改动·去重末 7）·所在链与会话（解析「开新对话」id·本对话写入链，技能命中含 skill_call）·当前步骤类型＋简略说明（关键词映射）·会话总览（shell_tui_sessions.overview：最近对话＝创建时间＋首条话语简略）。样式由主文件 CSS 控制。"""
+"""shell_tui_side.py — sms-shell TUI 右半侧栏（左右分屏各 1/2·0.5s 自刷新·重数据 5s 节流）：当前工作区（SMS_WORKSPACE·真实目录或虚拟〔每对话开建口删〕＋登记数·F6 可切换）·数据根 SMS_HOME·技能源·启动 cwd 路径·本次对话修改的文件（从网关 $ exec 回显抽取脚本/文件路径＋图形化配置改动·去重末 7）·所在链与会话（解析「开新对话」id·本对话写入链，技能命中含 skill_call）·当前步骤类型＋简略说明（关键词映射）·会话总览（shell_tui_sessions.overview：最近对话＝创建时间＋首条话语简略）。样式由主文件 CSS 控制。"""
 import os, re, time
 from rich.text import Text
 from textual.widgets import Static
@@ -24,8 +24,10 @@ class Side(Static):
         tag = next((v for k, v in TYPE if k in cur), "等待提交话语（回车/F1 菜单/Ctrl+K 技能）")
         files = _files(a)
         t = Text(no_wrap=False, overflow="fold")
-        t.append("■ 当前工作区\n", "bold yellow")
-        t.append(workspace.current() + ("（F6 切换·重启后全壳生效）" if workspace.current() != core.SMS else "") + "　登记 " + str(self._nw) + " 个\n", "#a6e3a1")
+        cw = workspace.current()
+        t.append("■ 当前工作区 SMS_WORKSPACE\n", "bold yellow")
+        t.append(cw + ("〔虚拟·对话收口即删〕" if workspace.is_virtual(cw) else "（F6 切换）") + "　登记 " + str(self._nw) + " 个\n", "#a6e3a1")
+        t.append("数据根 SMS_HOME " + core.SMS + "\n", "dim")
         t.append("技能源 " + os.path.dirname(core.__file__) + "\n启动 cwd " + os.getcwd() + "\n\n", "dim")
         t.append("■ 本次修改的文件\n", "bold yellow")
         t.append(("\n".join(list(dict.fromkeys(files))[-7:]) + "\n") if files else "（无写文件记录）\n")

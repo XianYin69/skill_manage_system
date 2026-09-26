@@ -40,7 +40,7 @@ def run(text, on_line=lambda ln: None, images=None, max_steps=8):
         msgs.append(m)
         for tc in tcs:
             cmd = (json.loads(tc["function"]["arguments"]) or {}).get("cmd", ""); on_line("$ " + cmd)
-            r = subprocess.run(("chcp 65001 >nul & " + cmd) if os.name == "nt" else cmd, shell=True, capture_output=True, text=True, encoding="utf-8", errors="replace", env=dict(os.environ, PYTHONIOENCODING="utf-8"))
+            r = subprocess.run(("chcp 65001 >nul & " + cmd) if os.name == "nt" else cmd, shell=True, capture_output=True, text=True, encoding="utf-8", errors="replace", env=dict(os.environ, PYTHONIOENCODING="utf-8"), cwd=resolve_home.workspace())
             msgs.append({"role": "tool", "tool_call_id": tc["id"], "content": ((r.stdout or "") + (r.stderr or ""))[:4000] or "(无输出)"})
     on_line("达到 max_steps，中止"); return None
 if __name__ == "__main__":

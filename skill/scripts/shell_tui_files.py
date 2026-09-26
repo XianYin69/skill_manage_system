@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""shell_tui_files.py — sms-shell TUI 本地文件/文件夹选择菜单（F5 文件索引首项＋工作区「＋添加/更改路径」共用）：浏览文件系统——↑ 上级 · ✔ 选定当前目录 · 目录项进入 · 文件（任意类型·可插入文件夹中的文件）直接选定其路径，Enter 经 dismiss(str) 回 shell_tui_index._file_picked（目录→register --add-root 登记 scan_roots＋user_index 索引项；文件→user_index 索引项→「/名称」令牌）；工作区模式（_ws_pick）回 shell_tui_ws.ws_indexed 登记并切换；Esc 关闭。默认起始＝skills_config.roots() 内最新存在根，否则用户主目录。"""
+"""shell_tui_files.py — sms-shell TUI 本地文件/文件夹选择菜单（F5 文件索引首项＋工作区「＋添加/更改路径」共用）：浏览文件系统——↑ 上级 · ✔ 选定当前目录 · 目录项进入 · 文件（任意类型·可插入文件夹中的文件）直接选定其路径，Enter 经 dismiss(str) 回 shell_tui_index._file_picked（目录→register --add-root 登记 scan_roots＋user_index 索引项；文件→user_index 索引项→「/名称」令牌）；工作区模式（_ws_pick）回 shell_tui_ws.ws_indexed 登记为 SMS_WORKSPACE 并切换；Esc 关闭。默认起始＝skills_config.roots() 内最新存在根，否则用户主目录。"""
 import os
 from rich.text import Text
 from textual.containers import Vertical

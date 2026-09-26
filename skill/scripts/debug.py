@@ -1,0 +1,34 @@
+#!/usr/bin/env python3
+"""debug.py — SMS 调试模式（错误分析）：开＝启动器 `--debug` / env `SMS_DEBUG=1` / 壳内 `:debug on`（持久 flag 文件 <SMS_HOME>/shell/debug·关即删）；开启后 shell_core 记录每条元指令与话语派发、run_script 记录 命令+rc+stderr，Textual _work 异常输出完整 traceback——全部追加落 <SMS_HOME>/logs/debug.log（>512KB 自动截尾 256KB·运行时数据不进工具目录），顶栏出现 DEB 标识；:debug tail [n] 查看尾部。用法：python -B debug.py on|off|status|path|tail [n]"""
+import os, sys, time
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import resolve_home
+def flag(sms=None): return os.path.join(sms or resolve_home.resolve(), "shell", "debug")
+def path(sms=None): return os.path.join(sms or resolve_home.resolve(), "logs", "debug.log")
+def enabled(sms=None): return os.environ.get("SMS_DEBUG") == "1" or os.path.isfile(flag(sms))
+def on(sms=None):
+    p = flag(sms); os.makedirs(os.path.dirname(p), exist_ok=True); open(p, "w").close(); os.environ["SMS_DEBUG"] = "1"
+    return "调试模式：开 · 日志=" + path(sms)
+def off(sms=None):
+    os.environ["SMS_DEBUG"] = "0"
+    try: os.remove(flag(sms))
+    except OSError: pass
+    return "调试模式：关（日志保留于 " + path(sms) + "）"
+def log(s, sms=None):
+    if not enabled(sms): return None
+    p = path(sms); os.makedirs(os.path.dirname(p), exist_ok=True)
+    if os.path.exists(p) and os.path.getsize(p) > 524288:
+        open(p, "wb").write(open(p, "rb").read()[-262144:])
+    open(p, "a", encoding="utf-8").write(time.strftime("[%m-%d %H:%M:%S] ") + str(s).replace("\n", " ⏎ ")[:2000] + "\n")
+def tb():
+    import traceback; return traceback.format_exc()
+def tail(n=20, sms=None):
+    try: return "\n".join(open(path(sms), encoding="utf-8").read().splitlines()[-n:]) or "(空)"
+    except FileNotFoundError: return "(无日志——尚未产生调试记录)"
+if __name__ == "__main__":
+    a = sys.argv[1:] or ["status"]; cmd = a[0]
+    if cmd == "on": print(on())
+    elif cmd == "off": print(off())
+    elif cmd == "status": print("on · " + path() if enabled() else "off（--debug 启动 / env SMS_DEBUG=1 / :debug on）")
+    elif cmd == "path": print(path())
+    elif cmd == "tail": print(tail(int(a[1]) if len(a) > 1 and a[1].isdigit() else 20))
+    else: print(__doc__.strip().splitlines()[-1])

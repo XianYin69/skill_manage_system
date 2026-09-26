@@ -15,7 +15,7 @@ try:
     BASE = locate.find_base()
 except Exception:
     pass
-args = sys.argv[1:]
+args = sys.argv[1:]; os.environ["SMS_DEBUG"] = "1" if "--debug" in args else os.environ.get("SMS_DEBUG", "")
 tty = sys.stdin.isatty() and sys.stdout.isatty()
 TUI = os.path.join(BASE, "scripts", "shell_tui_textual.py") if BASE else None
 if TUI and os.path.isfile(TUI) and "--gui" not in args and (args or tty) and importlib.util.find_spec("textual"):
