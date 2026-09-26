@@ -3,7 +3,7 @@
 from rich.text import Text
 from textual.widgets import ProgressBar
 from shell_tui_widgets import Input, StatusBar
-from shell_tui_detail import shrink
+from shell_tui_detail import split, _push
 import shell_core as core
 class Flow:
     def submit(self, text):
@@ -25,10 +25,15 @@ class Flow:
         if self.awaiting: return
         import ask_channel; q = ask_channel.poll()
         if q: self.awaiting = q; self.log_line(Text("❓ 大模型提问（直接输入即答复·任务将据你的回答继续）：", style="bold magenta")); self.log_line(Text(q, style="magenta"))
-    def _oline(self, s): s2 = shrink(self, str(s)); ("$ " in s2 or "config:" in s2 or ".py" in s2 or ".md" in s2) and self.touched.append(s2[:200]); self.call_from_thread(self.log_line, s2)
+    def _oline(self, s):
+        s2 = str(s)
+        ("$ " in s2 or "config:" in s2 or ".py" in s2 or ".md" in s2) and self.touched.append(s2[:200])
+        r = split(self, s2)
+        r is not None and self.call_from_thread(self.log_line, r)
     def _work(self, text):
         done = None
-        try: done = core.handle(text, self._oline, self.steps.append, self._ev)
+        def _st(n): self.steps.append(n); _push(self, "▸ " + str(n))
+        try: done = core.handle(text, self._oline, _st, self._ev)
         except Exception as e: import debug; done = None; core.debug.enabled() and core.debug.log("EXC " + core.debug.tb()); self.call_from_thread(self.log_line, Text("处理异常：" + (core.debug.tb()[-900:] if core.debug.enabled() else repr(e)[:200]), style="red"))
         finally:
             import ask_channel; ask_channel.flush()

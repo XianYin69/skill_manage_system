@@ -23,7 +23,6 @@ class StatusBar(Static):
         self.update(Text(" ● 就绪 · 上一条对话用时 %.1fs · 共 %d 步（F1 菜单 · F7 模式 · Ctrl+K 技能 · Shift+Tab agent · Ctrl+Q 退出）" % (secs, len(self.app.steps)), style="dim green"))
     def _tick(self):
         steps = self.app.steps
-        while self.seen < len(steps): self.app.log_line(Text("  ▸ " + steps[self.seen], style="dim cyan")); self.seen += 1
         sp = SP[int(time.time() * 8) % 10] if self.busy else "●"
         el = "%.1fs" % (time.time() - self.t0) if self.busy else "%.1fs" % self.last
         self.update(Text("%s %s ｜ 对话用时 %s ｜ 步序 %d" % (sp, steps[-1] if steps else "就绪", el, len(steps)), style="bold yellow" if self.busy else "dim"))

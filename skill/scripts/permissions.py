@@ -41,7 +41,7 @@ def apply(sms, cmd, target, dry, ttl=0):
         doc["grants"][k] = {"on": True, "until": (datetime.now() + timedelta(minutes=ttl)).strftime("%Y-%m-%dT%H:%M:%S")} if on and ttl else on
         doc.setdefault("audit", []).append({"ts": time.strftime("%H:%M:%S"), "action": cmd, "key": k, "ttl_min": ttl})
     if dry: return {"dry_run": True, "grants": doc["grants"]}
-    os.makedirs(os.path.dirname(path), exist_ok=True); json.dump(doc, open(path, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+    os.makedirs(os.path.dirname(path), exist_ok=True); import atomic_io; atomic_io.wjson(path, doc)
     return {"grants": doc["grants"], "note": "未显式授予的键恒随配置 permissions_default（F4 可改）"}
 if __name__ == "__main__":
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import resolve_home

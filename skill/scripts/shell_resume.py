@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""shell_resume.py — 新启动接续前次对话（2026-09-26 用户报障「无法在新启动时接续前次对话」）：原生网关每轮对话收口把 user/agent 轮次写 <SMS_HOME>/shell/last_conv.json（conv 变化即重置·末 20 轮·每条 ≤1200 字）；下次任何输入（含重启壳后）开新对话时把前一对话轮次作 [上一对话记录] 块前置注入提示词（红线 17 每输入仍开新对话·记忆＝上一对话轮次＋压缩链，不违背）；TUI 启动时 log 尾部轮次供人读接续。开关＝状态文件 shell/resume（"off" 关闭·默认开·:resume on|off|status·与 skill_prefix 同机制，属壳运行态非模型配置）。用法：python -B shell_resume.py on|off|status"""
+"""shell_resume.py — 新启动接续前次对话（2026-09-26 用户报障「无法在新启动时接续前次对话」）：原生网关每轮对话收口把 user/agent 轮次写 <SMS_HOME>/shell/last_conv.json（同会话累积末 20 轮·换会话才重置·每条 ≤1200 字；红线17 每输入开新 conv，按 conv 重置会让接续永远只剩一句，故改按 sess 归属）；下次任何输入（含重启壳后）开新对话时把前次轮次作 [上一对话记录] 块前置注入提示词（记忆＝上一对话轮次＋压缩链，不违背红线 17）；TUI 启动时 log 尾部轮次供人读接续。开关＝状态文件 shell/resume（"off" 关闭·默认开·:resume on|off|status·与 skill_prefix 同机制，属壳运行态非模型配置）。用法：python -B shell_resume.py on|off|status"""
 import os, sys, json, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import resolve_home, chains
 SMS = resolve_home.ensure()
@@ -9,14 +9,15 @@ def flag():
     except Exception: return True
 def set_flag(on): open(_p("resume"), "w", encoding="utf-8").write("on" if on else "off"); return "接续前次对话：" + ("开（每轮输入自动携带上一对话轮次·重启壳亦接续）" if on else "关（仅压缩链记忆）")
 def load():
-    try: return json.load(open(_p("last_conv.json"), encoding="utf-8"))
+    import atomic_io
+    try: return atomic_io.rjson(_p("last_conv.json"), encoding="utf-8")
     except Exception: return {}
 def append(user, agent):
     if not flag(): return
     d = load(); conv = chains.ACTIVE["conv"] or chains.session_id()
-    t = d.get("turns", []) if d.get("conv") == conv else []
+    t = d.get("turns", []) if d.get("sess") == chains.cur_sess() else []
     t += [["user", str(user)[:1200]], ["agent", str(agent)[:1200]]]
-    json.dump({"conv": conv, "sess": chains.cur_sess(), "ts": time.strftime("%Y-%m-%d %H:%M:%S"), "turns": t[-20:]}, open(_p("last_conv.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+    import atomic_io; atomic_io.wjson(_p("last_conv.json"), {"conv": conv, "sess": chains.cur_sess(), "ts": time.strftime("%Y-%m-%d %H:%M:%S"), "turns": t[-20:]})
 def prefix(sess=None):
     d = load(); t = d.get("turns") or []
     if not t or not flag(): return ""
