@@ -2,9 +2,9 @@
 """shell_core.py — sms-shell 共享路由（与 bin ps1 同套确定性路由）：quit·`sms/sms-shell` 前缀剥离·裸内置词零模型直达·`:dispatch` 真派发·`:sh`/`!命令` 系统 shell 联动·`:edit/:view` 返回编辑器令牌（TUI F8）·`:session new|list|use|current` 会话层链隔离·`:debug` 同步配置。其余话语经 shell_mode.utter（含 F7 三态 gate）→ data flow；agent_stream 命中技能即开子会话真派发，否则 gateway 工具循环。st 上报步骤、ev 收 msg_flow 信封供顶栏进度。"""
 import os, sys, subprocess, re
 S = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, S)
-import agent_stream as ag, settings, user_commands, skill_route, user_index, debug, chains, resolve_home, sys_shells; from shell_help import HELP, SHORT
-SMS = ag.SMS; IMG = []; os.environ["SMS_TMP"] = resolve_home.wtmp()
-def banner(): return "sms-shell · SMS_HOME=" + SMS + " · 会话=" + chains.cur_sess() + " · 数据流：" + (ag.current() or "未检出（:agents 查看）") + " · 技能前缀：" + ("on" if ag.prefix_on() else "off") + " · 帮助 :help（含 :dispatch/:sh/!命令/:edit/F7 编辑器/F4 debug 开关）"
+import agent_stream as ag, settings, user_commands, skill_route, user_index, debug, chains, resolve_home, sys_shells, shell_resume as sr; from shell_help import HELP, SHORT; SMS = ag.SMS; IMG = []; os.environ["SMS_TMP"] = resolve_home.wtmp()
+def banner(): return "sms-shell · SMS_HOME=" + SMS + " · 会话=" + chains.cur_sess() + " · 数据流：" + (ag.current() or "未检出（:agents 查看）") + " · 技能前缀：" + ("on" if ag.prefix_on() else "off") + " · 接续前对话：" + ("on" if sr.flag() else "off（:resume on 开启）") + " · 帮助 :help（含 :dispatch/:sh/!命令/:resume/:edit/F8 编辑器/F4 debug 开关）"
+def startup_block(): n = sr.note(); return ("── 接续上次关闭前的对话 ──\n" + n) if n else ""
 def run_script(name, args):
     return (lambda p: (debug.enabled() and debug.log("exec " + name + " rc=" + str(p.returncode) + ("" if p.returncode == 0 and not p.stderr else " STDERR:" + (p.stderr or p.stdout or "")[:500])) or (p.stdout or p.stderr).strip() or "(无输出)"))(subprocess.run([sys.executable, "-B", os.path.join(S, name)] + list(args), capture_output=True, text=True, encoding="utf-8", errors="replace"))
 def _meta(m, a, on_line, st):
@@ -18,7 +18,7 @@ def _meta(m, a, on_line, st):
     elif m == "image" and a: p = " ".join(a); IMG[:] = [p] if os.path.isfile(p) else []; on_line(("已附图（下一句生效）：" if IMG else "图片不存在：") + p)
     elif m == "use" and a: on_line(ag.use(a[0]))
     elif m == "skill": on_line(ag.skill(not (a and a[0] == "off")))
-    elif m in ("hud", "deploy", "workspace"): on_line(run_script(m + ".py", a))
+    elif m in ("hud", "deploy", "workspace", "resume"): on_line(run_script({"resume": "shell_resume"}.get(m, m) + ".py", a))
     elif m in ("config", "web", "ext", "debug", "mode"): m == "debug" and a and a[0] in ("on", "off") and settings.set("debug.enabled", a[0] == "on"); on_line(run_script({"config": "settings", "web": "web_shell", "ext": "external", "mode": "shell_mode"}.get(m, m) + ".py", a or ["status"]))
     elif m in ("net", "tts", "learn", "file", "path"): on_line(run_script({"net": "ff_lite", "file": "file_ops", "path": "path_ops"}.get(m, m) + ".py", a or (["status"] if m in ("tts", "net") else [])))
     elif m == "api": on_line(run_script("api.py", a or ["formats"]))
@@ -31,7 +31,7 @@ def _meta(m, a, on_line, st):
     elif m in ("alias", "unalias"): on_line(run_script("user_commands.py", [("add" if m == "alias" else "rm")] + a + ["--write"]))
     else: on_line(HELP if m in ("help", "?") else "未知元指令 :" + m + "（:help）")
 HELPW = ("help", "?", "h", "帮助", "用法"); CFGW = ("config", "设置", "配置", "状态", "status", "修改配置", "打开设置", "查看配置", "如何修改配置", "怎么修改配置", "如何查看配置", "修改配置文件", "打开配置", "进入配置", "配置编辑器", "图形化配置"); CMDW = ("cmds", "命令", "指令", "命令表")
-DIAG = re.compile("问题|故障|报错|错误|异常|失败|无法|不能|检查|诊断|为什么|怎么回事|卡|崩|慢"); METAS = frozenset(("agents","use","skill","image","dispatch","sh","edit","view","session","hud","deploy","workspace","config","web","ext","debug","mode","net","tts","learn","file","path","api","grant","dream","cmds","intent","index","skills","alias","unalias","help","?","quit","tools","perms"))
+DIAG = re.compile("问题|故障|报错|错误|异常|失败|无法|不能|检查|诊断|为什么|怎么回事|卡|崩|慢"); METAS = frozenset(("agents","use","skill","image","dispatch","sh","edit","view","session","hud","deploy","workspace","resume","config","web","ext","debug","mode","net","tts","learn","file","path","api","grant","dream","cmds","intent","index","skills","alias","unalias","help","?","quit","tools","perms"))
 def _cfgline(): g = settings.status()["gateway"]; return "gateway: enabled=%s base_url=%s model=%s api_key=%s max_tokens=%s · 文件=<SMS_HOME>/config/config.json\n改配置：:config set <path> <json> · 全量：:config show · TUI F4 图形化（debug 开关/输出路径同处）" % (g["enabled"], g["base_url"], g["model"], g["api_key"], g["max_tokens"])
 def handle(line, on_line, st=lambda n: None, ev=None):
     if not (t := line.strip()): return None

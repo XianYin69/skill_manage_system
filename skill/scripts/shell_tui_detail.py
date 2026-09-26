@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""shell_tui_detail.py — sms-shell TUI「详细细节」分流（2026-09-26 v2·按 msg_flow 类型分类折叠）：主输出只留简略——行若是 JSON 信封按 kind 分类（parse→msg_flow.CLASS），否则按 brief() 人读行前缀反推类型（$ tool·⧉ skill·✎ edit·! sh·• notice 属 detail，▸/≡ status、✗ alert、裸行 body 一律不折叠）；detail 且超长/多行→压成首行＋提示，全文收进 app.details（末 8 条·每条 ≤3000 字）供右栏与 F9 查看。Details 显示异常修复（旧版单块 Static 长行横向裁切）：每条独立 Static＋rich Text(overflow="fold")＋CSS text-wrap:fold 纵向折行、VerticalScroll 滚动、遮罩层、条间序号分隔。"""
+"""shell_tui_detail.py — sms-shell TUI「详细细节」分流（2026-09-26 v2·按 msg_flow 类型分类折叠）：主输出只留简略——行若是 JSON 信封按 kind 分类（parse→msg_flow.CLASS），否则按 brief() 人读行前缀反推类型（$ tool·⧉ skill·✎ edit·! sh·• notice 属 detail，▸/≡ status、✗ alert、裸行 body 一律不折叠）；detail 且超长/多行→压成首行＋提示，全文收进 app.details（末 8 条·每条 ≤3000 字）供右栏与 F9 查看。F9 崩溃修复（用户 2026-09-26 报障·textual 8.x）：旧 CSS 用了非法声明 text-wrap:fold 与 overlay:<颜色> <透明度>——textual 8.2.8 解析 StylesheetParseError 直接炸屏；改 text-wrap:wrap＋遮罩用 background:#11111b 70%（alpha 色即遮罩）。每条独立 Static＋rich Text(overflow="fold")＋CSS 纵向折行、VerticalScroll 滚动、条间序号分隔。"""
 import msg_flow
 from rich.text import Text
 from textual.containers import VerticalScroll
@@ -19,7 +19,7 @@ def shrink(app, s):
     head = (msg_flow.brief(e) if (e := msg_flow.parse(t)) else t).splitlines()[0]
     return head[:160] + " …〔详情→右栏·F9〕"
 class Details(ModalScreen):
-    CSS = "Details{align:center middle;overlay:#11111b 70%} Details>VerticalScroll{width:90%;max-width:160;height:86%;background:#181825;border:round #89b4fa;padding:1 2} Details VerticalScroll>Static{width:100%;text-wrap:fold}"
+    CSS = "Details{align:center middle;background:#11111b 70%} Details>VerticalScroll{width:90%;max-width:160;height:86%;background:#181825;border:round #89b4fa;padding:1 2} Details VerticalScroll>Static{width:100%;text-wrap:wrap}"
     BINDINGS = [("escape", "close", "关闭")]
     def compose(self):
         ds = list(getattr(self.app, "details", []))
