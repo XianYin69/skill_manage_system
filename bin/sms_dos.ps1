@@ -29,8 +29,8 @@ function Show-MetaHelp {
   Write-Line ':dispatch <技能id> <诉求> 技能真派发 · :session new|list|use|current 会话层 · :sh [list|<kind>|<命令>] 系统 shell · :debug on|off|tail · :mode chat|view|exec 界面模式（原生壳恒对话） · :image <文件> · :quit'
   Write-Dim '生成文件一律入工作区 tmp\（真实/虚拟工作区自动创建·env SMS_TMP）；大模型与技能配置直读 <SMS_HOME>\config\ 文件，不复制进工作区；目标为工作区文件的 tmp 产物经审核可 :workspace review/diff/release --yes 收编（须 :grant danger）'
   Write-Dim '以下经托管引擎执行（外部程序·与系统 shell 调命令同理）：'
-  Write-Line ':cmds [name] · :intent <话语> · :skills 托管技能清单 · :index [<路径>] 看/登记扫描根并重建注册表 · :alias/:unalias 个性化指令 · :grant <键|角色> [分钟] · :deploy <dir|--Path P --FolderName F>'
-  Write-Line ':session "<任务>" · :hud s|t|a|h · :dream status|run · :api formats|detect|show|validate|export · :web start|stop|token'
+  Write-Line ':cmds [name] · :intent <话语> · :skills 托管技能清单 · :index [<路径>] 看/登记扫描根并重建注册表 · :alias/:unalias 个性化指令 · :grant <键|角色> [分钟] · :perms 权限总览（与配置一致）· :tools 大模型工具权限 · :deploy <dir|--Path P --FolderName F>'
+  Write-Line ':session "<任务>" · :hud start|session|step|alert|hide|stop · :dream status|run（触发时间程序自算）· :api formats|detect|show|validate|export · :web start|stop|token'
   Write-Line ':ext status|enable|enroll · :net search|fetch|download|status · :tts say|test|on|off|voices · :learn from-url|note|recall|distill|stats'
   Write-Line ':file read|write|list|copy|move|delete|stat · :path resolve|which|glob|tree|env'
 }

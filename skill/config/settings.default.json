@@ -21,7 +21,7 @@
     "default": { "enabled": true, "merge_thr": 0.92, "prune_days": 14, "min_freq": 1 },
     "comment": "各链设置：chains.<链名> 覆盖 default（user/memory/logic/time/event/session/skill_call/tool_call/subsession/dialogue）；enabled=false 即停写该链；knowledge 钉选链不受修剪影响"
   },
-  "dream": { "enabled": true, "interval_min": 360, "next_run": null, "comment": "做梦机制：timestamp 调度（next_run ISO 时间戳到时即执行）；间隔 interval_min 用于计算下次执行时间；旧键 dream_interval_min 兼容" },
+  "dream": { "enabled": true, "comment": "做梦机制：enabled＝开关；触发时间由程序按链规模自动计算（间隔 45→720 分钟浮动·chains/next_run_ts 调度），用户不可设置间隔；:dream status|run" },
   "web_shell": { "enabled": true, "host": "127.0.0.1", "port": 8737, "comment": "本地加密网页壳（web_shell.py）：HTTPS 自签指纹证书＋配对 token；:web start|stop|token" },
   "external": {
     "enabled": false,
@@ -35,5 +35,7 @@
   "ff_lite": { "engine": "bing", "timeout_s": 30, "headless": true, "max_page_chars": 8000, "download_dir": "downloads", "max_download_mb": 200, "comment": "firefox lite 内核（ff_lite.py）：联网搜索·取页·下载——动作须 grant network（默认拒绝）；engine=bing|duckduckgo（ddg lite 端点国内常不可达故默认 bing，search 失败自动改投另一引擎）；渲染优先 playwright 随包无头 Firefox，缺失回退 urllib（明确提示·绝不自动装依赖）；下载只落 <SMS_HOME>/downloads/，覆盖须 --force＋grant danger" },
   "tts": { "enabled": false, "engine": "sapi5", "profile_name": "阿林娜", "voice": "Microsoft Huihui Desktop - Chinese (China)", "rate": -1, "pitch": "+0st", "volume": 100, "max_chars": 400, "comment": "TTS 阿林娜（alina）：旧导航/屏幕阅读器式机械女声——Windows SAPI5 本地合成、文本不出本机；默认关，壳内 :tts on 开启后模型输出逐句朗读；voice/rate(-10..10)/pitch/volume 可调" },
   "debug": { "enabled": false, "path": "", "comment": "调试模式：元指令/话语派发·脚本 rc 与 stderr·msg_flow 工具信封·异常 traceback 追加落日志；path 空＝默认 <SMS_HOME>/logs/debug.log（>512KB 截尾），可填绝对路径自定义输出；亦可 :debug on|off、启动器 --debug、env SMS_DEBUG=1；顶栏显 DEB" },
-  "ui": { "mode": "chat", "comment": "sms-shell Textual TUI 界面模式（F7 切换·顶栏与右栏显示）：chat＝对话（默认·话语经路由＋网关流式）·exec＝直通（输入即命令·免冒号走 :元指令 治理·不经大模型）·view＝查看（只读不发送·Esc 回对话）；仅 TUI 前端读取，readline 壳与 bin 原生 ps1 壳恒等同 chat" }
+  "ui": { "mode": "chat", "details_panel": true, "max_output_lines": 400, "comment": "sms-shell Textual TUI：mode（F7 三态 chat/view/exec〔直通＝输入即系统 shell〕）·details_panel＝右栏显示详细细节·max_output_lines＝主输出区保留行数（超出折叠至右栏）；readline 壳与 bin 原生 ps1 壳恒等同 chat" },
+  "agent_tools": { "comment": "大模型可用工具权限（agent_dispatch.tools_schema 门控·菜单 F1→大模型工具权限 或 :tools enable|disable <name>·写 config.json）：false＝对模型隐藏且拒调；skill/user_send/thinking_chain 建议常开", "exec": true, "read": true, "write": true, "skill": true, "ask": true, "task": true, "task_detail": true, "user_send": true, "thinking_chain": true },
+  "hud": { "enabled": false, "auto": true, "comment": "界面顶面 HUD 浮窗（hud.py·置顶/穿透/不抢焦点）：enabled＝是否允许浮窗（:hud start 需先启用·TUI 菜单可开）；auto＝任务进行时自动常显" }
 }

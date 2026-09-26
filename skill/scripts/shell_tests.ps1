@@ -7,14 +7,14 @@ function T([string]$desc, [string[]]$argvs, [string[]]$expects) {
    $miss = @($expects | Where-Object { $out.IndexOf($_, [System.StringComparison]::Ordinal) -lt 0 })
   if ($miss.Count -eq 0) { $script:lines += ('PASS ' + $desc) } else { $script:fail++; $e = ($out -replace '\s+', ' '); if ($e.Length -gt 260) { $e = $e.Substring(0, 260) }; $script:lines += ('FAIL ' + $desc + ' 缺[' + ($miss -join ';') + '] 实际: ' + $e) }
 }
-T '裸 help＝内置元指令表' @('help') @('元指令', '单发执行即退')
+T '裸 help＝内置速查表（精简）' @('help') @('元指令', '全量命令表')
 T '裸 ?＝内置' @('?') @('元指令')
 T ':help 单发' @(':help') @(':config', ':quit', ':dispatch', ':sh', ':mode')
 T '前缀剥离＋meta' @('sms_shell :config get llm_gateway.model') @('auto')
 T 'sms-shell 单词＝帮助' @('sms-shell') @('元指令')
 T '裸 config＝网关摘要' @('config') @('base_url', 'api_key=')
 T '裸 状态＝网关摘要' @('状态') @('enabled=')
-T '打开sms shell设置＝确定性路由' @('打开sms shell设置') @('元指令')
+T '打开sms shell设置＝确定性路由短指引' @('打开sms shell设置') @('确定性路由')
 T '裸 config get <dot.path>＝零模型读配置' @('config get llm_gateway.model') @('auto')
 T '裸 技能列表＝托管技能清单' @('技能列表') @('可调用托管技能')
 T '裸 哪些skill＝技能清单路由' @('你现在可以调用那些skill') @('可调用托管技能')

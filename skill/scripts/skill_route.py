@@ -8,15 +8,21 @@ def _load(sms, rel):
 def skills(sms=None):
     sms = sms or resolve_home.ensure()
     return [s for s in _load(sms, "registry/register.json").get("skills", []) if s.get("status", "active") == "active" and s.get("trust") not in ("quarantine", "pending_review")]
+STOP = {"系统", "问题", "使用", "功能", "支持", "提供", "进行", "可以", "需要", "一个", "这个", "那个", "用户", "管理", "相关", "通过", "以及", "如果", "默认", "显示", "输出", "输入", "操作", "文件", "设置", "配置"}
+def _dterms(desc):
+    t = re.sub(r"\s+", "", str(desc or ""))
+    ws = [x for x in re.findall(r"[a-z][a-z0-9_\-]{3,}", t.lower()) if x not in STOP] + [t[i:i + 2] for i in range(len(t) - 1) if "\u4e00" <= t[i] <= "\u9fff" and "\u4e00" <= t[i + 1] <= "\u9fff" and t[i:i + 2] not in STOP]
+    return list(dict.fromkeys(ws))[:80]
 def _terms(sms):
     t = {}
     for it in _load(sms, "registry/interfaces.json").get("skills", []):
         ws = [str(i.get("name", "")) for i in it.get("interfaces", [])] + [str(c) for c in (it.get("capabilities") or [])]
         t.setdefault(it.get("skill_id") or "", []).extend(w for w in ws if 1 < len(w) <= 12)
+    for s in skills(sms): t.setdefault(str(s.get("id") or ""), []).extend(_dterms(s.get("description")))
     return t
 def _score(s, u, terms):
     sid = str(s.get("id", "")).lower()
-    return (4 if sid and sid in u else 0) + 2 * sum(1 for x in re.split(r"[-_.]+", sid) if len(x) >= 4 and x in u) + sum(1 for w in terms.get(s.get("id"), []) if w.lower() in u)
+    return (4 if sid and sid in u else 0) + 2 * sum(1 for x in re.split(r"[-_.]+", sid) if len(x) >= 4 and x in u) + min(4, sum(1 for w in terms.get(s.get("id"), []) if w.lower() in u))
 def match(text, sms=None):
     sms = sms or resolve_home.ensure(); terms = _terms(sms); u = text.lower(); ss = skills(sms)
     ranked = sorted(((_score(s, u, terms), i) for i, s in enumerate(ss)), key=lambda x: -x[0])
@@ -30,7 +36,7 @@ def route(text, sms=None):
     for s in hs: chains.log("skill", "路由命中:" + str(s.get("id")))
     if hs:
         g = "；".join("%s→%s" % (s.get("id"), os.path.join(str(s.get("install_path", "")), str(s.get("entry", "SKILL.md")))) for s in hs)
-        return ",".join(str(s.get("id")) for s in hs), "[SMS 路由] 命中托管技能（" + g + "）：由 SMS 经 skill 工具开子会话按其 SKILL.md 全文派发执行（本消息为父对话时勿重复读 SKILL.md、勿以常识代答）；子会话不可用时如实说明并提示 :dispatch <技能id> <诉求>。"
+        return ",".join(str(s.get("id")) for s in hs), "[SMS 路由] 命中托管技能（" + g + "·产物目标＝工作区 tmp：" + resolve_home.wtmp() + "）：由 SMS 经 skill 工具开子会话按其 SKILL.md 全文派发执行（本消息为父对话时勿重复读 SKILL.md、勿遍历技能目录、勿以常识代答）；子会话不可用时如实说明并提示 :dispatch <技能id> <诉求>。"
     return None, "[SMS 路由] 未命中托管技能，但必须优先从下表择最相关技能并调 skill 工具真执行；确无可用时明确回复「无匹配技能」并建议调整话语或经 Skill_Generator 创建，禁止常识代答。" + catalog(sms)
 if __name__ == "__main__":
     a = sys.argv[1:] or ["list"]

@@ -6,7 +6,7 @@ import settings
 MODES = {"chat": "对话", "view": "查看", "exec": "直通"}
 DESC = {"chat": "默认：话语经路由→托管技能→原生网关流式作答",
         "view": "只读旁观：话语不发送·仅看日志/链/右栏（元指令仍可浏览）",
-        "exec": "直通：输入即命令·免冒号按 :元指令 治理执行·不经大模型"}
+        "exec": "直通：输入即系统 shell 命令（unix 命令自动走 bash·!同义）·`:` 开头仍走 :元指令 治理·不经大模型"}
 def norm(v): return v if v in MODES else "chat"
 def current(): return norm(settings.get("ui.mode"))
 def label(m=None): return MODES[norm(m or current())]
@@ -17,8 +17,14 @@ def utter(line, img, on_line, st, ev=None):
     m = current()
     if m == "view": st("界面模式：查看（拦截发送）"); on_line(DESC[m] + "｜:mode chat 或 F7 切回对话"); return None
     if m == "exec":
-        import shell_core as core; st("界面模式：直通（转元指令）"); return core.handle(":" + line, on_line, st, ev)
-    import agent_stream as ag; ag.ask(line + ("\n[图:" + img + "]" if img else ""), on_line, st, ev); return None
+        import shell_core as core; t = line.strip()
+        if t and t[0] not in ":：":
+            import sys_shells; st("直通→系统 shell"); on_line(sys_shells.run(t, on_line=on_line)); return None
+        st("界面模式：直通（转元指令）"); return core.handle(t, on_line, st, ev)
+    import agent_stream as ag; _hud(line); ag.ask(line + ("\n[图:" + img + "]" if img else ""), on_line, st, ev); return None
+def _hud(text):
+    import settings, hud
+    settings.get("hud.enabled") and settings.get("hud.auto", True) and hud._set("session", text[:48], 300)
 if __name__ == "__main__":
     a = (sys.argv[1] if len(sys.argv) > 1 else "status").lower()
     if a in MODES: print(set(a))

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""agent_dispatch.py — agent 工具 schema 与派发（gateway 工具循环与 CLI 共用·单一真源）：SCHEMA＝OpenAI function 清单 exec·read·write·skill·ask·task·task_detail·user_send·thinking_chain；execute(name, raw_args)→agent_tools/agent_task 对应实现，参数按形参名过滤、异常回错误文本给模型（不中断工具循环）。用法：python -B agent_dispatch.py call <工具> '<json参数>' | skill <技能id> <诉求> | task <诉求> | detail [task-id]"""
+"""agent_dispatch.py — agent 工具 schema 与派发（gateway 工具循环与 CLI 共用·单一真源）：SCHEMA＝OpenAI function 清单 exec·read·write·skill·ask·task·task_detail·user_send·thinking_chain；execute(name, raw_args)→agent_tools/agent_task 对应实现，参数按形参名过滤、异常回错误文本给模型（不中断工具循环）。工具权限——settings agent_tools.<name>（默认 true）门控：tools_schema() 供 gateway 只暴露启用工具、execute() 拒调禁用工具，菜单 F1→大模型工具权限 或 `:tools`/`:config set agent_tools.read false` 增删。用法：python -B agent_dispatch.py call <工具> '<json>' | skill <id> <诉求> | task <诉求> | detail [task-id] | tools [enable|disable <name>]"""
 import os, sys, json
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import agent_tools as at, agent_task as atk
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import agent_tools as at, agent_task as atk, settings
 P = lambda t, d: {"type": t, "description": d}; F = lambda n, d, p, r: {"type": "function", "function": {"name": n, "description": d, "parameters": {"type": "object", "properties": p, "required": r}}}
 SCHEMA = [F("exec", "执行 shell 命令（cwd＝工作区·生成文件入 tmp）", {"cmd": P("string", "命令")}, ["cmd"]),
  F("read", "读文本文件", {"path": P("string", "路径"), "max_lines": P("integer", "最多行数")}, ["path"]),
@@ -13,8 +13,15 @@ SCHEMA = [F("exec", "执行 shell 命令（cwd＝工作区·生成文件入 tmp�
  F("user_send", "向用户客户端发送一条提示/结果文本", {"text": P("string", "文本")}, ["text"]),
  F("thinking_chain", "把一步决策记入逻辑链（frm→to：why）", {"frm": P("string", "从"), "to": P("string", "到"), "why": P("string", "理由")}, ["frm", "to", "why"])]
 REG = {"read": at.read, "write": at.write, "command": at.command, "skill": at.run_skill, "ask": at.ask, "task": atk.task, "task_detail": atk.task_detail, "user_send": at.user_send, "thinking_chain": at.thinking_chain}
+NAMES = [f["function"]["name"] for f in SCHEMA]
+def tool_on(n): return bool(settings.get("agent_tools." + n, True))
+def tools_schema(): return [f for f in SCHEMA if tool_on(f["function"]["name"])]
+def tools_status(): return {n: tool_on(n) for n in NAMES}
+def tools_toggle(n, v): settings.set("agent_tools." + n, bool(v)); return "工具 " + n + " → " + ("启用" if v else "禁用（对大模型隐藏并拒绝调用；F1→工具权限 或 :config set agent_tools." + n + " true 恢复）")
 def bind(on_line=None, ev=False): return at.bind(on_line, ev)
 def execute(name, raw):
+    tname = {"command": "exec"}.get(name, name)
+    if tname in NAMES and not tool_on(tname): return "工具已禁用：" + tname + "（菜单 F1→大模型工具权限 或 :tools enable " + tname + "）"
     try: a = json.loads(raw or "{}")
     except Exception: a = {"cmd": str(raw)}
     if name in ("exec", "command"): return at.command(a.get("cmd", ""))

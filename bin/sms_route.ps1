@@ -1,5 +1,5 @@
 ﻿# sms_route.ps1 — 确定性路由引擎：剥离 sms-shell/sms 调用前缀重路由 · 裸内置词（help/config/cmds）· :元指令（治理类原生零依赖；托管引擎按外部程序调用）· 个性化指令展开 · 其余话语→数据流
-$ENGINE = @{ cmds = 'commands.py'; intent = 'commands.py'; alias = 'user_commands.py'; unalias = 'user_commands.py'; grant = 'permissions.py'; dream = 'dream.py'; api = 'api.py'; deploy = 'deploy.py'; session = 'session.py'; hud = 'hud.py'; web = 'web_shell.py'; ext = 'external.py'; net = 'ff_lite.py'; tts = 'tts.py'; learn = 'learn.py'; file = 'file_ops.py'; path = 'path_ops.py'; index = 'register.py'; skills = 'skill_route.py'; workspace = 'workspace.py'; sh = 'sys_shells.py'; debug = 'debug.py'; mode = 'shell_mode.py' }
+$ENGINE = @{ cmds = 'commands.py'; intent = 'commands.py'; alias = 'user_commands.py'; unalias = 'user_commands.py'; grant = 'permissions.py'; perms = 'permissions.py'; tools = 'agent_dispatch.py'; dream = 'dream.py'; api = 'api.py'; deploy = 'deploy.py'; session = 'session.py'; hud = 'hud.py'; web = 'web_shell.py'; ext = 'external.py'; net = 'ff_lite.py'; tts = 'tts.py'; learn = 'learn.py'; file = 'file_ops.py'; path = 'path_ops.py'; index = 'register.py'; skills = 'skill_route.py'; workspace = 'workspace.py'; sh = 'sys_shells.py'; debug = 'debug.py'; mode = 'shell_mode.py' }
 function SkillScripts {
   $c = @((Join-Path $PSScriptRoot '..\skill\scripts'), (Join-Path $PSScriptRoot '..\scripts'))
   if ($env:SMS_SKILL) { $c += @((Join-Path $env:SMS_SKILL 'skill\scripts'), (Join-Path $env:SMS_SKILL 'scripts')) }
@@ -42,7 +42,7 @@ function Handle-Line($line, $sink) {
   if ($w -in @('cmds', '命令', '指令', '命令表')) { Run-Engine 'commands.py' @('help'); return }
   if ($t -match '^(?i)(?:config|设置|配置)[\s,，]+(\S.*)$') { $ca = $Matches[1] -split '\s+'; Show-Cfg $ca[0] $(if ($ca.Count -gt 1) { @($ca | Select-Object -Skip 1) } else { , @() }); return }
   if (($t -match '(哪些|那些|什么|可用|可以|能)[^。！!？?]{0,8}(技能|skills?\b)') -or ($t -match '^(?i)skills?\s*list$' -or $w -in @('技能列表', '可用技能', '可调用技能'))) { Run-Engine 'skill_route.py' @('list'); return }
-  if (($t -match '(?i)sms|shell|壳' -and $t -match '设置|配置|命令|指令|config') -or ($w -in @('显示提示词', '提示词', '你的提示词'))) { Show-Help; Write-Dim '（确定性路由·未经大模型·SMS 壳自身信息即上面两表）'; return }
+  if (($t -match '(?i)sms|shell|壳' -and $t -match '设置|配置|命令|指令|config' -and $t -notmatch '问题|故障|报错|错误|异常|失败|无法|检查|诊断|为什么') -or ($w -in @('显示提示词', '提示词', '你的提示词'))) { Write-Line 'sms-shell：话语即数据流 · !命令＝系统 shell · :config 配置 · :cmds 全表 · :help 速查（确定性路由·未经大模型）'; return }
   if (AliasFind (($t -split '\s+')[0])) { Run-Engine 'user_commands.py' (@('run') + ($t -split '\s+')); return }
   Invoke-Ask $t $sink
 }

@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
-"""sys_shells.py — 基本 shell 指令与系统 shell 联动：detect 检出 powershell/pwsh/cmd/bash/zsh（含 Git-Bash 回退路径）；选择持久 <SMS_HOME>/shell/shell_kind；run(cmd) 以选定 shell 单发执行——cwd＝SMS_WORKSPACE、env 注入 SMS_HOME/SMS_WORKSPACE/SMS_TMP（与工作区/生成文件口径一致），输出逐行回显并记 tool_call 链；export() 打印联动片段（在系统原生 shell 里 set/export 后即与 sms-shell 同工作区同 tmp，双向联动）。壳内 `!命令` 与 `:sh <命令>` 为同一入口。用法：python -B sys_shells.py list|select <kind>|run <命令>|export"""
-import os, sys, shutil, subprocess
+"""sys_shells.py — 基本 shell 指令与系统 shell 联动：detect 检出 powershell/pwsh/cmd/bash/zsh（含 Git-Bash 回退路径）；选择持久 <SMS_HOME>/shell/shell_kind；run(cmd) 以选定 shell 单发执行——unix 风格命令（ls/grep/cat/rm -rf…）在 powershell/cmd 语境自动改道 bash/zsh（Linux/Unix 命令格式即用）；cwd＝SMS_WORKSPACE、env 注入 SMS_HOME/SMS_WORKSPACE/SMS_TMP（与工作区/生成文件口径一致），输出逐行回显并记 tool_call 链；export() 打印联动片段（在系统原生 shell 里 set/export 后即与 sms-shell 同工作区同 tmp，双向联动）。壳内 `!命令`、`:sh <命令>`、F7 直通模式与 gateway exec 为同一入口。用法：python -B sys_shells.py list|select <kind>|run <命令>|export"""
+import os, sys, re, shutil, subprocess
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import resolve_home, chains
 SMS = resolve_home.ensure()
 KNOWN = {"pwsh": ["pwsh"], "powershell": ["powershell"], "cmd": ["cmd"], "bash": ["bash", r"C:\Program Files\Git\bin\bash.exe"], "zsh": ["zsh"]}
+UNIX = re.compile(r"^\s*(?:sudo\s+)?(?:ls|ll|cat|grep|egrep|rg|sed|awk|find|touch|mkdir|cp|mv|rm|df|du|ps|kill|chmod|chown|ln|head|tail|wc|sort|uniq|which|whoami|pwd|echo|printf|tree|diff|tar|zip|unzip|curl|wget|open|date|env|history|less|more|basename|dirname|xargs|seq|tr|cut|jq|make|python|pip|node|npm|git|ssh|scp|ping|ip|netstat)\b")
 def detect(): return {k: next((c for c in cs if shutil.which(c) or os.path.isfile(c or "")), None) for k, cs in KNOWN.items()}
 def kinds(): return [k for k, v in detect().items() if v]
+def kind_for(cmd, kind=None):
+    k = kind if kind in kinds() else current()
+    if k in ("powershell", "cmd") and UNIX.match(str(cmd or "").strip()):
+        return next((b for b in ("bash", "zsh") if b in kinds()), "pwsh" if "pwsh" in kinds() else k)
+    return k
 def current():
     try: c = open(os.path.join(SMS, "shell", "shell_kind"), encoding="utf-8").read().strip()
     except Exception: c = ""
@@ -17,7 +23,7 @@ def select(k):
 def listtext():
     cur = current(); return "可检出系统 shell：" + ("、".join(kinds()) or "（无）") + " · 当前：" + cur + " · 用法：`!dir`/`:sh <命令>` 单发执行（cwd＝工作区 tmp 收产物）· `:sh <kind>` 选定 · `:sh export` 打印系统 shell 联动片段"
 def run(cmd, kind=None, on_line=lambda s: None):
-    k = kind if kind in kinds() else current(); binp = (detect().get(k) or "") if k else ""
+    k = kind_for(cmd, kind); binp = (detect().get(k) or "") if k else ""
     if not binp: return "未检出可用系统 shell（:sh list）"
     p = subprocess.Popen([binp, "/c" if k == "cmd" else "-c", str(cmd)], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace", env=dict(os.environ, PYTHONIOENCODING="utf-8", SMS_HOME=SMS, SMS_WORKSPACE=resolve_home.workspace(), SMS_TMP=resolve_home.wtmp()), cwd=resolve_home.workspace())
     for ln in iter(p.stdout.readline, ""):

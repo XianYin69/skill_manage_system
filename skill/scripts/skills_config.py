@@ -5,7 +5,7 @@ from functools import reduce
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import resolve_home, chains
 SKILL_KEYS = ("scan_roots", "skill_generator", "sync_clients", "Source_Remote", "permissions_default")
-DEFAULT = {"scan_roots": [], "comment": "技能列表配置（与模型参数 config.json 分离）：scan_roots 扫描安装根·skill_generator 无匹配时创建源·sync_clients 客户端↔hub 同步·Source_Remote 远程源·permissions_default 默认权限；register.py 读 scan_roots。"}
+DEFAULT = {"scan_roots": [], "permissions_default": {"read": True, "write": False, "execute": False, "network": False, "privacy": False, "vault": False, "verify": False, "comment": "默认权限底（permissions.py：生效＝此默认→今日 :grant 覆盖；danger 恒不随默认，须当轮单独授予）"}, "comment": "技能列表配置（与模型参数 config.json 分离）：scan_roots 扫描安装根·skill_generator 无匹配时创建源·sync_clients 客户端↔hub 同步·Source_Remote 远程源·permissions_default 默认权限；register.py 读 scan_roots。"}
 def path(sms=None): return os.path.join(sms or resolve_home.ensure(), "config", "skills.json")
 def _read(p, seed):
     try: return json.load(open(p, encoding="utf-8-sig")) if os.path.exists(p) else json.loads(json.dumps(seed))

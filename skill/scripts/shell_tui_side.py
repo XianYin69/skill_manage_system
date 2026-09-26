@@ -37,6 +37,9 @@ class Side(Static):
         t.append(cur + "\n", "bold cyan"); t.append(tag, "italic #cdd6f4")
         (tp := getattr(a, "task_prog", "")) and t.append("\n≡ " + tp + "（task_detail 实时进度）", "bold #cba6f7")
         t.append("\n\n■ 界面模式\n", "bold yellow"); t.append(shell_mode.badge() + "｜" + shell_mode.DESC[shell_mode.current()] + "（F7 切换·Esc 回对话）", "italic #89dceb")
-        t.append("\n\n■ 会话总览（创建时间＋简略）\n", "bold yellow")
+        t.append("\n\n■ 详细细节（工具/技能长输出·F9 全文）\n", "bold yellow")
+        dl = list(getattr(a, "details", []))[-3:]
+        t.append(("\n———\n".join(x[:260] + ("…" if len(x) > 260 else "") for x in dl) if dl else "（无——超长工具/技能/步骤输出自动收进此处）") + "\n", "dim")
+        t.append("\n■ 会话总览（创建时间＋简略）\n", "bold yellow")
         t.append(("\n".join("%s｜%s｜%s" % r for r in self._ov) + "\n") if self._ov else "（暂无会话）\n", "dim")
         self.update(t)

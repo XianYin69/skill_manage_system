@@ -10,17 +10,21 @@ def _dm(a, b):
         if k != "comment": a[k] = _dm(a.get(k, {}) if isinstance(a.get(k), dict) else {}, v) if isinstance(v, dict) else v
     return a
 def eff(sms=None):
-    sms = sms or resolve_home.ensure(); c = resolve_home.conf(sms)
-    if "dream_interval_min" in c: c.setdefault("dream", {})["interval_min"] = c["dream_interval_min"]
-    if not c.get("dream"): c.setdefault("dream", {})
-    return _dm(_dm(json.loads(json.dumps(DEFAULTS)), c), skills_config.load(sms))
+    sms = sms or resolve_home.ensure(); c = resolve_home.conf(sms); c.pop("dream_interval_min", None)
+    d = _dm(_dm(json.loads(json.dumps(DEFAULTS)), c), skills_config.load(sms))
+    for k in ("interval_min", "next_run"): (d.get("dream") or {}).pop(k, None)
+    return d
 def _walk(d, path): return reduce(lambda a, k: a.get(k) if isinstance(a, dict) else None, path.split("."), d)
 def get(path, default=None, sms=None): return default if (v := _walk(eff(sms), path)) is None else v
 def maskv(k, v): return "***" if k == "api_key" and v else v
 def mask(d): return {k: (mask(v) if isinstance(v, dict) else maskv(k, v)) for k, v in d.items() if k != "comment"}
 def flat(d=None, pre=""):
     d = eff() if d is None else d
-    return [x for k, v in d.items() if k != "comment" for x in (flat(v, pre + k + ".") if isinstance(v, dict) else [{"path": pre + k, "value": maskv(k, v), "default": _walk(DEFAULTS, pre + k)}])]
+    rows = [x for k, v in d.items() if k != "comment" for x in (flat(v, pre + k + ".") if isinstance(v, dict) else [{"path": pre + k, "value": maskv(k, v), "default": _walk(DEFAULTS, pre + k)}])]
+    if pre == "chains.":
+        b = d.get("default") or {}; have = {r["path"] for r in rows}
+        rows += [{"path": p, "value": {**b, **(d.get(c) or {})}.get(k), "default": b.get(k)} for c in CH for k in ("enabled", "merge_thr", "prune_days", "min_freq") if (p := "chains.%s.%s" % (c, k)) not in have]
+    return rows
 def set(path, value, sms=None):
     if path.split(".")[0] in skills_config.SKILL_KEYS: return skills_config.set(path, value, sms)
     sms = sms or resolve_home.ensure(); p = os.path.join(sms, "config", "config.json"); ks = path.split(".")
@@ -31,20 +35,16 @@ def set(path, value, sms=None):
     chains.record("event", "config set " + path + "=" + str(maskv(ks[-1], value))[:80]); return get(path, sms=sms)
 def status(sms=None):
     import model_meta, dream, net_util, ext_net, ff_lite, tts
-    sms = sms or resolve_home.ensure(); e = eff(sms); g = e["llm_gateway"]; base = e["chains"].get("default", {})
-    key = os.environ.get(g.get("api_key_env") or "", "") or g.get("api_key")
+    sms = sms or resolve_home.ensure(); e = eff(sms); g = e["llm_gateway"]; base = e["chains"].get("default", {}); key = os.environ.get(g.get("api_key_env") or "", "") or g.get("api_key")
     return {"gateway": {"enabled": g.get("enabled"), "base_url": g.get("base_url"), "model": g.get("model"), "api_key": "set" if key else "missing", "temperature": g.get("temperature"), "top_p": g.get("top_p"), "max_tokens": g.get("max_tokens")},
-     "model_meta": model_meta.summary(),       "dream": {"enabled": e["dream"]["enabled"], "interval_min": e["dream"]["interval_min"], "next_run": e["dream"].get("next_run"), "due": dream.due(sms)},
-     "chains": {c: {**base, **(e["chains"].get(c) or {})} for c in CH},
-     "web_shell": {**e["web_shell"], "running": net_util.running("web_shell")},
-     "external": {**e["external"], "running": net_util.running("external"), "backend": ext_net.backend()},
-     "ff_lite": ff_lite.status(), "tts": json.loads(tts.status())}
+     "model_meta": model_meta.summary(), "agent_tools": __import__("agent_dispatch").tools_status(),
+     "dream": {"enabled": e["dream"]["enabled"], "interval_min": dream.interval_min(sms), "next_run": dream.next_run(sms), "due": dream.due(sms)},
+     "chains": {c: {**base, **(e["chains"].get(c) or {})} for c in CH}, "hud": e.get("hud"),
+     "web_shell": {**e["web_shell"], "running": net_util.running("web_shell")}, "external": {**e["external"], "running": net_util.running("external"), "backend": ext_net.backend()}, "ff_lite": ff_lite.status(), "tts": json.loads(tts.status())}
 if __name__ == "__main__":
     a = sys.argv[1:] or ["status"]; cmd = a[0]; pj = lambda o, i=None: print(json.dumps(o, ensure_ascii=False, default=str, indent=i))
     if cmd == "status": pj(status(), 1)
     elif cmd == "show": pj(mask(eff()), 1)
-    elif cmd == "get": pj(get(a[1]))
+    elif cmd in ("get", "unset", "schema"): pj(get(a[1]) if cmd == "get" else set(a[1], None) if cmd == "unset" else flat(DEFAULTS))
     elif cmd == "set" and len(a) > 2: pj(set(a[1], json.loads(a[2])))
-    elif cmd == "unset": pj(set(a[1], None))
-    elif cmd == "schema": pj(flat(DEFAULTS))
     else: print(__doc__.strip().splitlines()[-1])

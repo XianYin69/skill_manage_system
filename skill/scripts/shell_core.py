@@ -2,13 +2,11 @@
 """shell_core.py — sms-shell 共享路由（与 bin ps1 同套确定性路由）：quit·`sms/sms-shell` 前缀剥离·裸内置词零模型直达·`:dispatch` 真派发·`:sh`/`!命令` 系统 shell 联动·`:edit/:view` 返回编辑器令牌（TUI F8）·`:session new|list|use|current` 会话层链隔离·`:debug` 同步配置。其余话语经 shell_mode.utter（含 F7 三态 gate）→ data flow；agent_stream 命中技能即开子会话真派发，否则 gateway 工具循环。st 上报步骤、ev 收 msg_flow 信封供顶栏进度。"""
 import os, sys, subprocess, re
 S = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, S)
-import agent_stream as ag, settings, user_commands, skill_route, user_index, debug, chains, resolve_home, sys_shells
-from shell_help import HELP
+import agent_stream as ag, settings, user_commands, skill_route, user_index, debug, chains, resolve_home, sys_shells; from shell_help import HELP, SHORT
 SMS = ag.SMS; IMG = []; os.environ["SMS_TMP"] = resolve_home.wtmp()
 def banner(): return "sms-shell · SMS_HOME=" + SMS + " · 会话=" + chains.cur_sess() + " · 数据流：" + (ag.current() or "未检出（:agents 查看）") + " · 技能前缀：" + ("on" if ag.prefix_on() else "off") + " · 帮助 :help（含 :dispatch/:sh/!命令/:edit/F7 编辑器/F4 debug 开关）"
 def run_script(name, args):
-    p = subprocess.run([sys.executable, "-B", os.path.join(S, name)] + list(args), capture_output=True, text=True, encoding="utf-8", errors="replace")
-    return (debug.enabled() and debug.log("exec " + name + " rc=" + str(p.returncode) + ("" if p.returncode == 0 and not p.stderr else " STDERR:" + (p.stderr or p.stdout or "")[:500])) or (p.stdout or p.stderr).strip() or "(无输出)")
+    return (lambda p: (debug.enabled() and debug.log("exec " + name + " rc=" + str(p.returncode) + ("" if p.returncode == 0 and not p.stderr else " STDERR:" + (p.stderr or p.stdout or "")[:500])) or (p.stdout or p.stderr).strip() or "(无输出)"))(subprocess.run([sys.executable, "-B", os.path.join(S, name)] + list(args), capture_output=True, text=True, encoding="utf-8", errors="replace"))
 def _meta(m, a, on_line, st):
     if m == "dispatch":
         import agent_tools as at; st("技能派发：" + a[0]) if len(a) > 1 else None
@@ -27,10 +25,13 @@ def _meta(m, a, on_line, st):
     elif m == "grant": on_line(run_script("permissions.py", ["grant"] + a + ["--write"]))
     elif m == "dream": on_line(run_script("dream.py", a or ["status"]))
     elif m in ("cmds", "intent"): on_line(run_script("commands.py", ["help"] if (m == "cmds" and not a) else (["show"] + a if m == "cmds" else ["intent"] + a)))
+    elif m == "tools": on_line(run_script("agent_dispatch.py", ["tools"] + a))
+    elif m == "perms": on_line(run_script("permissions.py", ["status"] + a))
     elif m in ("index", "skills"): on_line(run_script("register.py" if (m == "index" and a) else ("skills_config.py" if m == "index" else "skill_route.py"), (["--add-root"] + a + ["--write"]) if (m == "index" and a) else (["roots"] if m == "index" else ["list"])) + (("\n" + user_index.add(" ".join(a), SMS)) if m == "index" and a else ""))
     elif m in ("alias", "unalias"): on_line(run_script("user_commands.py", [("add" if m == "alias" else "rm")] + a + ["--write"]))
     else: on_line(HELP if m in ("help", "?") else "未知元指令 :" + m + "（:help）")
 HELPW = ("help", "?", "h", "帮助", "用法"); CFGW = ("config", "设置", "配置", "状态", "status", "修改配置", "打开设置", "查看配置", "如何修改配置", "怎么修改配置", "如何查看配置", "修改配置文件", "打开配置", "进入配置", "配置编辑器", "图形化配置"); CMDW = ("cmds", "命令", "指令", "命令表")
+DIAG = re.compile("问题|故障|报错|错误|异常|失败|无法|不能|检查|诊断|为什么|怎么回事|卡|崩|慢"); METAS = frozenset(("agents","use","skill","image","dispatch","sh","edit","view","session","hud","deploy","workspace","config","web","ext","debug","mode","net","tts","learn","file","path","api","grant","dream","cmds","intent","index","skills","alias","unalias","help","?","quit","tools","perms"))
 def _cfgline(): g = settings.status()["gateway"]; return "gateway: enabled=%s base_url=%s model=%s api_key=%s max_tokens=%s · 文件=<SMS_HOME>/config/config.json\n改配置：:config set <path> <json> · 全量：:config show · TUI F4 图形化（debug 开关/输出路径同处）" % (g["enabled"], g["base_url"], g["model"], g["api_key"], g["max_tokens"])
 def handle(line, on_line, st=lambda n: None, ev=None):
     if not (t := line.strip()): return None
@@ -43,8 +44,7 @@ def handle(line, on_line, st=lambda n: None, ev=None):
     if w in CMDW: st("内置词：命令表"); on_line(run_script("commands.py", ["help"])); return None
     if (mc := re.match(r"(?i)^(?:config|设置|配置)[\s,，]+(\S.*)$", t)): st("内置词：配置命令"); _meta("config", mc.group(1).split(None, 2), on_line, st); return None
     if re.search(r"(哪些|那些|什么|可用|可以|能)[^。！!？?]{0,8}(技能|skills?\b)", t) or re.match(r"(?i)^skills?\s*list[\s!！。？?]*$|^(技能列表|可用技能|可调用技能)[\s!！。？?]*$", t): st("内置词：技能清单"); on_line(skill_route.listtext()); return None
-    if (re.search(r"(?i)sms|shell|壳", t) and re.search("设置|配置|命令|指令|config", t)) or w in ("显示提示词", "提示词", "你的提示词"): st("SMS 壳自管理直答"); on_line(HELP + "\n（确定性路由·未经大模型·SMS 壳自身信息即上表）"); return None
-    parts = t.split()
-    if user_commands.find(user_commands.load(SMS), parts[0]): st("个性化指令展开：" + parts[0]); on_line(run_script("user_commands.py", ["run"] + parts)); return None
+    if (re.search(r"(?i)sms|shell|壳", t) and re.search("设置|配置|命令|指令|config", t) and not DIAG.search(t)) or w in ("显示提示词", "提示词", "你的提示词"): st("SMS 壳自管理直答"); on_line(SHORT + "（确定性路由·未经大模型）"); return "config" if re.search("配置|设置", t) else None
+    if user_commands.find(user_commands.load(SMS), (parts := t.split())[0]): st("个性化指令展开：" + parts[0]); on_line(run_script("user_commands.py", ["run"] + parts)); return None
     img = IMG[0] if IMG else None; IMG.clear(); debug.enabled() and debug.log("utter> " + line[:300]); st("话语→数据流（agent_stream）"); line = user_index.expand(line, SMS)
     import shell_mode; return shell_mode.utter(line, img, on_line, st, ev) or None
