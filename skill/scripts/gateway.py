@@ -30,7 +30,7 @@ def chat(msgs):
     data, err = _req("/chat/completions", {"model": cfg().get("model") or "auto", "messages": msgs, "max_tokens": int(cfg().get("max_tokens", 1024)), "tools": TOOLS, **{k: cfg()[k] for k in ("temperature", "top_p") if cfg().get(k) is not None}})
     if data: m = data["choices"][0]["message"]; m["content"] = (m.get("content") or "").replace("\x00", "").replace("\r", "\n"); m["reasoning_content"] = (m.get("reasoning_content") or "").replace("\x00", "")
     return (None, err) if not data else ((chains.log("tool", "gateway:" + str(data.get("model"))) and data)["choices"][0]["message"], "finish=" + str(data["choices"][0].get("finish_reason")))
-TOOLS = [{"type": "function", "function": {"name": "exec", "description": "在用户电脑上执行一条 shell 命令", "parameters": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}}]; SYS = "你是 skill_manage_system（SMS）的数据流：SMS 只调取与管理技能及其副产物，不得以模型自身知识（尤其不得扯 Android/adb/其它软件）代答。问到 sms-shell 的设置/命令/配置时，直接执行一次 `python -B " + os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.py") + " show`（或 status/get <dot路径>）读取真实配置，然后据结果作答：告诉用户交互壳里输入 `:config status|show|get|set`，或在系统原生 shell 直接 `sms-shell \":config show\"` 单发运行；配置存 <SMS_HOME>\\config\\config.json，命令汇总 `commands.py help`。禁止反复 where/dir/type 试探。始终用简体中文。"
+TOOLS = [{"type": "function", "function": {"name": "exec", "description": "在用户电脑上执行一条 shell 命令", "parameters": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}}]; SYS = "你是 skill_manage_system（SMS）的数据流：SMS 只调取与管理技能及其副产物，不得以模型自身知识（尤其不得扯 Android/adb/其它软件）代答。问到 sms-shell 的设置/命令/配置时，直接执行一次 `python -B " + os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.py") + " show`（或 status/get <dot路径>）读取真实配置，然后据结果作答：告诉用户交互壳里输入 `:config status|show|get|set`，或在系统原生 shell 直接 `sms-shell \":config show\"` 单发运行；配置存 <SMS_HOME>\\config\\config.json，命令汇总 `commands.py help`。生成文件一律写入当前工作区 tmp\\ 目录（env SMS_TMP·sms-shell 已自动建），不得散落工作区根；大模型与技能配置文件直接读取 <SMS_HOME>\\config 下 config.json/skills.json，禁止复制或重建到工作区。禁止反复 where/dir/type 试探。始终用简体中文。"
 def run(text, on_line=lambda ln: None, images=None, max_steps=8):
     msgs = [image_message(text, images) if images else {"role": "user", "content": text}]
     for _ in range(max_steps):
@@ -40,7 +40,7 @@ def run(text, on_line=lambda ln: None, images=None, max_steps=8):
         msgs.append(m)
         for tc in tcs:
             cmd = (json.loads(tc["function"]["arguments"]) or {}).get("cmd", ""); on_line("$ " + cmd)
-            r = subprocess.run(("chcp 65001 >nul & " + cmd) if os.name == "nt" else cmd, shell=True, capture_output=True, text=True, encoding="utf-8", errors="replace", env=dict(os.environ, PYTHONIOENCODING="utf-8"), cwd=resolve_home.workspace())
+            r = subprocess.run(("chcp 65001 >nul & " + cmd) if os.name == "nt" else cmd, shell=True, capture_output=True, text=True, encoding="utf-8", errors="replace", env=dict(os.environ, PYTHONIOENCODING="utf-8", SMS_TMP=resolve_home.wtmp()), cwd=resolve_home.workspace())
             msgs.append({"role": "tool", "tool_call_id": tc["id"], "content": ((r.stdout or "") + (r.stderr or ""))[:4000] or "(无输出)"})
     on_line("达到 max_steps，中止"); return None
 if __name__ == "__main__":

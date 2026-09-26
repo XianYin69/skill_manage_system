@@ -17,6 +17,7 @@ function Show-Banner {
   Write-Key ('+' + (Pad $w) + '+')
   $rows = @('SMS-SHELL v3.0 · DOS TUI · 完全在系统 shell 中运行（本体零 python）',
     'SMS_HOME = ' + $SMS,
+    '工作区 = ' + (SMS_WS) + ' · 生成文件 tmp = ' + $env:SMS_TMP,
     'agent = ' + (Current) + ' · 技能前缀 = ' + (StateGet 'skill_prefix' 'on') + ' · 设置系统 = :config status|show|get|set',
     '直接输入话语＝交给数据流 · help/config/cmds＝内置词 · :help＝全表 · :quit＝退出')
   foreach ($t in $rows) { if ($t.Length -gt ($w - 3)) { $t = $t.Substring(0, $w - 3) }; Write-Key ('| ' + $t.PadRight($w - 2) + '|') }
@@ -26,6 +27,7 @@ function Show-MetaHelp {
   Write-Key 'SMS-SHELL 元指令（:）'
   Write-Line ':help 帮助 · :config status|show|get <path>|set <path> <json> 配置 · :agents 看/选 agent · :use <name> · :skill on|off'
   Write-Line ':image <文件> 附下句话语图片 · :quit 退出（内置、零依赖）'
+  Write-Dim '生成文件一律入工作区 tmp\（真实/虚拟工作区自动创建·env SMS_TMP）；大模型与技能配置直读 <SMS_HOME>\config\ 文件，不复制进工作区'
   Write-Dim '以下经托管引擎执行（外部程序·与系统 shell 调命令同理）：'
   Write-Line ':cmds [name] · :intent <话语> · :skills 托管技能清单 · :index [<路径>] 看/登记扫描根并重建注册表 · :alias/:unalias 个性化指令 · :grant <键|角色> [分钟] · :deploy <dir|--Path P --FolderName F>'
   Write-Line ':session "<任务>" · :hud s|t|a|h · :dream status|run · :api formats|detect|show|validate|export · :web start|stop|token'

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""agent_stream.py — sms-shell 数据流引擎：默认直达系统原生网关（config llm_gateway.enabled→gateway，OpenAI 兼容直连·SSE 流式、不经外部 agent CLI），网关未启用才回退已装 agent CLI（claude/codex 等，agent_cli 可增改，:use 手选）；每次输入＝新开一次对话（chains.conversation 压缩记忆＋双层规则，红线 17）；工作区（SMS_WORKSPACE·真实目录或 <SMS_HOME>/workspaces/_virtual/<conv> 虚拟·begin 建 end 删）＝gateway exec 与 agent CLI 的 cwd，提示词经 prompt_builder 组装（对话初始化＝技能名＋模型身份＋配置参数＋SKILL.md 索引；构建＝技能名＋skill 提示词＋SKILL.md 索引＋用户输入），话语再经 skill_route 与 registry 技能匹配（命中记 skill_call 链·注入该技能 SKILL.md 全文真调指令），各阶段步骤名经 st 回调上报 TUI 状态栏，逐行流回、收口记链；尾行 [图:<路径>] 为网关视觉附图；状态存 <SMS_HOME>/shell/；皆无则拒绝（本体不作答）。"""
+"""agent_stream.py — sms-shell 数据流引擎：默认直达系统原生网关（config llm_gateway.enabled→gateway，OpenAI 兼容直连·SSE 流式、不经外部 agent CLI），网关未启用才回退已装 agent CLI（claude/codex 等，agent_cli 可增改，:use 手选）；每次输入＝新开一次对话（chains.conversation 压缩记忆＋双层规则，红线 17）；工作区（SMS_WORKSPACE·真实目录或 <SMS_HOME>/workspaces/_virtual/<conv> 虚拟·begin 建 end 删·二者皆自动建 tmp/ 收生成文件·env SMS_TMP 透传）＝gateway exec 与 agent CLI 的 cwd，提示词经 prompt_builder 组装（对话初始化＝技能名＋模型身份＋配置参数＋SKILL.md 索引；构建＝技能名＋skill 提示词＋SKILL.md 索引＋用户输入），话语再经 skill_route 与 registry 技能匹配（命中记 skill_call 链·注入该技能 SKILL.md 全文真调指令），各阶段步骤名经 st 回调上报 TUI 状态栏，逐行流回、收口记链；尾行 [图:<路径>] 为网关视觉附图；状态存 <SMS_HOME>/shell/；皆无则拒绝（本体不作答）。"""
 import os, sys, shutil, subprocess
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import resolve_home, chains, dream, gateway, model_meta, tts, skill_route, prompt_builder, workspace as ws
@@ -40,7 +40,7 @@ def ask(text, on_line, st=lambda n: None):
         gateway.run(body, on_line, images=imgs)
     else:
         args, env = list(spec.get("args", [])), dict(os.environ, PYTHONIOENCODING="utf-8"); env.update(spec.get("env") or {}); stdin = subprocess.PIPE if spec.get("prompt_stdin") else subprocess.DEVNULL
-        p = subprocess.Popen([spec.get("bin", ag)] + args + ([] if stdin else [body]), stdin=stdin, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace", env=dict(env, SMS_WORKSPACE=wsp), cwd=wsp)
+        p = subprocess.Popen([spec.get("bin", ag)] + args + ([] if stdin else [body]), stdin=stdin, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace", env=dict(env, SMS_WORKSPACE=wsp, SMS_TMP=resolve_home.wtmp()), cwd=wsp)
         if spec.get("prompt_stdin"): p.stdin.write(body); p.stdin.close()
         for ln in iter(p.stdout.readline, ""):
             if ln.strip(): on_line(ln.rstrip())

@@ -2,6 +2,7 @@
 param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Rest)
 $ErrorActionPreference = 'Continue'
 foreach ($f in @('sms_state', 'sms_dos', 'sms_gw', 'sms_route')) { . (Join-Path $PSScriptRoot ($f + '.ps1')) }
+$null = SMS_WTmp
 $script:IMG = $null
 $sink = { param($t) Write-Host -NoNewline $t }
 Import-Module PSReadLine -ErrorAction SilentlyContinue

@@ -4,7 +4,7 @@ import os, sys, json
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import resolve_home, settings
 SKILL = "skill_manage_system"
-PROMPT = "你是 skill_manage_system（SMS）数据流：SMS 只调取与管理托管技能及其副产物，不得以模型自身常识代答；命中托管技能时按注入的 SKILL.md 流程执行、结果由 SMS 整合作答，需本机执行的脚本/工具用 exec 一次性运行（禁反复试探），未命中则从索引择最相关技能或明确回复「无匹配技能」并建议经 Skill_Generator 创建。问 SMS 自身设置/命令时据 settings/commands 查证后作答。始终简体中文。"
+PROMPT = "你是 skill_manage_system（SMS）数据流：SMS 只调取与管理托管技能及其副产物，不得以模型自身常识代答；命中托管技能时按注入的 SKILL.md 流程执行、结果由 SMS 整合作答，需本机执行的脚本/工具用 exec 一次性运行（禁反复试探），未命中则从索引择最相关技能或明确回复「无匹配技能」并建议经 Skill_Generator 创建。生成文件一律写入当前工作区 tmp\\ 子目录（env SMS_TMP·壳已自动建），不散落工作区根；大模型与技能配置直接读 SMS 数据根 <SMS_HOME>/config 下 config.json/skills.json，绝不复制或重建到工作区。问 SMS 自身设置/命令时据 settings/commands 查证后作答。始终简体中文。"
 def _reg(sms): return json.load(open(os.path.join(sms, "registry", "register.json"), encoding="utf-8")).get("skills", [])
 def model_block(sms=None):
     sms = sms or resolve_home.ensure(); g = settings.eff(sms)["llm_gateway"]; mm = settings.eff(sms).get("model_meta", {}).get("defaults", {})
@@ -17,7 +17,7 @@ def index(sms=None):
     if not rows: return "SKILL.md 索引：（注册表为空，先跑 register.py）"
     return "SKILL.md 索引（id → SKILL.md 路径，命中可 exec 读全文按其流程）：\n" + "\n".join("%s → %s" % (s.get("id"), os.path.join(str(s.get("install_path", "")), str(s.get("entry", "SKILL.md")))) for s in rows)[:2400]
 def init(sms=None):
-    return "[SMS 对话初始化]\n技能名：" + SKILL + "\n" + model_block(sms) + "\n" + index(sms)
+    sms = sms or resolve_home.ensure(); t = resolve_home.wtmp(); return "[SMS 对话初始化]\n技能名：" + SKILL + "\n" + model_block(sms) + "\n工作区：" + t[: -len(os.sep + "tmp")] + "（生成文件只入 tmp\\＝" + t + "·模型/技能配置直读 " + os.path.join(sms, "config") + "·勿放入工作区）\n" + index(sms)
 def build(user_input, sms=None):
     return "技能名：" + SKILL + "\n" + PROMPT + "\n" + index(sms) + "\n[用户输入]\n" + user_input
 if __name__ == "__main__":

@@ -26,6 +26,8 @@ function CfgSet($path, $json) {
 function MaskJson($o) { ($o | ConvertTo-Json -Depth 20) -replace '("api_key"\s*:\s*)"[^"]*"', '$1"***"' }
 function StateFile($n) { $d = Join-Path $SMS 'shell'; New-Item -ItemType Directory -Force -Path $d | Out-Null; Join-Path $d $n }
 function StateGet($n, $d) { $p = StateFile $n; if (Test-Path $p) { (Get-Content $p -Raw -Encoding UTF8).Trim() } else { $d } }
+function SMS_WS { $w = if ($env:SMS_WORKSPACE) { $env:SMS_WORKSPACE } else { [string](CfgGet 'sms_workspace' '') }; if ($w -and (Test-Path $w)) { return [string](Resolve-Path $w) } Join-Path (Join-Path $SMS 'workspaces') '_virtual' }
+function SMS_WTmp { $d = Join-Path (SMS_WS) 'tmp'; New-Item -ItemType Directory -Force -Path $d | Out-Null; $env:SMS_TMP = $d; $d }
 function StatePut($n, $v) { [IO.File]::WriteAllText((StateFile $n), $v) }
 function AliasFind($name) { $p = Join-Path (Join-Path $SMS 'commands') 'user_commands.json'; if (-not (Test-Path $p)) { return $null }
   @((Get-Content $p -Raw -Encoding UTF8 | ConvertFrom-Json).commands) | Where-Object { $_.name -eq $name } | Select-Object -First 1 }

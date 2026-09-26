@@ -11,7 +11,7 @@ function SkillScripts {
 function Run-Engine($script, $argv) {
   $d = SkillScripts
   if (-not $d) { Write-Warn '未定位托管 skill：deploy 登记 sms_skill 或设 SMS_SKILL=<skill_manage_system 绝对路径>'; return }
-  $env:PYTHONUTF8 = '1'; $env:PYTHONIOENCODING = 'utf-8'
+  $env:PYTHONUTF8 = '1'; $env:PYTHONIOENCODING = 'utf-8'; $env:SMS_WORKSPACE = SMS_WS; $env:SMS_TMP = SMS_WTmp
   Write-Dim ('[' + $script + ']')
   & python -B (Join-Path $d $script) @argv 2>&1 | ForEach-Object { Write-Out ([string]$_) }
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""workspace.py — SMS_WORKSPACE 工作区管理（2026-09-26 v2·与数据根分离）：SMS_HOME 恒指一开始创建的 SMS 目录（配置/记忆/注册表/虚拟工作区都在内），工作区＝智能体操作文件的目录（resolve_home.workspace：env SMS_WORKSPACE > 配置 sms_workspace > 虚拟）——切换只经 settings 写 workspaces/sms_workspace（config.json·dot-path 唯一属主不变·记 event 链）＋env，gateway exec/agent CLI 的 cwd 即时按新工作区起，SMS_HOME 与配置零改动（修复 v1「切换工作区＝换数据根→配置看似被重置」）。虚拟工作区生命周期（用户 2026-09-26 指示"对话完成后立马删除"）：begin <conv> 无真实工作区时建 <SMS_HOME>/workspaces/_virtual/<conv>；end 收口即删——仅允许删除 _virtual 前缀内路径，有产物先列明细告警再删。repair-home 清理 v1 残留：bootstrap sms_home 被 v1 切换改指 → 改回初始 SMS 目录，v1 bootstrap workspaces 键迁入配置系统。用法：python -B workspace.py current|list|add <path>|switch <path>|remove <path>|use-virtual|begin <conv>|end <path>|repair-home。"""
+"""workspace.py — SMS_WORKSPACE 工作区管理（2026-09-26 v2·与数据根分离）：SMS_HOME 恒指一开始创建的 SMS 目录（配置/记忆/注册表/虚拟工作区都在内），工作区＝智能体操作文件的目录（resolve_home.workspace：env SMS_WORKSPACE > 配置 sms_workspace > 虚拟）——切换只经 settings 写 workspaces/sms_workspace（config.json·dot-path 唯一属主不变·记 event 链）＋env，gateway exec/agent CLI 的 cwd 即时按新工作区起，SMS_HOME 与配置零改动（修复 v1「切换工作区＝换数据根→配置看似被重置」）。真实与虚拟工作区一律自动创建 tmp/ 子目录（switch/begin 时经 resolve_home.wtmp·生成文件只落 tmp·大模型/技能配置直读 <SMS_HOME>/config 不复制进工作区·env SMS_TMP 供子进程）。虚拟工作区生命周期（用户 2026-09-26 指示"对话完成后立马删除"）：begin <conv> 无真实工作区时建 <SMS_HOME>/workspaces/_virtual/<conv>；end 收口即删——仅允许删除 _virtual 前缀内路径，有产物先列明细告警再删。repair-home 清理 v1 残留：bootstrap sms_home 被 v1 切换改指 → 改回初始 SMS 目录，v1 bootstrap workspaces 键迁入配置系统。用法：python -B workspace.py current|list|add <path>|switch <path>|remove <path>|use-virtual|begin <conv>|end <path>|tmp|repair-home。"""
 import os, sys, json, shutil
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import resolve_home, settings, chains
 def _abs(p): return os.path.abspath(os.path.expanduser(p))
@@ -15,14 +15,14 @@ def add(p):
 def switch(p):
     if not p: return use_virtual()
     if (msg := add(p)).startswith("拒绝"): return msg
-    settings.set("sms_workspace", _abs(p)); os.environ["SMS_WORKSPACE"] = _abs(p); return msg + "\n已切换工作区 → " + _abs(p) + "（即时生效：gateway exec/agent CLI 在此目录操作；SMS_HOME 与配置不动）"
+    settings.set("sms_workspace", _abs(p)); os.environ["SMS_WORKSPACE"] = _abs(p); resolve_home.wtmp(); return msg + "\n已切换工作区 → " + _abs(p) + "（即时生效：gateway exec/agent CLI 在此目录操作·已建 tmp/ 收生成文件；SMS_HOME 与配置不动）"
 def remove(p):
     old = list_ws(); ws = [x for x in old if x != _abs(p)]; settings.set("workspaces", ws); return "已移除登记：" + p if len(ws) < len(old) else "无登记工作区：" + p
 def use_virtual():
     settings.set("sms_workspace", None); os.environ.pop("SMS_WORKSPACE", None); return "已回退内置虚拟工作区（每对话独立·开建口删）"
 def begin(conv):
-    if not is_virtual(p := current()): return p, False
-    p = os.path.join(os.path.realpath(p), "".join(c for c in str(conv) if c.isalnum() or c in "-_.")[:40]); os.makedirs(p, exist_ok=True); os.environ["SMS_WORKSPACE"] = p; chains.record("event", "ws begin " + p[:120]); return p, True
+    if not is_virtual(p := current()): resolve_home.wtmp(); return p, False
+    p = os.path.join(os.path.realpath(p), "".join(c for c in str(conv) if c.isalnum() or c in "-_.")[:40]); os.makedirs(p, exist_ok=True); os.environ["SMS_WORKSPACE"] = p; resolve_home.wtmp(); chains.record("event", "ws begin " + p[:120]); return p, True
 def end(p, virt=True):
     if not virt or not is_virtual(p): return None
     os.environ.pop("SMS_WORKSPACE", None); files = [str(os.path.relpath(os.path.join(dp, fn), p)) for dp, _, ns in os.walk(p) for fn in ns]
@@ -42,5 +42,5 @@ if __name__ == "__main__":
     a = sys.argv[1:] or ["list"]; cmd = a[0]
     if cmd == "current": print(current())
     elif cmd == "list": print("\n".join(("* " if w == current() else "  ") + w for w in list_ws()) + "\n◎ 虚拟工作区：" + vroot() + ("（当前）" if is_virtual(current()) else ""))
-    elif cmd in ("add", "switch", "remove", "begin", "end", "use-virtual", "repair-home") and (len(a) > 1 or cmd in ("use-virtual", "repair-home")): print({"add": add, "switch": switch, "remove": remove, "begin": begin, "end": lambda x: end(x, True), "use-virtual": use_virtual, "repair-home": repair_home}[cmd](*( [" ".join(a[1:])] if cmd in ("add", "switch", "remove", "begin", "end") else [])))
+    elif cmd in ("add", "switch", "remove", "begin", "end", "use-virtual", "repair-home", "tmp") and (len(a) > 1 or cmd in ("use-virtual", "repair-home", "tmp")): print({"add": add, "switch": switch, "remove": remove, "begin": begin, "end": lambda x: end(x, True), "use-virtual": use_virtual, "repair-home": repair_home, "tmp": resolve_home.wtmp}[cmd](*( [" ".join(a[1:])] if cmd in ("add", "switch", "remove", "begin", "end") else [])))
     else: print(__doc__.strip().splitlines()[-1])

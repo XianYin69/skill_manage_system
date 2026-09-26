@@ -1,6 +1,6 @@
 ﻿# sms_gw.ps1 — 原生数据流（零 python）：话语默认直达 OpenAI 兼容网关（SSE 逐字流式）＋压缩记忆前缀＋附图；网关未启用回退已装 agent CLI 流式；皆无则拒绝（本体不作答）
 $ADAPTERS = @{ claude = @{ bin = 'claude'; args = @('-p') }; codex = @{ bin = 'codex'; args = @('exec') }; cursor = @{ bin = 'cursor-agent'; args = @() }; kilocode = @{ bin = 'kilocode'; args = @('run') }; kilo = @{ bin = 'kilo'; args = @('run') }; aider = @{ bin = 'aider'; args = @('--message') } }
-$SYS = '你是 skill_manage_system（SMS）的数据流：SMS 只调取与管理技能及其副产物，禁止以模型自身常识代答用户任务（不要提及 Qwen 客户端、Android 等无关软件）。问到 sms-shell/SMS 自身的设置·命令·提示词时：据实介绍内置面（help=元指令表；config=网关设置；配置存 <SMS_HOME>/config/config.json；对话经原生网关直连），不得编造不存在的功能。无法执行就明确拒绝并说明。始终用简体中文，回答简短。'
+$SYS = '你是 skill_manage_system（SMS）的数据流：SMS 只调取与管理技能及其副产物，禁止以模型自身常识代答用户任务（不要提及 Qwen 客户端、Android 等无关软件）。问到 sms-shell/SMS 自身的设置·命令·提示词时：据实介绍内置面（help=元指令表；config=网关设置；配置存 <SMS_HOME>/config/config.json；对话经原生网关直连），不得编造不存在的功能。生成文件一律写入当前工作区的 tmp 子目录（SMS_TMP 环境变量，壳已自动创建），不得散落工作区根；大模型与技能配置文件直接读取 <SMS_HOME>/config 下的 config.json/skills.json，禁止复制一份到工作区。无法执行就明确拒绝并说明。始终用简体中文，回答简短。'
 function Detected {
   $d = @(); if (CfgGet 'llm_gateway.enabled' $false) { $d += 'gateway' }
   $cli = Cfg 'agent_cli'
@@ -54,7 +54,7 @@ function Stream-Gateway($body, $sink) {
   $full
 }
 function Invoke-Ask($text, $sink) {
-  $ag = Current; $conv = 'conv-' + (Get-Date -Format 'yyyyMMdd-HHmmss')
+  $ag = Current; $conv = 'conv-' + (Get-Date -Format 'yyyyMMdd-HHmmss'); $null = SMS_WTmp
   if (-not $ag) { Write-Line '拒绝：网关未启用且未检出 agent CLI——SMS 本体不作答。启用：:config set llm_gateway.enabled true（并设 base_url/api_key/model）'; return }
   Record 'session' ('open:' + $conv); Record 'dialogue' ('user@' + $conv + ' ' + $text); $out = ''
   if ($ag -eq 'gateway') {
@@ -65,7 +65,7 @@ function Invoke-Ask($text, $sink) {
     Record 'tool' ('gateway:' + $c.model + '@' + $conv)
   } else {
     $sp = if ($ADAPTERS[$ag]) { $ADAPTERS[$ag] } else { (Cfg 'agent_cli').$ag }
-    $lines = @(); try { & $sp.bin @($sp.args + $text) | ForEach-Object { Write-Line $_; $lines += [string]$_ } } catch { Write-Line ('agent CLI 调用失败：' + $_.Exception.Message) }
+    $lines = @(); try { Push-Location (SMS_WS); & $sp.bin @($sp.args + $text) | ForEach-Object { Write-Line $_; $lines += [string]$_ } } catch { Write-Line ('agent CLI 调用失败：' + $_.Exception.Message) } finally { Pop-Location }
     $out = $lines -join "`n"; Record 'tool' ('cli:' + $ag + '@' + $conv)
   }
   if ($out) { Record 'dialogue' ('agent@' + $conv + ' ' + $out); TailPush 'U' $text; TailPush 'A' $out }
