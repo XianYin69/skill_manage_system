@@ -9,3 +9,4 @@ sessions/
 .kilo/
 config/config.json
 .DS_Store
+*.out

@@ -2,22 +2,17 @@
 $ENGINE = @{ cmds = 'commands.py'; intent = 'commands.py'; alias = 'user_commands.py'; unalias = 'user_commands.py'; grant = 'permissions.py'; dream = 'dream.py'; api = 'api.py'; deploy = 'deploy.py'; session = 'session.py'; hud = 'hud.py'; web = 'web_shell.py'; ext = 'external.py'; net = 'ff_lite.py'; tts = 'tts.py'; learn = 'learn.py'; file = 'file_ops.py'; path = 'path_ops.py'; index = 'register.py'; skills = 'skill_route.py'; workspace = 'workspace.py'; sh = 'sys_shells.py'; debug = 'debug.py'; mode = 'shell_mode.py' }
 function SkillScripts {
   $c = @((Join-Path $PSScriptRoot '..\skill\scripts'), (Join-Path $PSScriptRoot '..\scripts'))
-  if ($env:SMS_SKILL) { $c += (Join-Path $env:SMS_SKILL 'skill\scripts'); $c += (Join-Path $env:SMS_SKILL 'scripts') }
-  $s = CfgGet 'sms_skill' ''
-  if ($s) { $c += (Join-Path $s 'skill\scripts'); $c += (Join-Path $s 'scripts') }
+  if ($env:SMS_SKILL) { $c += @((Join-Path $env:SMS_SKILL 'skill\scripts'), (Join-Path $env:SMS_SKILL 'scripts')) }
+  $s = CfgGet 'sms_skill' ''; if ($s) { $c += @((Join-Path $s 'skill\scripts'), (Join-Path $s 'scripts')) }
   foreach ($p in $c) { if ($p -and (Test-Path (Join-Path $p 'shell.py'))) { return $p } }
-  $null
-}
+  $null }
 function Run-Engine($script, $argv) {
-  $d = SkillScripts
-  if (-not $d) { Write-Warn '未定位托管 skill：deploy 登记 sms_skill 或设 SMS_SKILL=<skill_manage_system 绝对路径>'; return }
-  $env:PYTHONUTF8 = '1'; $env:PYTHONIOENCODING = 'utf-8'; $env:SMS_WORKSPACE = SMS_WS; $env:SMS_TMP = SMS_WTmp
-  Write-Dim ('[' + $script + ']')
+  if (-not ($d = SkillScripts)) { Write-Warn '未定位托管 skill：deploy 登记 sms_skill 或设 SMS_SKILL=<skill_manage_system 绝对路径>'; return }
+  $env:PYTHONUTF8 = '1'; $env:PYTHONIOENCODING = 'utf-8'; $env:SMS_WORKSPACE = SMS_WS; $env:SMS_TMP = SMS_WTmp; Write-Dim ('[' + $script + ']')
   & python -B (Join-Path $d $script) @argv 2>&1 | ForEach-Object { Write-Out ([string]$_) }
 }
 function Show-Cfg($sub, $argv) {
-  $argv = @($argv)
-  $c = Cfg 'llm_gateway'; $key = [string]$c.api_key; if ($c.api_key_env) { $e = (Get-Item ('env:' + $c.api_key_env) -ErrorAction SilentlyContinue); if ($e) { $key = $e.Value } }
+  $argv = @($argv); $c = Cfg 'llm_gateway'; $key = [string]$c.api_key; if ($c.api_key_env) { $e = (Get-Item ('env:' + $c.api_key_env) -ErrorAction SilentlyContinue); if ($e) { $key = $e.Value } }
   if (-not $sub -or $sub -eq 'status') { Write-Line ('gateway: enabled=' + $c.enabled + ' base_url=' + $c.base_url + ' model=' + $c.model + ' api_key=' + $(if ($key) { 'set' } else { 'missing' }) + ' max_tokens=' + $c.max_tokens + ' · 文件=' + (Join-Path $SMS 'config\config.json')) ; return }
   if ($sub -eq 'show') { Write-Out (MaskJson (Read-CfgDoc)); return }
   if ($sub -eq 'get' -and $argv.Count -ge 1) { Write-Out ((CfgGet $argv[0] $null | ConvertTo-Json -Depth 10 -Compress)); return }
@@ -26,8 +21,7 @@ function Show-Cfg($sub, $argv) {
 }
 function Show-Help { Show-Builtins; Show-MetaHelp; Write-Dim '系统原生用法：sms-shell <话语|:元指令> 单发执行即退' }
 function Handle-Line($line, $sink) {
-  $t = ([string]$line).Trim()
-  if (-not $t) { return }
+  $t = ([string]$line).Trim(); if (-not $t) { return }
   if ($t -match '^(?i)(quit|exit|:quit|:q|:exit)$') { return 'exit' }
   if ($t -match '^(?i)(sms[\s\-_\.]*shell(\.cmd)?|sms)(?=[\s,，:：]|$)[\s,，]*(.*)$') { if ($Matches[3].Trim()) { return (Handle-Line $Matches[3] $sink) }; Show-Help; return }
   if ($t.StartsWith(':') -or $t.StartsWith([string][char]0xFF1A)) {
@@ -43,14 +37,12 @@ function Handle-Line($line, $sink) {
     else { Write-Warn ('未知元指令 :' + $m + '（:help）'); Beep }
     return
   }
-  $w = $t.ToLower()
-  if ($w -in @('help', '?', 'h', '帮助', '用法')) { Show-Help; return }
+  if (($w = $t.ToLower()) -in @('help', '?', 'h', '帮助', '用法')) { Show-Help; return }
   if ($w -in @('config', '设置', '配置', '状态', 'status', '修改配置', '打开设置', '打开配置', '进入配置', '配置编辑器', '图形化配置')) { Show-Cfg 'status' @(); Write-Line '改配置：:config set <path> <json> · 技能扫描根：:index <路径> · 全量：:config show'; return }
   if ($w -in @('cmds', '命令', '指令', '命令表')) { Run-Engine 'commands.py' @('help'); return }
   if ($t -match '^(?i)(?:config|设置|配置)[\s,，]+(\S.*)$') { $ca = $Matches[1] -split '\s+'; Show-Cfg $ca[0] $(if ($ca.Count -gt 1) { @($ca | Select-Object -Skip 1) } else { , @() }); return }
   if (($t -match '(哪些|那些|什么|可用|可以|能)[^。！!？?]{0,8}(技能|skills?\b)') -or ($t -match '^(?i)skills?\s*list$' -or $w -in @('技能列表', '可用技能', '可调用技能'))) { Run-Engine 'skill_route.py' @('list'); return }
   if (($t -match '(?i)sms|shell|壳' -and $t -match '设置|配置|命令|指令|config') -or ($w -in @('显示提示词', '提示词', '你的提示词'))) { Show-Help; Write-Dim '（确定性路由·未经大模型·SMS 壳自身信息即上面两表）'; return }
-  $first = ($t -split '\s+')[0]
-  if (AliasFind $first) { Run-Engine 'user_commands.py' (@('run') + ($t -split '\s+')); return }
+  if (AliasFind (($t -split '\s+')[0])) { Run-Engine 'user_commands.py' (@('run') + ($t -split '\s+')); return }
   Invoke-Ask $t $sink
 }

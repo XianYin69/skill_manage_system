@@ -1,9 +1,6 @@
-﻿param([switch]$Offline, [switch]$SkipEngine)
-$ErrorActionPreference = 'Continue'
-$root = Split-Path (Split-Path $PSScriptRoot)
-$bin = Join-Path $root 'bin\sms-shell.cmd'
-$rep = Join-Path $root 'tmp\shell_tests_report.txt'
-$fail = 0; $lines = @()
+﻿param([switch]$Offline, [switch]$SkipEngine); $ErrorActionPreference = 'Continue'
+$root = Split-Path (Split-Path $PSScriptRoot); $bin = Join-Path $root 'bin\sms-shell.cmd'
+$rep = Join-Path $root 'tmp\shell_tests_report.txt'; $fail = 0; $lines = @()
 function RunOne([string[]]$argvs) { (& $bin @argvs 2>&1 | Out-String) }
 function T([string]$desc, [string[]]$argvs, [string[]]$expects) {
   $out = RunOne $argvs
