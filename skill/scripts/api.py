@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
-"""sms-api — SMS 格式 API 入口（bin，随 deploy 复制）：claude SKILL.md 格式·claude-code·OpenAI 全系接口。命令：formats（格式族）· detect（本机客户端技能目录）· show <skill>（解析 frontmatter）· validate <skill>（claude 规范断言）· export <skill> --out <dir> [--format claude|claude-code|openai|all]（默认预览，--write 落盘）。<skill>＝SKILL.md 路径或 <SMS_HOME>/registry/register.json 登记的技能 id。"""
+"""api.py — 格式 API（并入 sms-shell 统一入口）：`sms-shell api formats|detect|show|validate|export ...`（原 sms-api 命令面不变）或壳内 `:api ...`；亦可直跑本脚本。命令：formats（格式族）· detect（本机客户端技能目录）· show <skill>（解析 frontmatter）· validate <skill>（claude 规范断言）· export <skill> --out <dir> [--format claude|claude-code|openai|all]（默认预览，--write 落盘）。<skill>＝SKILL.md 路径或 <SMS_HOME>/registry/register.json 登记的技能 id。"""
 import os, sys, re, json
+try: sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+except Exception: pass
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import sms_formats as F
-
+try: import sms_formats as F
+except ImportError:
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "bin")); import sms_formats as F
 def sms_home():
     h = os.environ.get("SMS_HOME")
     if h: return h
@@ -19,18 +22,16 @@ def resolve_skill(arg):
     for s in doc.get("skills", []):
         if arg in (s.get("id"), s.get("name")): return os.path.join(s["install_path"], s.get("entry") or "SKILL.md")
     sys.exit("未找到 skill：%s（给 SKILL.md 路径或 register.json 中的 id）" % arg)
-
 def in_fmt(path, fmt):
     rel = path.replace(os.sep, "/"); group = "openai" if "/openai/" in rel else ("claude" if rel.endswith("SKILL.md") else "claude-code")
     return fmt == "all" or fmt == group
-
-def main():
-    a = sys.argv[1:]; cmd = a[0] if a else "formats"
+def main(a):
+    cmd = a[0] if a else "formats"
     if cmd in ("formats", "detect"):
         if cmd == "formats": print(json.dumps(F.FORMATS, ensure_ascii=False, indent=2)); return
         home = os.path.expanduser("~"); p = lambda x: x if os.path.isdir(os.path.join(home, x)) else None
         print(json.dumps({"claude": p(".claude/skills"), "codex": p(".codex/skills"), "kilocode": p(".kilocode/skills"), "cursor": p(".cursor/skills")}, ensure_ascii=False, indent=2)); return
-    if len(a) < 2: sys.exit("用法: sms-api formats|detect|show|validate|export <skill> [--out D] [--format F] [--write]")
+    if len(a) < 2: sys.exit("用法: sms-shell api formats|detect|show|validate|export <skill> [--out D] [--format F] [--write]")
     skill = resolve_skill(a[1]); meta, _ = F.load(skill)
     if cmd == "show": print(json.dumps({"path": skill, "meta": meta}, ensure_ascii=False, indent=2)); return
     if cmd == "validate":
@@ -46,5 +47,4 @@ def main():
             if w: os.makedirs(os.path.dirname(path), exist_ok=True); open(path, "w", encoding="utf-8").write(text)
         return
     sys.exit("未知命令：%s（formats/detect/show/validate/export）" % cmd)
-
-if __name__ == "__main__": main()
+if __name__ == "__main__": main(sys.argv[1:])

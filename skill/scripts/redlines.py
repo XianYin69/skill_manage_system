@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
-"""redlines.py — 约束持久化机械自检：check 断言 AGENTS.md、SKILL.md、resistance.md 关键约束句未因压缩·改写丢失，全 .md/.py ≤50 行，悬空链接=0，SKILL.md 含 frontmatter；初始化第一步与每轮 git 提交前必跑，任一失败 exit 1 禁止继续；seal 把三份入口文档 sha256 基线冻结到 <SMS_HOME>/redlines/baseline.json，check 报告未 seal 的漂移（drift，不致失败）。"""
+"""redlines.py — 约束持久化机械自检：check 断言 AGENTS.md、SKILL.md、resistance.md 关键约束句未因压缩·改写丢失，全仓 .md/.py/.ps1/.sh/.cmd 等脚本 ≤50 行（含根目录与 bin/ 部署包），悬空链接=0，SKILL.md 含 frontmatter；初始化第一步与每轮 git 提交前必跑，任一失败 exit 1 禁止继续；seal 把三份入口文档 sha256 基线冻结到 <SMS_HOME>/redlines/baseline.json，check 报告未 seal 的漂移（drift，不致失败）。"""
 import os, sys, re, json, hashlib
 SK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = os.path.dirname(SK)
 MUST = {"AGENTS.md": ["调度器", "先询问", "委托 Skill_Generator", "仅复制 bin", "十一链记忆·对话隔离·做梦"],
         "SKILL.md": ["委托 Skill_Generator", "redlines.py", "仅复制 bin", "直接回答", "十一链"],
         os.path.join("resistance", "resistance.md"): ["grant danger", "部署＝", "先询问", "17. 记忆链·对话隔离·做梦"]}
 def _scan():
-    for root, ds, fs in os.walk(SK):
-        ds[:] = [d for d in ds if d not in (".git", ".kilo", "__pycache__", "tmp", "SMS")]
+    for root, ds, fs in os.walk(ROOT):
+        ds[:] = [d for d in ds if d not in (".git", ".kilo", "__pycache__", "tmp", "SMS", "workspaces", "registry", "sessions", "node_modules")]
         for f in sorted(fs):
-            if f.endswith((".md", ".py")): yield os.path.join(root, f)
+            if f.endswith((".md", ".py", ".ps1", ".sh", ".cmd")) or f in ("sms", "sms-shell"): yield os.path.join(root, f)
 def _dangling(path):
     bad = []
     for t in re.findall(r"\]\(([^)\s]+)[^)]*\)", open(path, encoding="utf-8").read()):
@@ -24,9 +25,9 @@ def _fails():
         txt = open(p, encoding="utf-8").read()
         fails += ["缺少关键约束句 %s: %s" % (rel, s) for s in pats if s not in txt]
     for p in _scan():
-        n = sum(1 for _ in open(p, encoding="utf-8"))
-        if n > 50: fails.append("超 50 行(%d): %s" % (n, os.path.relpath(p, SK)))
-        if p.endswith(".md"): fails += ["悬空链接 %s: %s" % (os.path.relpath(p, SK), t) for t in _dangling(p)]
+        n = sum(1 for _ in open(p, encoding="utf-8-sig"))
+        if n > 50: fails.append("超 50 行(%d): %s" % (n, os.path.relpath(p, ROOT)))
+        if p.endswith(".md"): fails += ["悬空链接 %s: %s" % (os.path.relpath(p, ROOT), t) for t in _dangling(p)]
     if not open(os.path.join(SK, "SKILL.md"), encoding="utf-8").read(4).startswith("---"):
         fails.append("SKILL.md 缺 YAML frontmatter")
     return fails

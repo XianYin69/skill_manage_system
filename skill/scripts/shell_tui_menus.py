@@ -1,0 +1,45 @@
+#!/usr/bin/env python3
+"""shell_tui_menus.py — sms-shell TUI 菜单/补全/历史 mixin（被 shell_tui_textual.ShellApp 混入·与 shell_tui_index.Index/shell_tui_ws.Ws 组合）：META 元指令表（含 :index/:skills/:workspace）·Tab 补全（元指令＋个性化指令＋「/」索引令牌）·上下历史·F1/Alt+M 主菜单·Ctrl+K 托管技能菜单（skill_route 活跃技能）·Shift+Tab agent 菜单·pick 派发（":" 直接执行·"call:" 填调用语句·"#" 转 action·"tok:" 以 /名称 插入输入行·"ws:" 切工作区·其余填输入框待确认）·帮助/清屏/退出 action；SKILL.md 技能索引/文件索引/工作区菜单见 shell_tui_index/shell_tui_ws。"""
+import os
+import shell_core as core, skill_route, user_index
+from rich.text import Text
+from shell_tui_widgets import Menu
+META = [":" + m for m in ("agents","use","skill","cmds","intent","index","skills","workspace","debug","mode","dispatch","sh","edit","view","alias","unalias","hud","deploy","session","grant","perms","tools","api","config","web","ext","net","tts","learn","file","path","dream","image","help","quit")]
+class Menus:
+    def complete(self, ta):
+        try: names = [c["name"] for c in core.user_commands.load(core.SMS)["commands"]]
+        except Exception: names = []
+        w = (ta.text or "").split()
+        if w and w[-1].startswith("/") and len(w[-1]) > 1:
+            hits = ["/" + k + " " for k in user_index.refs() if ("/" + k).startswith(w[-1])]
+            if hits: ta.text = " ".join(w[:-1] + [hits[0]]); return
+        hits = [m + " " for m in META + names if m.startswith(ta.text)]
+        if hits: ta.text = hits[0]
+    def history(self, ta, key):
+        if not self.hist: return False
+        self.hi = min(len(self.hist), max(0, self.hi + (-1 if key == "up" else 1))); ta.text = self.hist[self.hi] if self.hi < len(self.hist) else ""; return True
+    def menu(self, title, items): self.push_screen(Menu(title, items), self.pick)
+    def pick(self, sel):
+        if not sel: return
+        ta = self.query_one("#input")
+        if sel.startswith("call:"): ta.text = ":dispatch " + sel[5:] + " "; ta.focus()
+        elif sel.startswith("tok:"): user_index.fill(ta, sel[4:]); ta.focus()
+        elif sel.startswith("ws:"): self.ws_switch(sel[3:])
+        elif sel.startswith("mode:"): self.set_mode(sel[5:])
+        elif sel.startswith("grantp:"): self.grant_perm(sel[7:])
+        elif sel.startswith("tool:"): self.tool_toggle(sel[5:])
+        elif sel.startswith("#"): getattr(self, "action_" + sel[1:])()
+        elif sel.startswith(":"): self.submit(sel)
+        else: ta.text = sel + " "; ta.focus()
+    def action_config(self):
+        from shell_tui_config import Config
+        self.push_screen(Config(), self._cfg_picked)
+    def _cfg_picked(self, path):
+        if path: self.query_one("#input").text = ":config get " + path; self.query_one("#input").focus()
+    def action_menu_main(self): self.menu("sms-shell 菜单（↑↓ 选择 · Enter 执行 · Esc 关闭）", [("#menu_perms","权限与工具（系统权限总览＋大模型工具开关＋HUD·F10）"),("#config","图形化配置：过滤·空格/Enter 改值·T/F 选择器·debug 开关/输出路径"),("#menu_skill_index","SKILL.md 技能索引：名称＋介绍·插 /技能名"),("#menu_files","文件索引：用户索引项·插 /名称·＋索引文件/文件夹"),("#menu_ws","工作区切换：切换/添加/更改路径·即时生效"),("#menu_mode","界面模式：查看（只读）/对话（默认）/直通（＝系统 shell·!同义）"),("#editor","编辑器/查看器（F8）：选文件·Ctrl+S 存"),("#detail_win","详细细节（长输出·F9）"),(":dispatch ","技能真派发 <技能id> <诉求>"),(":sh list","系统 shell 联动（powershell/bash/zsh·!命令）"),(":session new ","新建会话（session·链隔离）"),(":session list","会话/对话总览"),(":agents","查看/选择数据流 agent"),(":config status","配置状态（文本）"),(":cmds","命令总表"),(":deploy ","部署＝仅复制 bin 到目录"),(":grant ","权限授予 <键|角色>"),(":api formats","格式 API"),(":dream run","做梦整理链"),(":tts status","TTS 朗读状态"),(":help","速查（全量 :cmds）")])
+    def action_menu_skill(self): self.menu("托管技能（Enter＝填入调用语句，回车经路由真调 skill_call）", [("call:" + str(s.get("id")), "%s｜%s" % (s.get("id"), str(s.get("description") or "")[:24])) for s in skill_route.skills()] or [(":cmds","注册表为空：先跑 register.py")])
+    def agents_menu(self): self.menu("数据流 agent（Enter 切换）", [(":use " + n, "切到 " + n) for n in core.ag.detected()] or [(":agents","未检出 agent（:agents 查看）")])
+    def action_agents_menu(self): self.agents_menu()
+    def action_help_cmd(self): self.log_line(Text(core.HELP))
+    def action_clear_log(self): r = self.query_one("#log"); r.clear(); self.log_line(Text(core.banner(), style="bold cyan"))
+    def action_exit_app(self): self.exit()

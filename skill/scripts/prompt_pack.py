@@ -11,18 +11,20 @@ def simplify(text, keep=0.4):
     idx = sorted(range(len(s)), key=lambda i: (0 if KEY.search(s[i]) else 1, -len(s[i])))
     return "\n".join(s[i] for i in sorted(idx[:max(1, int(len(s) * keep))])) if s else ""
 def merge(sms, chain): return cs.Store(sms).merge_near(chain)
-def _hits(store, qv):
-    frags = [f for f in store.all_frags() if not f.get("dead")]
+ISO = ("session", "skill_call", "tool_call", "subsession", "dialogue")
+def _hits(store, qv, sess=None):
+    frags = [f for f in store.all_frags() if not f.get("dead") and (not sess or f["chain"] not in ISO
+            or not any(e[1] == "member" for e in f["edges"]) or any(e[0] == sess for e in f["edges"]))]
     byid = {f["id"]: f for f in frags}
     sc = [[cs.cos(f["vec"], qv) + 0.1 * min(f["freq"], 10), f["id"], f["freq"], f["text"]] for f in frags if cs.cos(f["vec"], qv) > 0]
     for q in list(sc):
         for e in byid[q[1]]["edges"]:
             if e[1] in ("semantic", "causal") and byid.get(e[0]): sc.append([q[0] * 0.6, e[0], byid[e[0]]["freq"], byid[e[0]]["text"]])
     return sc
-def pack(text, max_chars=1200, sms=None):
+def pack(text, max_chars=1200, sms=None, sess=None):
     store = cs.Store(sms or resolve_home.ensure())
     out, used, seen = [], 0, set()
-    for sc, fid, fr, t in sorted(_hits(store, cs.vec(text)), reverse=True):
+    for sc, fid, fr, t in sorted(_hits(store, cs.vec(text), sess), reverse=True):
         if fid in seen: continue
         seen.add(fid); store.bump(fid)
         if used + len(t) > max_chars: break

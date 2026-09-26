@@ -20,13 +20,13 @@
 
 ## 做梦机制（dream.py，惰性触发）
 
-- `maybe()` 由 sms.py 入口、emit 会话写盘、agent_stream 派发调用；间隔＝config `dream_interval_min`（默认 360 分钟），`doctor` 显示状态。
+- `maybe()` 由 sms.py 入口、emit 会话写盘、agent_stream 派发调用；间隔＝程序按链碎片规模自动计算（45→720 分钟·用户不可设置），`dream.py status` 显示下次时间与计算值。
 - 一次做梦：跨链合并近义碎片 → 修剪陈旧低频（knowledge 钉选除外）→ 重建 `chains/retrieval.md` → 高频 knowledge 同步 `memory.json` 钉选 → 审计对话开-收口与子会话悬挂（`chains/violations.md`）→ skill_errors≥3 记升级事件（user_commands `skill-update`→Skill_Generator 修改路径，实现所有 skill 自动迭代）→ event 链留痕。
 - 手动：`python dream.py run|maybe|status [--sync]`。
 
 ## 各链与做梦设置（config 段 chains / dream，settings.py 统一改）
 
-- `chains.<链>` 覆盖 `chains.default{enabled, merge_thr, prune_days, min_freq}`：enabled=false 停写该链（chain_store 建库时读取、add 拒绝并提示恢复命令），merge/修剪按链取阈值与天数；`dream.enabled`／`dream.interval_min` 控制做梦（旧键 dream_interval_min 兼容）；knowledge 钉选链不参与修剪停用。改法：`python -B settings.py set chains.tool_call.enabled false`、壳内 `:config set ...`、或网页壳「链设置」区；每次变更记 event 链（契约 [../schemas/settings.schema.json](../schemas/settings.schema.json)）。
+- `chains.<链>` 覆盖 `chains.default{enabled, merge_thr, prune_days, min_freq}`：enabled=false 停写该链（chain_store 建库时读取、add 拒绝并提示恢复命令），merge/修剪按链取阈值与天数；`dream.enabled` 控制做梦开关（触发时间恒程序自算，interval_min/next_run 配置键已剔除·不可设置）；knowledge 钉选链不参与修剪停用。改法：`python -B settings.py set chains.tool_call.enabled false`、壳内 `:config set ...`、或网页壳「链设置」区；每次变更记 event 链（契约 [../schemas/settings.schema.json](../schemas/settings.schema.json)）。
 
 ## 学习脚本（learn.py，联动做梦·resistance #17/#19）
 

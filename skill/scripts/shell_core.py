@@ -1,49 +1,50 @@
 #!/usr/bin/env python3
-"""shell_core.py — sms-shell 共享路由引擎（TUI/GUI 前端通用）：像对 agent 说话一样——任意话语默认经数据流交给已安装 agent CLI 执行（agent_stream，前置 skill_manage_system 指令）；输入命中个性化指令名（user_commands）则展开执行；`:` 元指令仅做治理（切 agent、开关技能前缀、指令系统、hud/deploy/session/grant）；本体不作答。"""
-import os, sys, subprocess, shlex
-S = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, S)
-import agent_stream as ag
-SMS = ag.SMS
-HELP = ("直接输入任何话语＝交给当前 agent（默认带 skill_manage_system 指令）· 命中个性化指令名则展开执行\n"
-        ":agents 看/选 · :use <name> · :skill on|off 技能前缀 · :cmds [name] · :intent <话语> · :alias/:unalias 个性化指令\n"
-        ":hud session|step|alert|hide · :deploy <dir|--Path P --FolderName F>（部署＝仅复制 bin 文件） · :session \"<任务>\" · :grant <键|角色> [分钟] · :dream status|run · :image <文件> 附下一话语图片 · :config status|get|set · :web start|stop|token · :ext status|enable|enroll · :net search|fetch|download|status（firefox lite 内核·须 grant net）· :tts say|test|on|off|voices（阿林娜 alina 朗读）· :learn from-url|note|recall|distill|stats · :file read|write|list|copy|move|delete|stat · :path resolve|which|glob|tree|env · :quit")
-def banner():
-    return "sms-shell · SMS_HOME=" + SMS + " · 当前 agent：" + (ag.current() or "未检出（:agents 查看）") + " · 技能前缀：" + ("on" if ag.prefix_on() else "off")
+"""shell_core.py — sms-shell 共享路由（与 bin ps1 同套确定性路由）：quit·`sms/sms-shell` 前缀剥离·裸内置词零模型直达·`:dispatch` 真派发·`:sh`/`!命令` 系统 shell 联动·`:edit/:view` 返回编辑器令牌（TUI F8）·`:session new|list|use|current` 会话层链隔离·`:debug` 同步配置。其余话语经 shell_mode.utter（含 F7 三态 gate）→ data flow；agent_stream 命中技能即开子会话真派发，否则 gateway 工具循环。st 上报步骤、ev 收 msg_flow 信封供顶栏进度。"""
+import os, sys, subprocess, re
+S = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, S)
+import agent_stream as ag, settings, user_commands, skill_route, user_index, debug, chains, resolve_home, sys_shells; from shell_help import HELP, SHORT
+SMS = ag.SMS; IMG = []; os.environ["SMS_TMP"] = resolve_home.wtmp()
+def banner(): return "sms-shell · SMS_HOME=" + SMS + " · 会话=" + chains.cur_sess() + " · 数据流：" + (ag.current() or "未检出（:agents 查看）") + " · 技能前缀：" + ("on" if ag.prefix_on() else "off") + " · 帮助 :help（含 :dispatch/:sh/!命令/:edit/F7 编辑器/F4 debug 开关）"
 def run_script(name, args):
-    p = subprocess.run([sys.executable, "-B", os.path.join(S, name)] + list(args), capture_output=True, text=True, encoding="utf-8", errors="replace")
-    return (p.stdout or p.stderr).strip() or "(无输出)"
-IMG = []
-def _meta(m, a, on_line):
+    return (lambda p: (debug.enabled() and debug.log("exec " + name + " rc=" + str(p.returncode) + ("" if p.returncode == 0 and not p.stderr else " STDERR:" + (p.stderr or p.stdout or "")[:500])) or (p.stdout or p.stderr).strip() or "(无输出)"))(subprocess.run([sys.executable, "-B", os.path.join(S, name)] + list(args), capture_output=True, text=True, encoding="utf-8", errors="replace"))
+def _meta(m, a, on_line, st):
+    if m == "dispatch":
+        import agent_tools as at; st("技能派发：" + a[0]) if len(a) > 1 else None
+        on_line(at.run_skill(a[0], " ".join(a[1:])) if len(a) > 1 else "用法 :dispatch <技能id> <诉求>（技能子会话真派发·:skills 查清单）"); return None
+    if m == "sh": st("系统 shell"); on_line(sys_shells.run(" ".join(a), on_line=on_line) if a and a[0] not in ("list", "select", "export") else (sys_shells.select(a[1]) if a and a[0] == "select" and len(a) > 1 else sys_shells.export() if a and a[0] == "export" else sys_shells.listtext())); return None
+    if m in ("edit", "view"): return (on_line("用法 :" + m + " <路径>（TUI F8 或主菜单·查看器 :view）") and None) if not a else m + ":" + os.path.abspath(os.path.expanduser(" ".join(a)))
+    if m == "session": c = a[0] if a else "current"; on_line(chains.new_sess(" ".join(a[1:])) if c == "new" else chains.list_sess() if c == "list" else chains.use_sess(a[1]) if c == "use" and len(a) > 1 else ("当前会话 " + chains.cur_sess() + "（对话 conv 在其内自动开收·防跨会话污染）" if c == "current" else run_script("session.py", a))); return None
     if m == "agents": on_line("检出：" + ("、".join(ag.detected()) or "无") + " · 当前：" + (ag.current() or "-") + " · 技能前缀：" + ("on" if ag.prefix_on() else "off") + "\n可用适配器（含未装）：" + "、".join(ag.adapters()))
-    elif m == "image" and a:
-        p = " ".join(a); IMG[:] = [p] if os.path.isfile(p) else []
-        on_line(("已附图（下一句生效）：" if IMG else "图片不存在：") + p)
+    elif m == "image" and a: p = " ".join(a); IMG[:] = [p] if os.path.isfile(p) else []; on_line(("已附图（下一句生效）：" if IMG else "图片不存在：") + p)
     elif m == "use" and a: on_line(ag.use(a[0]))
     elif m == "skill": on_line(ag.skill(not (a and a[0] == "off")))
-    elif m in ("hud", "deploy", "session"): on_line(run_script(m + ".py", a))
-    elif m in ("config", "web", "ext"): on_line(run_script({"config": "settings", "web": "web_shell", "ext": "external"}.get(m, m) + ".py", a or ["status"]))
+    elif m in ("hud", "deploy", "workspace"): on_line(run_script(m + ".py", a))
+    elif m in ("config", "web", "ext", "debug", "mode"): m == "debug" and a and a[0] in ("on", "off") and settings.set("debug.enabled", a[0] == "on"); on_line(run_script({"config": "settings", "web": "web_shell", "ext": "external", "mode": "shell_mode"}.get(m, m) + ".py", a or ["status"]))
     elif m in ("net", "tts", "learn", "file", "path"): on_line(run_script({"net": "ff_lite", "file": "file_ops", "path": "path_ops"}.get(m, m) + ".py", a or (["status"] if m in ("tts", "net") else [])))
+    elif m == "api": on_line(run_script("api.py", a or ["formats"]))
     elif m == "grant": on_line(run_script("permissions.py", ["grant"] + a + ["--write"]))
     elif m == "dream": on_line(run_script("dream.py", a or ["status"]))
-    elif m == "cmds": on_line(run_script("commands.py", ["help"] if not a else ["show"] + a))
-    elif m == "intent": on_line(run_script("commands.py", ["intent"] + a))
-    elif m == "alias": on_line(run_script("user_commands.py", ["add"] + a))
-    elif m == "unalias": on_line(run_script("user_commands.py", ["rm"] + a))
-    elif m in ("help", "?"): on_line(HELP)
-    else: on_line("未知元指令 :" + m + "（:help）")
-def handle(line, on_line):
-    if not line.strip(): return None
-    if line.strip() in ("quit", "exit", ":quit", ":q", ":exit"): return "exit"
-    if line.startswith(":"):
-        p = line[1:].split(); _meta(p[0], p[1:], on_line); return None
-    import user_commands
-    try: parts = shlex.split(line)
-    except ValueError: parts = line.split()
-    if user_commands.find(user_commands.load(SMS), parts[0]):
-        on_line(run_script("user_commands.py", ["run"] + parts)); return None
-    line2 = line + ("\n[图:" + IMG[0] + "]" if IMG else "")
-    if IMG: IMG.clear()
-    ag.ask(line2, on_line); return None
-if __name__ == "__main__":
-    print(banner() + "\n" + HELP)
+    elif m in ("cmds", "intent"): on_line(run_script("commands.py", ["help"] if (m == "cmds" and not a) else (["show"] + a if m == "cmds" else ["intent"] + a)))
+    elif m == "tools": on_line(run_script("agent_dispatch.py", ["tools"] + a))
+    elif m == "perms": on_line(run_script("permissions.py", ["status"] + a))
+    elif m in ("index", "skills"): on_line(run_script("register.py" if (m == "index" and a) else ("skills_config.py" if m == "index" else "skill_route.py"), (["--add-root"] + a + ["--write"]) if (m == "index" and a) else (["roots"] if m == "index" else ["list"])) + (("\n" + user_index.add(" ".join(a), SMS)) if m == "index" and a else ""))
+    elif m in ("alias", "unalias"): on_line(run_script("user_commands.py", [("add" if m == "alias" else "rm")] + a + ["--write"]))
+    else: on_line(HELP if m in ("help", "?") else "未知元指令 :" + m + "（:help）")
+HELPW = ("help", "?", "h", "帮助", "用法"); CFGW = ("config", "设置", "配置", "状态", "status", "修改配置", "打开设置", "查看配置", "如何修改配置", "怎么修改配置", "如何查看配置", "修改配置文件", "打开配置", "进入配置", "配置编辑器", "图形化配置"); CMDW = ("cmds", "命令", "指令", "命令表")
+DIAG = re.compile("问题|故障|报错|错误|异常|失败|无法|不能|检查|诊断|为什么|怎么回事|卡|崩|慢"); METAS = frozenset(("agents","use","skill","image","dispatch","sh","edit","view","session","hud","deploy","workspace","config","web","ext","debug","mode","net","tts","learn","file","path","api","grant","dream","cmds","intent","index","skills","alias","unalias","help","?","quit","tools","perms"))
+def _cfgline(): g = settings.status()["gateway"]; return "gateway: enabled=%s base_url=%s model=%s api_key=%s max_tokens=%s · 文件=<SMS_HOME>/config/config.json\n改配置：:config set <path> <json> · 全量：:config show · TUI F4 图形化（debug 开关/输出路径同处）" % (g["enabled"], g["base_url"], g["model"], g["api_key"], g["max_tokens"])
+def handle(line, on_line, st=lambda n: None, ev=None):
+    if not (t := line.strip()): return None
+    if t.lower() in ("quit", "exit", ":quit", ":q", ":exit"): return "exit"
+    if (pm := re.match(r"(?i)^(sms[\s\-_\.]*shell(\.cmd)?|sms)(?=[\s,，:：]|$)[\s,，]*(.*)$", t)): return handle(pm.group(3), on_line, st, ev) if pm.group(3).strip() else on_line(HELP)
+    if t.startswith(("!", "！")): st("系统 shell 透传"); on_line(sys_shells.run(t[1:].strip(), on_line=on_line)); return None
+    if t.startswith((":", "：")): p = t.lstrip(":：").split(); debug.enabled() and debug.log("meta " + " ".join(p)[:200]); st("元指令：" + p[0].lower()); return _meta(p[0].lower(), p[1:], on_line, st)
+    if (w := t.lower()) in HELPW: st("内置词：帮助"); on_line(HELP); return None
+    if w in CFGW: st("内置词：配置状态"); on_line(_cfgline()); return "config" if w in ("打开配置", "进入配置", "配置编辑器", "图形化配置", "打开设置") else None
+    if w in CMDW: st("内置词：命令表"); on_line(run_script("commands.py", ["help"])); return None
+    if (mc := re.match(r"(?i)^(?:config|设置|配置)[\s,，]+(\S.*)$", t)): st("内置词：配置命令"); _meta("config", mc.group(1).split(None, 2), on_line, st); return None
+    if re.search(r"(哪些|那些|什么|可用|可以|能)[^。！!？?]{0,8}(技能|skills?\b)", t) or re.match(r"(?i)^skills?\s*list[\s!！。？?]*$|^(技能列表|可用技能|可调用技能)[\s!！。？?]*$", t): st("内置词：技能清单"); on_line(skill_route.listtext()); return None
+    if (re.search(r"(?i)sms|shell|壳", t) and re.search("设置|配置|命令|指令|config", t) and not DIAG.search(t)) or w in ("显示提示词", "提示词", "你的提示词"): st("SMS 壳自管理直答"); on_line(SHORT + "（确定性路由·未经大模型）"); return "config" if re.search("配置|设置", t) else None
+    if user_commands.find(user_commands.load(SMS), (parts := t.split())[0]): st("个性化指令展开：" + parts[0]); on_line(run_script("user_commands.py", ["run"] + parts)); return None
+    img = IMG[0] if IMG else None; IMG.clear(); debug.enabled() and debug.log("utter> " + line[:300]); st("话语→数据流（agent_stream）"); line = user_index.expand(line, SMS)
+    import shell_mode; return shell_mode.utter(line, img, on_line, st, ev) or None
