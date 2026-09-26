@@ -6,7 +6,7 @@
     "llm_gateway": { "type": "object", "props": ["enabled", "base_url", "api_key", "api_key_env", "model", "max_tokens", "timeout", "temperature", "top_p"], "note": "api_key 展示层恒掩码（settings.maskv）" },
     "model_meta": { "type": "object", "props": ["auto_refresh", "refresh_interval_min", "defaults.context_length", "defaults.max_output_tokens", "defaults.rpm"] },
     "chains": { "type": "object", "props": ["default{enabled,merge_thr,prune_days,min_freq}"], "pattern": "^chains\\.(user|memory|logic|time|event|session|skill_call|tool_call|subsession|dialogue)\\.(enabled|merge_thr|prune_days|min_freq)$", "note": "knowledge 钉选链不可停用修剪，不受本段影响" },
-    "dream": { "type": "object", "props": ["enabled", "interval_min"], "legacy": "dream_interval_min 自动兼容" },
+    "dream": { "type": "object", "props": ["enabled", "interval_min", "next_run"], "legacy": "dream_interval_min 自动兼容" },
     "web_shell": { "type": "object", "props": ["enabled", "host", "port"], "constraint": "host 仅 127.0.0.1/::1（本地加密网页壳）" },
     "external": { "type": "object", "props": ["enabled", "interface", "port", "pq_mode", "session_ttl_min", "max_fail_per_min"], "constraint": "enabled 默认 false；enable 须 --yes 当轮确认（resistance #16/#18）" }
   },

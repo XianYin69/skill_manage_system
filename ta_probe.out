@@ -1,0 +1,7 @@
+8.2.8
+_cursor_visible,_default__cursor_visible,_default_cursor_blink,_default_highlight_cursor_line,_default_match_cursor_bracket,_default_show_cursor,_delete_cursor_line,_draw_cursor,_has_cursor,_recompute_cursor_offset,_toggle_cursor_blink_visible,_watch__cursor_visible,_watch_cursor_blink,action_cursor_down,action_cursor_left,action_cursor_line_end,action_cursor_line_start,action_cursor_page_down,action_cursor_page_up,action_cursor_right,action_cursor_up,action_cursor_word_left,action_cursor_word_right,cursor_at_end_of_line,cursor_at_end_of_text,cursor_at_first_line,cursor_at_last_line,cursor_at_start_of_line,cursor_at_start_of_text,cursor_blink,cursor_location,cursor_screen_offset,get_cursor_down_location,get_cursor_left_location,get_cursor_line_end_location,get_cursor_line_start_location,get_cursor_right_location,get_cursor_up_location,get_cursor_word_left_location,get_cursor_word_right_location,highlight_cursor_line,match_cursor_bracket,move_cursor,move_cursor_relative,record_cursor_width,scroll_cursor_visible,show_cursor
+Traceback (most recent call last):
+  File "C:\Users\User\AppData\Local\Temp\ta_probe.py", line 8, in <module>
+    out.write(",".join(m.name if hasattr(m,"name") else str(m) for m in list(TextArea.Movement)) + "\n")
+                                                                             ^^^^^^^^^^^^^^^^^
+AttributeError: type object 'TextArea' has no attribute 'Movement'

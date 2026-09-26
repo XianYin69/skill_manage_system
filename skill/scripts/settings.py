@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""settings.py — 配置系统：dot-path get/set，模型输入参数存 <SMS_HOME>/config/config.json（DEFAULTS=config/settings.default.json 深合并保旧配置兼容）；段＝llm_gateway（api_key/base_url/model/温度·top_p）· model_meta（上游模型 Token·上下文·RPM 抓取）· chains（各链启用/修剪/合并）· dream（做梦开关·时间）· web_shell（本地加密网页壳）· external（对外端口）。视图统一存储分离：eff/flat 同时读出 skills.json 技能列表段（scan_roots/skill_generator/sync_clients/Source_Remote/permissions_default），其写回按属主路由 skills_config.set（AGENTS #9 不变）。api_key 恒掩码；变更记 event 链。用法：python -B settings.py status|show|get <path>|set <path> <json>|unset <path>|schema。"""
+"""settings.py — 配置系统：dot-path get/set，模型输入参数存 <SMS_HOME>/config/config.json（DEFAULTS=config/settings.default.json 深合并保旧配置兼容）；段＝llm_gateway（api_key/base_url/model/温度·top_p）· model_meta（上游模型 Token·上下文·RPM 抓取）· chains（各链启用/修剪/合并）· dream（做梦开关·时间）· web_shell（本地加密网页壳）· external（对外端口）· ui（TUI 界面模式 chat|exec|view·shell_tui_mode 读写）。视图统一存储分离：eff/flat 同时读出 skills.json 技能列表段（scan_roots/skill_generator/sync_clients/Source_Remote/permissions_default），其写回按属主路由 skills_config.set（AGENTS #9 不变）。api_key 恒掩码；变更记 event 链。用法：python -B settings.py status|show|get <path>|set <path> <json>|unset <path>|schema。"""
 import os, sys, json
 from functools import reduce
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import resolve_home, chains, skills_config
@@ -12,6 +12,7 @@ def _dm(a, b):
 def eff(sms=None):
     sms = sms or resolve_home.ensure(); c = resolve_home.conf(sms)
     if "dream_interval_min" in c: c.setdefault("dream", {})["interval_min"] = c["dream_interval_min"]
+    if not c.get("dream"): c.setdefault("dream", {})
     return _dm(_dm(json.loads(json.dumps(DEFAULTS)), c), skills_config.load(sms))
 def _walk(d, path): return reduce(lambda a, k: a.get(k) if isinstance(a, dict) else None, path.split("."), d)
 def get(path, default=None, sms=None): return default if (v := _walk(eff(sms), path)) is None else v
@@ -33,7 +34,7 @@ def status(sms=None):
     sms = sms or resolve_home.ensure(); e = eff(sms); g = e["llm_gateway"]; base = e["chains"].get("default", {})
     key = os.environ.get(g.get("api_key_env") or "", "") or g.get("api_key")
     return {"gateway": {"enabled": g.get("enabled"), "base_url": g.get("base_url"), "model": g.get("model"), "api_key": "set" if key else "missing", "temperature": g.get("temperature"), "top_p": g.get("top_p"), "max_tokens": g.get("max_tokens")},
-     "model_meta": model_meta.summary(), "dream": {"enabled": e["dream"]["enabled"], "interval_min": e["dream"]["interval_min"], "due": dream.due(sms)},
+     "model_meta": model_meta.summary(),       "dream": {"enabled": e["dream"]["enabled"], "interval_min": e["dream"]["interval_min"], "next_run": e["dream"].get("next_run"), "due": dream.due(sms)},
      "chains": {c: {**base, **(e["chains"].get(c) or {})} for c in CH},
      "web_shell": {**e["web_shell"], "running": net_util.running("web_shell")},
      "external": {**e["external"], "running": net_util.running("external"), "backend": ext_net.backend()},

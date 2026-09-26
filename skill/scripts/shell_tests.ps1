@@ -25,6 +25,11 @@ T '裸 哪些skill＝技能清单路由' @('你现在可以调用那些skill') @
 T ':skills 元指令＝托管技能清单' @(':skills') @('可调用托管技能')
 T ':index 无参＝scan_roots 清单' @(':index') @('[')
 T 'config get scan_roots＝技能根经统一视图' @('config get scan_roots') @('.kilocode')
+$wsd = Join-Path $env:TEMP ('sms_ws_' + (Get-Random)); New-Item -ItemType Directory -Force -Path $wsd | Out-Null
+T ':workspace switch＝真实工作区自动建 tmp' @(':workspace', 'switch', $wsd) @('已切换工作区', 'tmp')
+T ':workspace tmp＝真实工作区下 tmp 绝对路径' @(':workspace', 'tmp') @((Join-Path $wsd 'tmp'))
+T ':workspace use-virtual＝回退虚拟' @(':workspace', 'use-virtual') @('虚拟')
+T ':workspace tmp＝虚拟工作区下 tmp 亦自动建' @(':workspace', 'tmp') @('tmp')
 $show = RunOne @(':config show')
 if (($show -like '*"***"*') -and ($show -notmatch 'freellmapi-a923')) { $lines += 'PASS api_key 恒掩码（show 不出真实值）' } else { $fail++; $lines += 'FAIL api_key 掩码' }
 T '未知元指令报错不崩' @(':nosuch') @('未知元指令')

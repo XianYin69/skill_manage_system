@@ -21,7 +21,7 @@
     "default": { "enabled": true, "merge_thr": 0.92, "prune_days": 14, "min_freq": 1 },
     "comment": "各链设置：chains.<链名> 覆盖 default（user/memory/logic/time/event/session/skill_call/tool_call/subsession/dialogue）；enabled=false 即停写该链；knowledge 钉选链不受修剪影响"
   },
-  "dream": { "enabled": true, "interval_min": 360, "comment": "做梦机制开关与间隔（分钟）；旧键 dream_interval_min 兼容" },
+  "dream": { "enabled": true, "interval_min": 360, "next_run": null, "comment": "做梦机制：timestamp 调度（next_run ISO 时间戳到时即执行）；间隔 interval_min 用于计算下次执行时间；旧键 dream_interval_min 兼容" },
   "web_shell": { "enabled": true, "host": "127.0.0.1", "port": 8737, "comment": "本地加密网页壳（web_shell.py）：HTTPS 自签指纹证书＋配对 token；:web start|stop|token" },
   "external": {
     "enabled": false,
@@ -33,5 +33,6 @@
     "comment": "对外端口（external.py）默认关闭；enable --yes 才开；ML-DSA-65（cryptography PQ，FIPS 204）指纹证书挑战验签后才给会话 token；pq_mode strict＝无 PQ 拒启（降级仅 classic/auto）；建议配合 SSH 隧道访问"
   },
   "ff_lite": { "engine": "bing", "timeout_s": 30, "headless": true, "max_page_chars": 8000, "download_dir": "downloads", "max_download_mb": 200, "comment": "firefox lite 内核（ff_lite.py）：联网搜索·取页·下载——动作须 grant network（默认拒绝）；engine=bing|duckduckgo（ddg lite 端点国内常不可达故默认 bing，search 失败自动改投另一引擎）；渲染优先 playwright 随包无头 Firefox，缺失回退 urllib（明确提示·绝不自动装依赖）；下载只落 <SMS_HOME>/downloads/，覆盖须 --force＋grant danger" },
-  "tts": { "enabled": false, "engine": "sapi5", "profile_name": "阿林娜", "voice": "Microsoft Huihui Desktop - Chinese (China)", "rate": -1, "pitch": "+0st", "volume": 100, "max_chars": 400, "comment": "TTS 阿林娜（alina）：旧导航/屏幕阅读器式机械女声——Windows SAPI5 本地合成、文本不出本机；默认关，壳内 :tts on 开启后模型输出逐句朗读；voice/rate(-10..10)/pitch/volume 可调" }
+  "tts": { "enabled": false, "engine": "sapi5", "profile_name": "阿林娜", "voice": "Microsoft Huihui Desktop - Chinese (China)", "rate": -1, "pitch": "+0st", "volume": 100, "max_chars": 400, "comment": "TTS 阿林娜（alina）：旧导航/屏幕阅读器式机械女声——Windows SAPI5 本地合成、文本不出本机；默认关，壳内 :tts on 开启后模型输出逐句朗读；voice/rate(-10..10)/pitch/volume 可调" },
+  "ui": { "mode": "chat", "comment": "sms-shell Textual TUI 界面模式（F7 切换·顶栏与右栏显示）：chat＝对话（默认·话语经路由＋网关流式）·exec＝直通（输入即命令·免冒号走 :元指令 治理·不经大模型）·view＝查看（只读不发送·Esc 回对话）；仅 TUI 前端读取，readline 壳与 bin 原生 ps1 壳恒等同 chat" }
 }
