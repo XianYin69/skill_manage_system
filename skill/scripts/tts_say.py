@@ -1,37 +1,46 @@
 #!/usr/bin/env python3
-"""tts_say.py — 阿林娜（alina）SAPI5 合成后端（被 tts.py 引用·文本不出本机）：voices 枚举系统语音；speak 逐段 PowerShell Add-Type System.Speech 播报（SSML rate/pitch/volume 由 settings 取值·属性双引号合法 XML〔旧版单引号致 SpeakSsml 抛错被 DEVNULL 吞＝无声根因〕·语音名按前缀容错匹配·无启用语音明确报错·here-string 定界独立成行防 '@ 文本崩溃·wait 模式供 CLI 且回传失败原因）；clean 去 markdown/控制前缀（** ` # 链接 URL $ ▸ ⧉ ≡ sms> 等）；chunks 按句切 ≤cap 段（修复旧版整段截 400 字朗读不完整与噪音符号）。"""
-import os, sys, re, subprocess
+"""tts_say.py — 阿林娜（alina）SAPI5 合成后端（被 tts.py 引用·文本不出本机）：常驻 PowerShell worker 单进程串行播报——旧版每句 spawn 一个 powershell 并行抢说＝叠音＋每次延迟不一样的根因修复。worker 源＝同目录 tts_worker.ps1（ASCII·阻塞式逐行读 stdin·SpeakSsmlAsync＋90s 看门狗；PS5.1 下后台线程跑 scriptblock 会崩进程，故主循环串行），复制缓存到 <SMS_HOME>/shell/ 按 hash 复用（缓存不落 skill 目录·-File 启动免超长 -Command 解析风险）。stdin 行协议 JSON：{op:"s",t,v,r,p,o,a} 朗读（严格串行·说完才取下句，a=1 回 OK 供 wait 同步·看门狗最长 90s）·{op:"q"} 退出；stop()＝终止 worker（正在说的立刻掐断·防关不掉与关后仍排队）。语音按前缀容错切换·空闲随 python 退出由 atexit 收掉。clean 去 markdown/控制前缀；chunks 按句切 ≤cap 段。"""
+import os, sys, re, json, threading, subprocess, atexit
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import settings
 _MD = re.compile(r"\$[^\s]*|▸|⧉|≡|sms>|●|◀|\*\*|__|`{1,3}|~~|#{1,6}\s+|\((?=[^\)]*https?://)|https?://\S+|!\[[^\]]*\]|\[[^\]]*\]\([^)]*\)|\[\d+\]")
 def clean(s): return re.sub(r"\s+", " ", _MD.sub(" ", str(s))).strip()
 def chunks(s, cap):
     out, buf = [], ""
-    for sent in re.split(r"(?<=[。！？；!?;\n])", str(s)):
-        buf += sent
-        if len(buf) >= cap: out.append(buf.strip()); buf = ""
+    for sent in re.split(r"(?<=[。！？；!?;\n])", str(s)): buf += sent; out += [buf.strip()] if len(buf) >= cap else []; buf = "" if len(buf) >= cap else buf
     return out + ([buf.strip()] if buf.strip() else [])
-_PS_ENUM = "Add-Type -AssemblyName System.Speech;(New-Object System.Speech.Synthesis.SpeechSynthesizer).GetInstalledVoices()|ForEach-Object{$_.VoiceInfo.Name}"
+def _esc(t): return str(t).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
 def voices():
     try:
-        r = subprocess.run(["powershell", "-NoProfile", "-Command", _PS_ENUM], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30)
+        r = subprocess.run(["powershell", "-NoProfile", "-Command", "Add-Type -AssemblyName System.Speech;(New-Object System.Speech.Synthesis.SpeechSynthesizer).GetInstalledVoices()|ForEach-Object{$_.VoiceInfo.Name}"], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30)
         return "\n".join(x for x in (r.stdout or "").splitlines() if x.strip()) or ("ERR " + (r.stderr or "无语音").strip()[:200])
     except Exception as e: return "ERR 枚举语音失败：" + str(e)[:150]
-def _ssml(text):
-    t = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-    return '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="zh-CN"><prosody rate="%s%%" pitch="%s" volume="%s%%">%s</prosody></speak>' % (int(float(settings.get("tts.rate", -1)) * 10), settings.get("tts.pitch", "+0st"), int(settings.get("tts.volume", 100)), t)
-def _ps(text):
-    v = str(settings.get("tts.voice", "") or "Microsoft Huihui").replace("'", "''")
-    return "\n".join(["Add-Type -AssemblyName System.Speech", "$s=New-Object System.Speech.Synthesis.SpeechSynthesizer",
-        "$n=@(($s.GetInstalledVoices()|Where-Object{$_.Enabled}).VoiceInfo.Name)",
-        "if($n.Count -eq 0){[Console]::Error.WriteLine('系统无已启用语音（安装中文语音包后再试）');exit 3}",
-        "$w=$n|Where-Object{$_ -eq '%s' -or $_ -like '%s*'}|Select-Object -First 1; if(-not $w){$w=$n|Where-Object{$_ -match 'Huihui|Xiaoxiao|Kangkang|Yaoyao|Chinese|中文'}|Select-Object -First 1}; if($w){$s.SelectVoice($w)}" % (v, v),
-        "$x=@'", _ssml(text[:600]), "'@",
-        "try{$s.SpeakSsml($x)}catch{[Console]::Error.WriteLine($_.Exception.Message);exit 2}"])
+TPL = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tts_worker.ps1")
+def _wp():  # 模板 → 数据根缓存副本（hash 一致不重写）
+    import hashlib, resolve_home; src = open(TPL, encoding="utf-8").read(); p = os.path.join(resolve_home.ensure(), "shell", "tts_worker.ps1"); h = "//" + hashlib.md5(src.encode()).hexdigest()
+    if (open(p, encoding="utf-8").read()[-len(h):] if os.path.exists(p) else "") != h: os.makedirs(os.path.dirname(p), exist_ok=True); open(p, "w", encoding="utf-8").write(src + "\n" + h)
+    return p
+W = {"p": None}; L = threading.Lock()
+def _params(): return {"v": str(settings.get("tts.voice", "") or "Microsoft Huihui"), "r": int(float(settings.get("tts.rate", -1)) * 10), "p": str(settings.get("tts.pitch", "+0st")), "o": int(settings.get("tts.volume", 100))}
+def _bye():
+    with __import__("contextlib").suppress(Exception): W["p"] and (W["p"].stdin.write('{"op":"q"}\n'), W["p"].stdin.close())
+def _send(op):
+    with L:
+        if not (p := W["p"]) or p.poll() is not None:
+            try: W["p"] = p = subprocess.Popen(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", _wp()], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, encoding="ascii", errors="replace"); atexit.register(_bye)
+            except Exception: W["p"] = None; return None
+        try: p.stdin.write(json.dumps(op) + "\n"); p.stdin.flush(); return p
+        except Exception: W["p"] = None; return None
 def speak(text, wait=False):
     if not (text or "").strip(): return ""
-    try:
-        if wait:
-            r = subprocess.run(["powershell", "-NoProfile", "-Command", _ps(text)], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
-            return "done" if r.returncode == 0 else "ERR 朗读失败：" + ((r.stderr or "").strip() or "rc=%d（无输出设备/语音异常）" % r.returncode)[:200]
-        return subprocess.Popen(["powershell", "-NoProfile", "-Command", _ps(text)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).pid
-    except Exception as e: return "ERR 朗读失败：" + str(e)[:150]
+    p = _send(dict(_params(), op="s", t=_esc(text), **({"a": 1} if wait else {})))
+    if not wait: return "queued" if p else "ERR 朗读失败：worker 启动失败"
+    box = []; th = threading.Thread(target=lambda: box.append((p.stdout.readline() if p else "") or "")); th.daemon = True; th.start(); th.join(90)
+    return "done" if box and box[0].strip() == "OK" else "ERR 朗读失败：worker 无回包（无输出设备/语音异常/超时）"
+def stop():
+    with L:
+        p = W["p"]; W["p"] = None
+    try: p and p.poll() is None and (p.stdin.write('{"op":"q"}\n'), p.wait(timeout=3))
+    except Exception:
+        try: p and p.kill()
+        except Exception: pass
+    return "worker 已停（含掐断当前朗读）"

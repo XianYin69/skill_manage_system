@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """sys_shells.py — 基本 shell 指令与系统 shell 联动：detect 检出 powershell/pwsh/cmd/bash/zsh（含 Git-Bash 回退路径）；选择持久 <SMS_HOME>/shell/shell_kind；run(cmd) 以选定 shell 单发执行——unix 风格命令（ls/grep/cat/rm -rf…）在 powershell/cmd 语境自动改道 bash/zsh（Linux/Unix 命令格式即用）；cwd＝SMS_WORKSPACE、env 注入 SMS_HOME/SMS_WORKSPACE/SMS_TMP（与工作区/生成文件口径一致），输出逐行回显并记 tool_call 链；export() 打印联动片段（在系统原生 shell 里 set/export 后即与 sms-shell 同工作区同 tmp，双向联动）。壳内 `!命令`、`:sh <命令>`、F7 直通模式与 gateway exec 为同一入口。用法：python -B sys_shells.py list|select <kind>|run <命令>|export"""
-import os, sys, re, shutil, subprocess
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import resolve_home, chains
+import os, sys, re, shutil, subprocess, threading
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import resolve_home, chains, settings
 SMS = resolve_home.ensure()
 KNOWN = {"pwsh": ["pwsh"], "powershell": ["powershell"], "cmd": ["cmd"], "bash": ["bash", r"C:\Program Files\Git\bin\bash.exe"], "zsh": ["zsh"]}
 UNIX = re.compile(r"^\s*(?:sudo\s+)?(?:ls|ll|cat|grep|egrep|rg|sed|awk|find|touch|mkdir|cp|mv|rm|df|du|ps|kill|chmod|chown|ln|head|tail|wc|sort|uniq|which|whoami|pwd|echo|printf|tree|diff|tar|zip|unzip|curl|wget|open|date|env|history|less|more|basename|dirname|xargs|seq|tr|cut|jq|make|python|pip|node|npm|git|ssh|scp|ping|ip|netstat)\b")
@@ -26,10 +26,14 @@ def run(cmd, kind=None, on_line=lambda s: None):
     k = kind_for(cmd, kind); binp = (detect().get(k) or "") if k else ""
     if not binp: return "未检出可用系统 shell（:sh list）"
     p = subprocess.Popen([binp, "/c" if k == "cmd" else "-c", str(cmd)], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace", env=dict(os.environ, PYTHONIOENCODING="utf-8", SMS_HOME=SMS, SMS_WORKSPACE=resolve_home.workspace(), SMS_TMP=resolve_home.wtmp()), cwd=resolve_home.workspace())
+    killed = []  # 超时强杀（修复 exec/直通命令挂起＝shell 假死）：到点 kill，stdout 关闭后 readline 自然收尾
+    tl = max(5, int(settings.get("shell.exec_timeout", 600)))
+    tk = threading.Timer(tl, lambda: p.poll() is None and (killed.append(1), p.kill()))
+    tk.daemon = True; tk.start()
     for ln in iter(p.stdout.readline, ""):
         if ln.strip(): on_line(("!" + k + "▸ ") + ln.rstrip())
-    rc = p.wait(); chains.log("tool", "sh:" + k + ":" + str(cmd)[:60])
-    return "rc=" + str(rc)
+    rc = p.wait(); tk.cancel(); chains.log("tool", "sh:" + k + ":" + str(cmd)[:60])
+    return "rc=" + str(rc) + ("（超时 %ds 已中止）" % tl if killed else "")
 def export():
     return ("$env:SMS_HOME='%s'; $env:SMS_WORKSPACE='%s'; $env:SMS_TMP='%s'; Set-Location $env:SMS_WORKSPACE\n" % (SMS, resolve_home.workspace(), resolve_home.wtmp())
             + "export SMS_HOME='%s' SMS_WORKSPACE='%s' SMS_TMP='%s'; cd \"$SMS_WORKSPACE\"（pwsh/cmd 用首行·bash/zsh 用次行）" % (SMS, resolve_home.workspace(), resolve_home.wtmp()))

@@ -29,15 +29,15 @@ def ask(question):
     import gateway; m, err = gateway.chat([{"role": "system", "content": "你是 SMS 数据流的子问答：只据所问简明作答（简体中文≤300字），不确定就说不确定。"}, {"role": "user", "content": str(question)[:4000]}])
     emit("tool", "子问答完成", tool="ask", ok=bool(m)); return (m or {}).get("content") or ("子问答失败：" + err)
 def run_skill(name, inp):
-    import gateway
+    import gateway, skill_doc
     s = next((x for x in skill_route.skills() if str(x.get("id", "")).lower() == str(name).strip().lower()), None)
     if not s: return "无托管技能：" + name + "（:skills 查清单）"
     if CTX["depth"] >= 2: return "拒绝：技能子会话已达 2 层（防自路由死循环）——请直接按已注入的 SKILL.md 用工具执行"
     ip = str(s.get("install_path")); skp = os.path.join(ip, str(s.get("entry", "SKILL.md"))); dst = resolve_home.wtmp()
-    try: doc = open(skp, encoding="utf-8", errors="replace").read()[:60000]
-    except Exception as e: return "SKILL.md 读取失败：" + str(e)[:150]
+    doc = skill_doc.package(ip, str(s.get("entry", "SKILL.md")), 60000)
+    if not doc: return "SKILL.md 读取失败：" + skp
     chains.log("skill", "%s|src=%s|dst=%s" % (s.get("id"), skp, dst)); chains.log("sub", str(s.get("id"))); emit("skill", "开子会话派发 " + str(s.get("id")) + "（src=" + skp + "｜dst=" + dst + "）", skill=str(s.get("id")), tool="skill", meta={"src_path": skp, "dst_path": dst})
-    body = "【子会话·托管技能 " + str(s.get("id")) + " 真派发】红线17：本消息结束即收口子会话。技能启用只以 SKILL.md 为准——只读 SKILL.md 及其明示引用的文件，禁止列举/遍历技能目录；按流程执行用户诉求（脚本/命令用工具一次到位）；生成文件一律入目标目录 dst=" + dst + "（env SMS_TMP）。\nSKILL.md 全文：\n" + doc + "\n\n用户诉求：\n" + str(inp)[:4000] + "\n\n最后输出整合结果（≤600字·附产物绝对路径）。"
+    body = "【子会话·托管技能 " + str(s.get("id")) + " 真派发】红线17：本消息结束即收口子会话。技能启用只以 SKILL.md 为准——下文已按 skill_doc 解释器打包注入 SKILL.md 全文＋明示引用子文档＋脚本调用清单，禁止列举/遍历技能目录或再回读这些文件；按流程执行用户诉求（脚本按清单 exec 一步到位）；生成文件一律入目标目录 dst=" + dst + "（env SMS_TMP）。\n" + doc + "\n\n用户诉求：\n" + str(inp)[:4000] + "\n\n最后输出整合结果（≤600字·附产物绝对路径），结束消息不要携带工具调用。"
     of = CTX["on_line"]; pf = lambda x, _n=str(s.get("id")): of(("⧉" + _n + "▸ ") + str(x)); CTX["on_line"] = pf; CTX["depth"] += 1
     try: out = gateway.run(body, pf) or ""
     finally: CTX["on_line"] = of; CTX["depth"] -= 1

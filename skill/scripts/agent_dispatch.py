@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""agent_dispatch.py — agent 工具 schema 与派发（gateway 工具循环与 CLI 共用·单一真源）：SCHEMA＝OpenAI function 清单 exec·read·write·skill·ask·task·task_detail·user_send·thinking_chain；execute(name, raw_args)→agent_tools/agent_task 对应实现，参数按形参名过滤、异常回错误文本给模型（不中断工具循环）。工具权限——settings agent_tools.<name>（默认 true）门控：tools_schema() 供 gateway 只暴露启用工具、execute() 拒调禁用工具，菜单 F1→大模型工具权限 或 `:tools`/`:config set agent_tools.read false` 增删。用法：python -B agent_dispatch.py call <工具> '<json>' | skill <id> <诉求> | task <诉求> | detail [task-id] | tools [enable|disable <name>]"""
+"""agent_dispatch.py — agent 工具 schema 与派发（gateway 工具循环与 CLI 共用·单一真源）：SCHEMA＝OpenAI function 清单 exec·read·write·skill·ask·task·task_detail·user_send·thinking_chain·glob·grep·ls·webfetch（read 一族与联网取文 2026-09-26 集成，实现见 agent_tools2.py）；execute(name, raw_args)→agent_tools/agent_task 对应实现，参数按形参名过滤、异常回错误文本给模型（不中断工具循环）。工具权限——settings agent_tools.<name>（默认 true）门控：tools_schema() 供 gateway 只暴露启用工具、execute() 拒调禁用工具，菜单 F1→大模型工具权限 或 `:tools`/`:config set agent_tools.read false` 增删。用法：python -B agent_dispatch.py call <工具> '<json>' | skill <id> <诉求> | task <诉求> | detail [task-id] | tools [enable|disable <name>]"""
 import os, sys, json
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import agent_tools as at, agent_task as atk, settings
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import agent_tools as at, agent_tools2 as a2, agent_task as atk, settings
 P = lambda t, d: {"type": t, "description": d}; F = lambda n, d, p, r: {"type": "function", "function": {"name": n, "description": d, "parameters": {"type": "object", "properties": p, "required": r}}}
 SCHEMA = [F("exec", "执行 shell 命令（cwd＝工作区·生成文件入 tmp）", {"cmd": P("string", "命令")}, ["cmd"]),
  F("read", "读文本文件", {"path": P("string", "路径"), "max_lines": P("integer", "最多行数")}, ["path"]),
@@ -11,8 +11,12 @@ SCHEMA = [F("exec", "执行 shell 命令（cwd＝工作区·生成文件入 tmp�
  F("task", "把复合诉求拆分为子任务并行执行并整合（进度实时上顶栏）", {"intent": P("string", "诉求")}, ["intent"]),
  F("task_detail", "查询任务进度（id 空＝最近清单）", {"id": P("string", "任务id")}, []),
  F("user_send", "向用户客户端发送一条提示/结果文本", {"text": P("string", "文本")}, ["text"]),
- F("thinking_chain", "把一步决策记入逻辑链（frm→to：why）", {"frm": P("string", "从"), "to": P("string", "到"), "why": P("string", "理由")}, ["frm", "to", "why"])]
-REG = {"read": at.read, "write": at.write, "command": at.command, "skill": at.run_skill, "ask": at.ask, "task": atk.task, "task_detail": atk.task_detail, "user_send": at.user_send, "thinking_chain": at.thinking_chain}
+ F("thinking_chain", "把一步决策记入逻辑链（frm→to：why）", {"frm": P("string", "从"), "to": P("string", "到"), "why": P("string", "理由")}, ["frm", "to", "why"]),
+ F("glob", "按文件名模式找文件（支持 ** 递归·默认工作区）", {"pattern": P("string", "glob 模式"), "path": P("string", "基目录，默认工作区")}, ["pattern"]),
+ F("grep", "文件内容正则检索（跳过 .git/__pycache__/node_modules）", {"pattern": P("string", "正则"), "path": P("string", "基目录"), "include": P("string", "文件名过滤如 *.py"), "max": P("integer", "最多命中")}, ["pattern"]),
+ F("ls", "目录清单（默认工作区）", {"path": P("string", "目录")}, []),
+ F("webfetch", "网页取文（仅 http(s)·须先 :grant network）", {"url": P("string", "http(s) URL"), "chars": P("integer", "最多字符")}, ["url"])]
+REG = {"read": at.read, "write": at.write, "command": at.command, "skill": at.run_skill, "ask": at.ask, "task": atk.task, "task_detail": atk.task_detail, "user_send": at.user_send, "thinking_chain": at.thinking_chain, "glob": a2.glob, "grep": a2.grep, "ls": a2.ls, "webfetch": a2.webfetch}
 NAMES = [f["function"]["name"] for f in SCHEMA]
 def tool_on(n): return bool(settings.get("agent_tools." + n, True))
 def tools_schema(): return [f for f in SCHEMA if tool_on(f["function"]["name"])]
