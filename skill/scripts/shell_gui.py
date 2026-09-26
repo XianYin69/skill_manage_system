@@ -3,7 +3,7 @@
 import os, sys, html, subprocess
 S = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, S)
-import shell_core as core
+import shell_core as core, shell_console
 from PySide6.QtCore import QThread, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QApplication, QLineEdit, QMainWindow, QTextEdit, QVBoxLayout, QWidget
@@ -13,7 +13,7 @@ class Worker(QThread):
     def __init__(self, text):
         super().__init__(); self.text = text
     def run(self):
-        if core.handle(self.text, lambda s: self.line.emit(str(s))) == "exit": self.bye.emit()
+        if core.handle(self.text, shell_console.wrap(lambda s: self.line.emit(str(s)))) == "exit": self.bye.emit()
 
 class Shell(QMainWindow):
     def __init__(self):
