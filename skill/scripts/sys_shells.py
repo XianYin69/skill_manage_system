@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""sys_shells.py — 基本 shell 指令与系统 shell 联动：detect 检出 powershell/pwsh/cmd/bash/zsh（含 Git-Bash 回退路径）；选择持久 <SMS_HOME>/shell/shell_kind；run(cmd) 以选定 shell 单发执行——unix 风格命令（ls/grep/cat/rm -rf…）在 powershell/cmd 语境自动改道 bash/zsh（Linux/Unix 命令格式即用）；cwd＝SMS_WORKSPACE、env 注入 SMS_HOME/SMS_WORKSPACE/SMS_TMP（与工作区/生成文件口径一致），输出逐行回显并记 tool_call 链；export() 打印联动片段（在系统原生 shell 里 set/export 后即与 sms-shell 同工作区同 tmp，双向联动）。壳内 `!命令`、`:sh <命令>`、F7 直通模式与 gateway exec 为同一入口。用法：python -B sys_shells.py list|select <kind>|run <命令>|export"""
+"""sys_shells.py — 基本 shell 指令与系统 shell 联动：detect 检出 powershell/pwsh/cmd/bash/zsh（含 Git-Bash 回退路径）；选择持久 <SMS_HOME>/shell/shell_kind；run(cmd) 以选定 shell 单发执行——unix 风格命令（ls/grep/cat/rm -rf…）在 powershell/cmd 语境自动改道 bash/zsh（Linux/Unix 命令格式即用）；git 写操作（add/commit/reset/push/checkout…）恒门禁（红线2）：无 :grant danger 即拒——实测有对话经 exec 自行 commit 误改用户仓库历史；cwd＝SMS_WORKSPACE、env 注入 SMS_HOME/SMS_WORKSPACE/SMS_TMP（与工作区/生成文件口径一致），输出逐行回显并记 tool_call 链；export() 打印联动片段（在系统原生 shell 里 set/export 后即与 sms-shell 同工作区同 tmp，双向联动）。壳内 `!命令`、`:sh <命令>`、F7 直通模式与 gateway exec 为同一入口。用法：python -B sys_shells.py list|select <kind>|run <命令>|export"""
 import os, sys, re, shutil, subprocess, threading
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import resolve_home, chains, settings
 SMS = resolve_home.ensure()
@@ -22,9 +22,12 @@ def select(k):
     return "系统 shell 选定：" + k + "（sms-shell `!命令`/`:sh <命令>` 与 gateway exec 之外的手动入口）"
 def listtext():
     cur = current(); return "可检出系统 shell：" + ("、".join(kinds()) or "（无）") + " · 当前：" + cur + " · 用法：`!dir`/`:sh <命令>` 单发执行（cwd＝工作区 tmp 收产物）· `:sh <kind>` 选定 · `:sh export` 打印系统 shell 联动片段"
+GITW = re.compile(r"(?:^|[;&|]\s*)(?:git\s+(?:-[^\s]+\s+)*?(add|commit|merge|rebase|reset|checkout|switch|restore|push|rm|mv|stash|clean|tag|cherry-pick|apply|am|revert|worktree|gc)\b)|git\s+branch\s+-[dD]\b")
+def guarded(cmd): m = GITW.search(str(cmd or "")); import permissions; return None if not m or permissions.allow(SMS, "danger") else "拒绝：git 写操作（" + (m.group(1) or "branch -d") + "）改动仓库历史须用户当轮确认＋:grant danger（红线2·实测有对话自行 commit 致误提交）"
 def run(cmd, kind=None, on_line=lambda s: None):
     k = kind_for(cmd, kind); binp = (detect().get(k) or "") if k else ""
     if not binp: return "未检出可用系统 shell（:sh list）"
+    if (g := guarded(cmd)): on_line(g); return g
     p = subprocess.Popen([binp, "/c" if k == "cmd" else "-c", str(cmd)], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace", env=dict(os.environ, PYTHONIOENCODING="utf-8", SMS_HOME=SMS, SMS_WORKSPACE=resolve_home.workspace(), SMS_TMP=resolve_home.wtmp()), cwd=resolve_home.workspace())
     killed = []  # 超时强杀（修复 exec/直通命令挂起＝shell 假死）：到点 kill，stdout 关闭后 readline 自然收尾
     tl = max(5, int(settings.get("shell.exec_timeout", 600)))

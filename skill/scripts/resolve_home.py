@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """resolve_home.py — SMS 固定路径解析：SMS_HOME（数据根·恒指一开始创建的 SMS 目录——配置/记忆十一链/注册表/内建虚拟工作区都在其中）解析顺序 env SMS_HOME → bootstrap 用户配置 sms_home → 缓存目录 → 根目录；用户配置固定存 <SMS_HOME>/config/config.json。SMS_WORKSPACE（智能体操作文件的真实工作区·与数据根分离）＝ env SMS_WORKSPACE → 配置 sms_workspace（存在目录）→ 回落 <SMS_HOME>/workspaces/_virtual（虚拟工作区·每对话由 workspace.py begin 创建·end 删除）；真实与虚拟工作区一律自动建 tmp/ 子目录（wtmp()·生成文件只落此处），大模型/技能配置恒直读 <SMS_HOME>/config 文件、不进工作区。"""
-import os, sys, json, platform
+import os, sys, json, platform, atomic_io
 NAME = "SMS"
 def _cache():
     s = platform.system()
@@ -11,7 +11,9 @@ def _bootfile(): return os.path.join(os.path.join(_cache() or os.path.expanduser
 def resolve():
     if os.environ.get("SMS_HOME"): return os.environ["SMS_HOME"]
     p = _bootfile()
-    return (json.load(open(p, encoding="utf-8-sig")).get("sms_home") if os.path.exists(p) else None) or os.path.dirname(os.path.dirname(p))
+    if not os.path.exists(p): return os.path.dirname(os.path.dirname(p))
+    try: return atomic_io.rjson(p).get("sms_home") or os.path.dirname(os.path.dirname(p))
+    except Exception: return os.path.dirname(os.path.dirname(p))
 _CF = {}
 def conf(sms=None):
     p = os.path.join(sms or resolve(), "config", "config.json")
@@ -21,7 +23,7 @@ def conf(sms=None):
     try: k = (os.path.getmtime(p), os.path.getsize(p))  # mtime+size 缓存：TUI 0.15–0.5s 轮询不再反复读盘解析（整壳缓慢根因之一）
     except Exception: return {}
     if (e := _CF.get(p)) and e[0] == k: return dict(e[1])
-    doc = json.load(open(p, encoding="utf-8-sig")); _CF[p] = (k, doc); return dict(doc)
+    doc = atomic_io.rjson(p); _CF[p] = (k, doc); return dict(doc)
 def workspace(sms=None):
     w = os.environ.get("SMS_WORKSPACE") or conf(sms).get("sms_workspace")
     if w and os.path.isdir(w): return os.path.abspath(os.path.expanduser(w))

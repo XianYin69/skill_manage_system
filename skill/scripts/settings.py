@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """settings.py — 配置系统：dot-path get/set，模型输入参数存 <SMS_HOME>/config/config.json（DEFAULTS=config/settings.default.json 深合并保旧配置兼容）；段＝llm_gateway（api_key/base_url/model/温度·top_p）· model_meta（上游模型 Token·上下文·RPM 抓取）· chains（各链启用/修剪/合并）· dream（做梦开关·时间）· web_shell（本地加密网页壳）· external（对外端口）· ui（TUI 界面模式 chat|exec|view·shell_tui_mode 读写）。视图统一存储分离：eff/flat 同时读出 skills.json 技能列表段（scan_roots/skill_generator/sync_clients/Source_Remote/permissions_default），其写回按属主路由 skills_config.set（AGENTS #9 不变）。api_key 恒掩码；变更记 event 链。用法：python -B settings.py status|show|get <path>|set <path> <json>|unset <path>|schema。"""
 import os, sys, json, time
-from functools import reduce; sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import resolve_home, chains, skills_config
+from functools import reduce; sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import resolve_home, chains, skills_config, atomic_io
 DEFAULTS = json.load(open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config", "settings.default.json"), encoding="utf-8"))
 CH = [c for c in chains.CHAINS if c != "knowledge"]; _G = {"t": 0.0, "d": None}  # get 级 0.4s TTL 缓存（TUI 高频读免全量深合并）；set 即失效
 def _dm(a, b):
@@ -29,10 +29,10 @@ def flat(d=None, pre=""):
 def set(path, value, sms=None):
     if path.split(".")[0] in skills_config.SKILL_KEYS: return skills_config.set(path, value, sms)
     sms = sms or resolve_home.ensure(); p = os.path.join(sms, "config", "config.json"); ks = path.split(".")
-    doc = json.load(open(p, encoding="utf-8-sig")) if os.path.exists(p) else {}
+    doc = atomic_io.rjson(p, default={}) if os.path.exists(p) else {}
     cur = reduce(lambda a, k: a.setdefault(k, {}), ks[:-1], doc)
     cur.update({ks[-1]: value}) if value is not None else cur.pop(ks[-1], None)
-    json.dump(doc, open(p, "w", encoding="utf-8"), ensure_ascii=False, indent=2); _G["t"] = 0; chains.record("event", "config set " + path + "=" + str(maskv(ks[-1], value))[:80]); return get(path, sms=sms)
+    atomic_io.wjson(p, doc); _G["t"] = 0; chains.record("event", "config set " + path + "=" + str(maskv(ks[-1], value))[:80]); return get(path, sms=sms)
 def status(sms=None):
     import model_meta, dream, net_util, ext_net, ff_lite, tts
     sms = sms or resolve_home.ensure(); e = eff(sms); g = e["llm_gateway"]; base = e["chains"].get("default", {}); key = os.environ.get(g.get("api_key_env") or "", "") or g.get("api_key")

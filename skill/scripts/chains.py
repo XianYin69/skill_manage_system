@@ -12,7 +12,8 @@ def record(chain, text, edges=None): return store().add(chain, text, edges) if c
 def session_id(): return "conv-" + time.strftime("%Y%m%d-%H%M%S")
 def _st(n): p = os.path.join(resolve_home.ensure(), "shell"); os.makedirs(p, exist_ok=True); return os.path.join(p, n)
 def _smap():
-    try: return json.load(open(_st("sessions.json"), encoding="utf-8"))
+    import atomic_io
+    try: return atomic_io.rjson(_st("sessions.json"))
     except Exception: return {}
 def cur_sess():
     if not ACTIVE["sess"]:
@@ -21,7 +22,7 @@ def cur_sess():
     return ACTIVE["sess"] or new_sess("默认会话")
 def new_sess(name=""):
     sid = "sess-" + time.strftime("%Y%m%d-%H%M%S"); m = _smap(); m[sid] = {"created": time.strftime("%Y-%m-%d %H:%M:%S"), "name": (name or "").strip()[:40] or sid[5:]}
-    json.dump(m, open(_st("sessions.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=1); open(_st("current_session"), "w", encoding="utf-8").write(sid)
+    import atomic_io; atomic_io.wjson(_st("sessions.json"), m); open(_st("current_session"), "w", encoding="utf-8").write(sid)
     ACTIVE["sess"] = sid; record("session", "sess-new:" + sid + " " + m[sid]["name"]); return "已新建并切入会话 " + sid + "（旧会话链与对话已隔离）"
 def use_sess(sid):
     if sid not in _smap(): return "无此会话：" + sid + "（session list 查看）"
