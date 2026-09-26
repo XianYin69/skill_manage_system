@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""shell_tui.py — sms-shell TUI 前端（免图形服务器，pwsh/bash/zsh 式·系统终端原生中文）：默认直达系统网关即时流式回显；个性化指令自动展开；`:` 元指令治理；readline 历史 + Tab 补全（元指令与个性化指令名）。"""
+"""shell_tui.py — sms-shell TUI 前端（免图形服务器，pwsh/bash/zsh 式·系统终端原生中文）：带参数＝单发模式（把参数拼为一轮话语或 `:` 元指令，执行完即退——系统原生 shell 即界面）；默认直达系统网关即时流式回显；个性化指令自动展开；`:` 元指令治理；readline 历史 + Tab 补全（元指令与个性化指令名）。"""
 import os, sys
 for s in (sys.stdout, sys.stderr):
     try: s.reconfigure(encoding="utf-8", errors="replace", line_buffering=True)
@@ -11,7 +11,7 @@ sys.path.insert(0, S)
 import shell_core as core
 try: import readline
 except ImportError: readline = None
-META = [":" + m for m in ("agents", "use", "skill", "cmds", "intent", "alias", "unalias", "hud", "deploy", "session", "grant", "api", "help", "quit")]
+META = [":" + m for m in ("agents", "use", "skill", "cmds", "intent", "alias", "unalias", "hud", "deploy", "session", "workspace", "debug", "mode", "grant", "api", "config", "web", "ext", "net", "tts", "learn", "file", "path", "dream", "image", "help", "quit")]
 def _complete(text, state):
     try:
         import user_commands
@@ -24,6 +24,9 @@ def emit(x):
     t = str(x)
     sys.stdout.write(t + ("" if t.endswith("\n") else "\n")); sys.stdout.flush()
 def main():
+    os.environ["SMS_DEBUG"] = "1" if "--debug" in sys.argv else os.environ.get("SMS_DEBUG", ""); pos = [a for a in sys.argv[1:] if not a.startswith("--")]
+    if pos:
+        core.handle(" ".join(pos), emit); return
     if readline:
         readline.set_completer(_complete); readline.parse_and_bind("tab: complete")
     emit(core.banner())

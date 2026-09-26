@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""gateway.py — SMS 原生大模型网关（OpenAI 兼容·TUI 默认直连）：config llm_gateway{enabled,base_url,api_key,api_key_env,model}；对话/工具/视觉不依赖 agent CLI——run() 工具循环（exec→回填·子进程 UTF-8 中文）、附图 base64（>800KB 经可选 Pillow 缩为 JPEG）；每次调用记 tool_call 链。用法：python gateway.py ask|models|doctor "<文本>" [图片路径…]。"""
-import os, sys, json, base64, subprocess, urllib.request; sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import resolve_home, chains
+"""gateway.py — SMS 原生大模型网关（OpenAI 兼容·TUI 默认直连）：config llm_gateway{enabled,base_url,api_key,api_key_env,model}；对话/工具/视觉不依赖 agent CLI——run() 工具循环经 agent_dispatch 执行 exec/read/write/skill/ask/task/task_detail/user_send/thinking_chain 并回填（子进程 UTF-8 中文·附图 base64（>800KB 经可选 Pillow 缩为 JPEG）），首条恒为 SYS 系统提示词（SMS 治理红线＋涉及 SMS 设置/命令必先工具查证）；工具输出与进度经 msg_flow 信封（on_line 人读行＋ev 结构化回调供顶栏 task 进度）；每次调用记 tool_call 链（挂当前 conv/sess 边）。用法：python -B gateway.py ask|models|doctor "<文本>" [图片路径…]。"""
+import os, sys, json, base64, urllib.request
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import resolve_home, chains, agent_dispatch as ad
 def _b64img(p):
     if os.path.getsize(p) > 800_000:
         try:
@@ -27,22 +27,21 @@ def _req(path, body=None):
     if d is not None: h["Content-Type"] = "application/json"
     return _send(urllib.request.Request(str(c.get("base_url", "")).rstrip("/") + path, data=d, headers=h))
 def chat(msgs):
-    data, err = _req("/chat/completions", {"model": cfg().get("model") or "auto", "messages": msgs, "max_tokens": int(cfg().get("max_tokens", 1024)), "tools": TOOLS, **{k: cfg()[k] for k in ("temperature", "top_p") if cfg().get(k) is not None}})
+    data, err = _req("/chat/completions", {"model": cfg().get("model") or "auto", "messages": msgs, "max_tokens": int(cfg().get("max_tokens", 1024)), "tools": ad.tools_schema(), **{k: cfg()[k] for k in ("temperature", "top_p") if cfg().get(k) is not None}})
     if data: m = data["choices"][0]["message"]; m["content"] = (m.get("content") or "").replace("\x00", "").replace("\r", "\n"); m["reasoning_content"] = (m.get("reasoning_content") or "").replace("\x00", "")
     return (None, err) if not data else ((chains.log("tool", "gateway:" + str(data.get("model"))) and data)["choices"][0]["message"], "finish=" + str(data["choices"][0].get("finish_reason")))
-TOOLS = [{"type": "function", "function": {"name": "exec", "description": "在用户电脑上执行一条 shell 命令", "parameters": {"type": "object", "properties": {"cmd": {"type": "string"}}, "required": ["cmd"]}}}]
-def run(text, on_line=lambda ln: None, images=None, max_steps=5):
+SYS = "你是 skill_manage_system（SMS）的数据流：SMS 只调取与管理技能及其副产物，不得以模型自身知识代答（尤其不得扯无关软件）。可用工具：exec/read/write/skill/ask/task/task_detail/user_send/thinking_chain——需要动手就用工具，禁止空口声称已执行。命中托管技能（话语带【SMS 路由】或你判断该用）必须调 skill 工具开子会话按其 SKILL.md 真执行，绝不自答也不得反复回填自引用。用户话语含问题/故障/报错/检查/为什么＝诊断请求：用工具实际排查（日志、doctor、链）后给结论，禁止回「输入 help/查配置表」式敷衍，也禁止拿压缩记忆里的旧用法文本充当答案。问到 sms-shell/SMS 设置·命令时用 exec 跑一次 `python -B " + os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.py") + " show`（或 status/get <dot路径>）读真实配置再作答；配置存 <SMS_HOME>\\config\\config.json，命令汇总 `commands.py help`。生成文件一律入工作区 tmp\\（env SMS_TMP）；目标为工作区文件的产物经用户审核后用 ws_release.py diff 预览、release --yes 收编（用户当轮确认＋:grant danger）；禁止反复 where/dir/type 试探。向用户的重要结论用 user_send。始终简体中文、简短。"
+def run(text, on_line=lambda ln: None, images=None, ev=None):
+    ad.bind(on_line=on_line, ev=ev if ev is not None else False)
     msgs = [image_message(text, images) if images else {"role": "user", "content": text}]
-    for _ in range(max_steps):
+    while True:
         m, err = chat(msgs)
         if not m: on_line("网关错误：" + err); return None
         if not (tcs := m.get("tool_calls") or []): txt = m.get("content") or m.get("reasoning_content") or ""; (txt and on_line(txt)); return txt
         msgs.append(m)
         for tc in tcs:
-            cmd = (json.loads(tc["function"]["arguments"]) or {}).get("cmd", ""); on_line("$ " + cmd)
-            r = subprocess.run(("chcp 65001 >nul & " + cmd) if os.name == "nt" else cmd, shell=True, capture_output=True, text=True, encoding="utf-8", errors="replace", env=dict(os.environ, PYTHONIOENCODING="utf-8"))
-            msgs.append({"role": "tool", "tool_call_id": tc["id"], "content": ((r.stdout or "") + (r.stderr or ""))[:4000] or "(无输出)"})
-    on_line("达到 max_steps，中止"); return None
+            f = tc.get("function") or {}; res = ad.execute(str(f.get("name", "")), str(f.get("arguments") or "{}"))
+            msgs.append({"role": "tool", "tool_call_id": tc.get("id", ""), "content": str(res)[:4000] or "(无输出)"})
 if __name__ == "__main__":
     a = sys.argv[1:] or ["doctor"]; cmd, arg, c = a[0], " ".join(a[1:]), cfg()
     if cmd == "doctor": print(json.dumps({"enabled": bool(c.get("enabled")), "base_url": c.get("base_url"), "model": c.get("model"), "key": "set" if c.get("api_key") else "missing"}, ensure_ascii=False))
