@@ -34,5 +34,6 @@
   },
   "ff_lite": { "engine": "bing", "timeout_s": 30, "headless": true, "max_page_chars": 8000, "download_dir": "downloads", "max_download_mb": 200, "comment": "firefox lite 内核（ff_lite.py）：联网搜索·取页·下载——动作须 grant network（默认拒绝）；engine=bing|duckduckgo（ddg lite 端点国内常不可达故默认 bing，search 失败自动改投另一引擎）；渲染优先 playwright 随包无头 Firefox，缺失回退 urllib（明确提示·绝不自动装依赖）；下载只落 <SMS_HOME>/downloads/，覆盖须 --force＋grant danger" },
   "tts": { "enabled": false, "engine": "sapi5", "profile_name": "阿林娜", "voice": "Microsoft Huihui Desktop - Chinese (China)", "rate": -1, "pitch": "+0st", "volume": 100, "max_chars": 400, "comment": "TTS 阿林娜（alina）：旧导航/屏幕阅读器式机械女声——Windows SAPI5 本地合成、文本不出本机；默认关，壳内 :tts on 开启后模型输出逐句朗读；voice/rate(-10..10)/pitch/volume 可调" },
+  "debug": { "enabled": false, "path": "", "comment": "调试模式：元指令/话语派发·脚本 rc 与 stderr·msg_flow 工具信封·异常 traceback 追加落日志；path 空＝默认 <SMS_HOME>/logs/debug.log（>512KB 截尾），可填绝对路径自定义输出；亦可 :debug on|off、启动器 --debug、env SMS_DEBUG=1；顶栏显 DEB" },
   "ui": { "mode": "chat", "comment": "sms-shell Textual TUI 界面模式（F7 切换·顶栏与右栏显示）：chat＝对话（默认·话语经路由＋网关流式）·exec＝直通（输入即命令·免冒号走 :元指令 治理·不经大模型）·view＝查看（只读不发送·Esc 回对话）；仅 TUI 前端读取，readline 壳与 bin 原生 ps1 壳恒等同 chat" }
 }

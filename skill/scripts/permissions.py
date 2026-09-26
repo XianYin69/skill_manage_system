@@ -14,6 +14,7 @@ def _doc(path):
 def check(doc, key):
     v = doc["grants"].get(key)
     if isinstance(v, dict): return bool(v.get("on")) and time.strftime("%Y-%m-%dT%H:%M:%S") < str(v.get("until", ""))
+    if isinstance(v, str): return v.strip().lower() in ("true", "1", "on", "yes", "开")
     return bool(v)
 def allow(sms, key): return check(_doc(_path(sms)), key)
 def apply(sms, cmd, target, dry, ttl=0):

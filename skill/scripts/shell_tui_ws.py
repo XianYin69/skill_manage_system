@@ -6,7 +6,7 @@ class Ws:
         cur = workspace.current()
         rows = [("ws:", "◎ 内置虚拟工作区 " + workspace.vroot() + ("　← 当前（每对话开建口删）" if workspace.is_virtual(cur) else ""))]
         rows += [("ws:" + w, ("✓ " if w == cur else "○ ") + w) for w in workspace.list_ws()]
-        rows += [("#ws_add", "＋ 添加/更改工作区路径（选目录→登记并切换）"), ("#ws_repair", "⚠ 修复 v1 切换残留（SMS_HOME 改回初始 SMS 目录）")]
+        rows += [("#ws_add", "＋ 添加/更改工作区路径（选目录→登记并切换）"), ("#ws_review", "◈ tmp 待审产物清单（收编：:workspace diff/release --yes·须 :grant danger）"), ("#ws_repair", "⚠ 修复 v1 切换残留（SMS_HOME 改回初始 SMS 目录）")]
         self.menu("SMS_WORKSPACE 切换（不动 SMS_HOME·配置零影响·即时生效 · F2 技能索引 · F5 文件索引）", rows)
     def ws_switch(self, p):
         self.log_line(workspace.switch(p))
@@ -15,5 +15,7 @@ class Ws:
     def action_ws_add(self):
         from shell_tui_files import Files
         self._ws_pick = True; self.push_screen(Files(), self._file_picked)
+    def action_ws_review(self):
+        self.log_line(core.run_script("workspace.py", ["review"]))
     def action_ws_repair(self):
         self.log_line(workspace.repair_home())

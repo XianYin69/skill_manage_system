@@ -26,8 +26,8 @@ function Show-Banner {
 function Show-MetaHelp {
   Write-Key 'SMS-SHELL 元指令（:）'
   Write-Line ':help 帮助 · :config status|show|get <path>|set <path> <json> 配置 · :agents 看/选 agent · :use <name> · :skill on|off'
-  Write-Line ':image <文件> 附下句话语图片 · :quit 退出（内置、零依赖）'
-  Write-Dim '生成文件一律入工作区 tmp\（真实/虚拟工作区自动创建·env SMS_TMP）；大模型与技能配置直读 <SMS_HOME>\config\ 文件，不复制进工作区'
+  Write-Line ':dispatch <技能id> <诉求> 技能真派发 · :session new|list|use|current 会话层 · :sh [list|<kind>|<命令>] 系统 shell · :debug on|off|tail · :mode chat|view|exec 界面模式（原生壳恒对话） · :image <文件> · :quit'
+  Write-Dim '生成文件一律入工作区 tmp\（真实/虚拟工作区自动创建·env SMS_TMP）；大模型与技能配置直读 <SMS_HOME>\config\ 文件，不复制进工作区；目标为工作区文件的 tmp 产物经审核可 :workspace review/diff/release --yes 收编（须 :grant danger）'
   Write-Dim '以下经托管引擎执行（外部程序·与系统 shell 调命令同理）：'
   Write-Line ':cmds [name] · :intent <话语> · :skills 托管技能清单 · :index [<路径>] 看/登记扫描根并重建注册表 · :alias/:unalias 个性化指令 · :grant <键|角色> [分钟] · :deploy <dir|--Path P --FolderName F>'
   Write-Line ':session "<任务>" · :hud s|t|a|h · :dream status|run · :api formats|detect|show|validate|export · :web start|stop|token'

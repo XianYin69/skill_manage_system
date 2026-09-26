@@ -13,10 +13,12 @@ SCHEMA = [F("exec", "执行 shell 命令（cwd＝工作区·生成文件入 tmp�
  F("user_send", "向用户客户端发送一条提示/结果文本", {"text": P("string", "文本")}, ["text"]),
  F("thinking_chain", "把一步决策记入逻辑链（frm→to：why）", {"frm": P("string", "从"), "to": P("string", "到"), "why": P("string", "理由")}, ["frm", "to", "why"])]
 REG = {"read": at.read, "write": at.write, "command": at.command, "skill": at.run_skill, "ask": at.ask, "task": atk.task, "task_detail": atk.task_detail, "user_send": at.user_send, "thinking_chain": at.thinking_chain}
+def bind(on_line=None, ev=False): return at.bind(on_line, ev)
 def execute(name, raw):
     try: a = json.loads(raw or "{}")
     except Exception: a = {"cmd": str(raw)}
     if name in ("exec", "command"): return at.command(a.get("cmd", ""))
+    if name == "skill": return at.run_skill(a.get("name", ""), a.get("input") or a.get("inp") or "")
     fn = REG.get(name)
     if not fn: return "未知工具：" + name
     kw = {k: v for k, v in a.items() if k in fn.__code__.co_varnames[:fn.__code__.co_argcount]}

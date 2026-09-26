@@ -32,7 +32,11 @@ def expand(text, sms=None):
         if n: rep.append("/" + name)
     return text + (("\n[索引展开] " + "、".join(rep)) if rep else "")
 def fill(ta, name):
-    ta.text = (ta.text.rstrip() + "  " if ta.text.strip() else "") + "/" + name + " "; return ta
+    ta.text = (ta.text.rstrip() + "  " if ta.text.strip() else "") + "/" + name + " "
+    try:
+        ls = (ta.text or "").splitlines() or [""]; ta.cursor_location = (len(ls) - 1, len(ls[-1]))
+    except Exception: pass
+    return ta
 if __name__ == "__main__":
     a = sys.argv[1:] or ["list"]; cmd = a[0]
     if cmd == "list": print(json.dumps(load(), ensure_ascii=False, indent=2))

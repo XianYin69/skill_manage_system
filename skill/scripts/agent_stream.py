@@ -7,14 +7,12 @@ SMS = resolve_home.ensure(); STATE = os.path.join(SMS, "shell")
 ADAPTERS = {"claude": {"bin": "claude", "args": ["-p"]}, "codex": {"bin": "codex", "args": ["exec"]}, "cursor": {"bin": "cursor-agent", "args": []}, "kilocode": {"bin": "kilocode", "args": ["run"]}, "kilo": {"bin": "kilo", "args": ["run"]}, "aider": {"bin": "aider", "args": ["--message"]}}
 def adapters():
     extra = {k: v for k, v in (resolve_home.conf(SMS).get("agent_cli") or {}).items() if not k.startswith("_") and isinstance(v, dict)}
-    out = dict(ADAPTERS, **extra)
-    if gateway.enabled(): out["gateway"] = {"native": True}
-    return out
+    return dict(ADAPTERS, **extra, **({"gateway": {"native": True}} if gateway.enabled() else {}))
 def detected(): return {k: v for k, v in sorted(adapters().items()) if v.get("native") or shutil.which(v.get("bin", k))}
-def _state(name, default=""):
-    try: return open(os.path.join(STATE, name), encoding="utf-8").read().strip()
-    except Exception: return default
-def _put(name, val): os.makedirs(STATE, exist_ok=True); open(os.path.join(STATE, name), "w", encoding="utf-8").write(val)
+def _state(n, d=""):
+    try: return open(os.path.join(STATE, n), encoding="utf-8").read().strip()
+    except Exception: return d
+def _put(n, v): os.makedirs(STATE, exist_ok=True); open(os.path.join(STATE, n), "w", encoding="utf-8").write(v)
 def current():
     det = detected(); cur = _state("current_agent")
     return next((k for k, v in det.items() if v.get("native")), cur if cur in det else next(iter(det), None))
@@ -28,22 +26,18 @@ def ask(text, on_line, st=lambda n: None, ev=None):
     if not ag: on_line("拒绝：未检出 agent CLI 且原生网关未启用（config llm_gateway.enabled=true）——sms-shell 只经数据流执行，本体不作答"); return None
     spec = adapters()[ag]; conv = chains.session_id(); chains.set_active(conv); chains.record("session", "open:" + conv, _edge(conv)); st("开新对话：" + conv)
     wsp, virt = ws.begin(conv); st("工作区：" + wsp + ("〔虚拟·收口即删〕" if virt else "")); at.bind(on_line=on_line, ev=ev if ev is not None else False)
-    want = _state("current_agent")
-    if want and want != ag and not spec.get("native"): on_line("注意：所选 agent " + want + " 未检出，本次经 " + ag + " 执行（:agents 查看）")
+    want = _state("current_agent"); want and want != ag and not spec.get("native") and on_line("注意：所选 agent " + want + " 未检出，本次经 " + ag + " 执行（:agents 查看）")
     sid2, inj = skill_route.route(text, SMS); st("技能路由：" + (sid2 and ("命中 " + sid2 + "·已记 skill_call 链") or "未命中·注入技能全表"))
     chains.record("dialogue", "user@" + conv + " " + text[:200], _edge(conv)); rc = 0; st("话语送数据流")
     if sid2 and spec.get("native"):
         names = sid2.split(","); st("派发子会话：" + sid2 + ("（%d 技能并行）" % len(names) if len(names) > 1 else ""))
-        if len(names) == 1: at.run_skill(names[0], text)
-        else:
-            from concurrent.futures import ThreadPoolExecutor
-            with ThreadPoolExecutor(max_workers=min(3, len(names))) as ex: list(ex.map(lambda n: at.run_skill(n, text), names))
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=min(3, max(1, len(names)))) as ex: list(ex.map(lambda n: at.run_skill(n, text), names))
         on_line("【SMS 整合】" + sid2 + " 子会话输出如上（⧉ 前缀）；不满意可 :dispatch " + names[0] + " <更具体诉求> 重派")
     elif spec.get("native"):
         body = text if not prefix_on() else chains.conversation(compose(text, SMS) + "\n\n" + inj); st("提示词构建·压缩记忆组装·网关流式执行")
         bl = body.split("\n"); imgs = None
-        if bl[-1].startswith("[图:") and bl[-1].endswith("]"):
-            p = bl[-1][3:-1].strip(); body = "\n".join(bl[:-1]); imgs = [p] if os.path.isfile(p) else None
+        if bl[-1].startswith("[图:") and bl[-1].endswith("]"): p = bl[-1][3:-1].strip(); body = "\n".join(bl[:-1]); imgs = [p] if os.path.isfile(p) else None
         gateway.run(body, on_line, images=imgs, ev=ev)
     else:
         st("agent CLI 执行：" + ag); args, env = list(spec.get("args", [])), dict(os.environ, PYTHONIOENCODING="utf-8", SMS_WORKSPACE=wsp, SMS_TMP=resolve_home.wtmp()); env.update(spec.get("env") or {})
@@ -51,6 +45,6 @@ def ask(text, on_line, st=lambda n: None, ev=None):
         p = subprocess.Popen([spec.get("bin", ag)] + args + ([] if stdin else [text if not prefix_on() else text + "\n\n" + inj]), stdin=stdin, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace", env=env, cwd=wsp)
         if spec.get("prompt_stdin"): p.stdin.write(text + "\n\n" + inj); p.stdin.close()
         for ln in iter(p.stdout.readline, ""):
-            if ln.strip(): on_line(ln.rstrip())
+            ln.strip() and on_line(ln.rstrip())
         rc = p.wait()
     chains.record("session", "close:" + conv, _edge(conv)); chains.record("time", "对话 " + conv + " 收口 rc=" + str(rc), _edge(conv)); st("对话收口 rc=" + str(rc)); m_ = ws.end(wsp, virt); m_ and on_line(m_); chains.ACTIVE["conv"] = ""; return {"agent": ag, "rc": rc, "conv": conv}

@@ -13,12 +13,12 @@ def label(m=None): return MODES[norm(m or current())]
 def badge(m=None): return label(m) + "模式"
 def set(m):
     k = norm(m); settings.set("ui.mode", k); return "界面模式 → " + badge(k) + "｜" + DESC[k] + ("" if m in MODES else "（非法值已回落 chat）")
-def utter(line, img, on_line, st):
+def utter(line, img, on_line, st, ev=None):
     m = current()
     if m == "view": st("界面模式：查看（拦截发送）"); on_line(DESC[m] + "｜:mode chat 或 F7 切回对话"); return None
     if m == "exec":
-        import shell_core as core; st("界面模式：直通（转元指令）"); return core.handle(":" + line, on_line, st)
-    import agent_stream as ag; ag.ask(line + ("\n[图:" + img + "]" if img else ""), on_line, st); return None
+        import shell_core as core; st("界面模式：直通（转元指令）"); return core.handle(":" + line, on_line, st, ev)
+    import agent_stream as ag; ag.ask(line + ("\n[图:" + img + "]" if img else ""), on_line, st, ev); return None
 if __name__ == "__main__":
     a = (sys.argv[1] if len(sys.argv) > 1 else "status").lower()
     if a in MODES: print(set(a))

@@ -2,7 +2,8 @@
 """agent_tools.py — 网关大模型可用的 agent 工具核心（SMS 本体的手和脚，红线：不作答只执行）：command(=exec)/read/write/ask/skill/user_send/thinking_chain。每笔调用经 msg_flow 信封上报客户端（技能名＋工具链＋输出＋ts＋conv/sess 归属；on_line 人读行供显示·ev 回调结构化供顶栏进度/审计），task/task_detail 在 agent_task.py、schema 与派发在 agent_dispatch.py。skill＝托管技能真派发（红线17）：记 skill_call＋subsession 链→SKILL.md 全文＋用户诉求→嵌套 gateway 工具循环（前缀 ⧉技能▸ 回显）→收口子会话返回整合结果；深度≤2 防子对话自路由死循环（修复用户追责「无法使用Skill完成需求」：旧版命中技能只注入 1400 字截断 SKILL.md 让网关空转、subconv 提示回填自引用致连开 8 个空对话）。write 守卫：工作区/SMS 默认可写；其余路径需 :grant write；skill 目录需 :grant danger。用法：python -B agent_tools.py（常规经网关工具调用；单跑见 agent_dispatch.py）"""
 import os, sys, json, subprocess
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import resolve_home, chains, msg_flow, skill_route, permissions
-SMS = resolve_home.ensure(); CTX = {"on_line": lambda s: None, "ev": False, "depth": 0}
+SMS = resolve_home.ensure(); SKROOT = os.path.realpath(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+CTX = {"on_line": lambda s: None, "ev": False, "depth": 0}
 def bind(on_line=None, ev=False):
     if on_line: CTX["on_line"] = on_line
     if ev is not False: CTX["ev"] = ev; return CTX
@@ -16,9 +17,9 @@ def read(path, max_lines=120):
     except Exception as e: return "读失败：" + str(e)[:150]
     out = "\n".join(t[:max_lines])[:4000]; emit("tool", str(path) + "（%d 行）" % len(t), tool="read", ok=True); return out + ("" if len(t) <= max_lines else "\n…共 %d 行截断" % len(t))
 def write(path, content, append=False):
-    p = _r(path); sk = os.path.dirname(SMS)
+    p = _r(path)
+    if _in(p, SKROOT) and not permissions.allow(SMS, "danger"): return "拒绝：skill 目录写入需 :grant danger（" + p + "）"
     if not (_in(p, resolve_home.workspace()) or _in(p, SMS)) and not permissions.allow(SMS, "write"): return "拒绝：工作区/SMS 外写入需 :grant write（" + p + "）"
-    if _in(p, sk) and not permissions.allow(SMS, "danger"): return "拒绝：skill 目录写入需 :grant danger（" + p + "）"
     os.makedirs(os.path.dirname(p) or ".", exist_ok=True); open(p, "a" if append else "w", encoding="utf-8").write(str(content))
     emit("edit", ("追加 " if append else "写入 ") + p + "（" + str(len(str(content))) + " 字）", tool="write", ok=True); return "已写入 " + p
 def command(cmd):
