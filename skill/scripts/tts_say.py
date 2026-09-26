@@ -2,8 +2,10 @@
 """tts_say.py — 阿林娜（alina）SAPI5 合成后端（被 tts.py 引用·文本不出本机）：常驻 PowerShell worker 单进程串行播报——旧版每句 spawn 一个 powershell 并行抢说＝叠音＋每次延迟不一样的根因修复。worker 源＝同目录 tts_worker.ps1（ASCII·阻塞式逐行读 stdin·SpeakSsmlAsync＋90s 看门狗；PS5.1 下后台线程跑 scriptblock 会崩进程，故主循环串行），复制缓存到 <SMS_HOME>/shell/ 按 hash 复用（缓存不落 skill 目录·-File 启动免超长 -Command 解析风险）。stdin 行协议 JSON：{op:"s",t,v,r,p,o,a} 朗读（严格串行·说完才取下句，a=1 回 OK 供 wait 同步·看门狗最长 90s）·{op:"q"} 退出；stop()＝终止 worker（正在说的立刻掐断·防关不掉与关后仍排队）。语音按前缀容错切换·空闲随 python 退出由 atexit 收掉。clean 去 markdown/控制前缀；chunks 按句切 ≤cap 段。"""
 import os, sys, re, json, threading, subprocess, atexit
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import settings
-_MD = re.compile(r"\$[^\s]*|▸|⧉|≡|sms>|●|◀|\*\*|__|`{1,3}|~~|#{1,6}\s+|\((?=[^\)]*https?://)|https?://\S+|!\[[^\]]*\]|\[[^\]]*\]\([^)]*\)|\[\d+\]")
+_MD = re.compile(r"\$[^\s]*|▸|⧉|≡|sms>|●|◀|\*\*|__|`{1,3}|~~|#{1,6}\s+|\((?=[^\)]*https?://)|https?://\S+|!\[[^\]]*\]|\[[^\]]*\]\([^)]*\)|\[\d+\]|[A-Za-z]:[\\/][^\s，。！？；：]*|[\w\-\./\\]+\.(?:py|md|ps1|cmd|json|txt|html|csv|sh|js|ts)\b")
 def clean(s): return re.sub(r"\s+", " ", _MD.sub(" ", str(s))).strip()
+_PUNCT = '，。！？；：、“”‘’（）《》【】「」…—·,.!?;:"\'()[]{}<>~`^*#|=+-_/\\'
+def strip_punct(s): return re.sub(r"\s+", " ", "".join(" " if c in _PUNCT else c for c in str(s))).strip()
 def chunks(s, cap):
     out, buf = [], ""
     for sent in re.split(r"(?<=[。！？；!?;\n])", str(s)): buf += sent; out += [buf.strip()] if len(buf) >= cap else []; buf = "" if len(buf) >= cap else buf

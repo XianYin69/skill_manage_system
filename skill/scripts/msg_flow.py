@@ -3,7 +3,7 @@
 import json, time
 KINDS = ("user_in", "llm_out", "tool", "skill", "task", "step", "notice", "err", "edit", "sh", "tts")
 CLASS = {"llm_out": "body", "user_in": "echo", "err": "alert", "step": "status", "task": "status", "tts": "quiet",
-         "tool": "detail", "skill": "detail", "edit": "detail", "sh": "detail", "notice": "detail"}
+         "tool": "detail", "skill": "detail", "edit": "detail", "sh": "detail", "notice": "body"}
 FOLD = frozenset(k for k, c in CLASS.items() if c == "detail")
 def cls(kind): return CLASS.get(kind, "detail")
 def foldable(kind): return kind in FOLD
