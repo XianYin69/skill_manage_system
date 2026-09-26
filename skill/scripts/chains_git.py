@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""chains_git.py — 十一链数据 git 管理（2026-09-25 用户红线：所有链必须使用 git 管理）：首次触链自动 git init <SMS_HOME>/chains 并把既有全部链导入提交；此后任何链写入防抖 5 秒自动 commit、进程退出兜底 flush；git 缺失或 init 失败即静默降级不阻断记录；手动：python chains_git.py status|log [n]。"""
+"""chains_git.py — 十一链数据 git 管理（2026-09-25 用户红线：所有链必须使用 git 管理）：首次触链自动 git init <SMS_HOME>/chains 并把既有全部链导入提交；此后任何链写入防抖 5 秒自动 commit、进程退出兜底 flush；git 缺失或 init 失败即静默降级不阻断记录；ensure 只认 toplevel＝链目录自身（2026-09-26 修复：旧 rev-parse --git-dir 向上穿透命中祖先仓库，测试/临时 SMS_HOME 落他人工作树内时 add -A 混吞外层改动＝「混吞批」事故根因）；手动：python chains_git.py status|log [n]。"""
 import os, sys, subprocess, threading, atexit
 from time import strftime
 S = {"root": None, "timer": None, "ok": False}
@@ -10,9 +10,9 @@ def _git(*a):
 def ensure(root):
     if S["root"] == root: return S["ok"]
     S["root"] = root; os.makedirs(root, exist_ok=True)
-    r = _git("rev-parse", "--git-dir")
-    if r is None: S["root"] = None; return False
-    fresh = r.returncode != 0
+    top = _git("rev-parse", "--show-toplevel")  # 只认 toplevel＝链目录本身；祖先仓库（如 SMS_HOME 落在他人 git 工作树内）一律视为未建库——修复 add -A 混吞外层仓库改动事故
+    if top is None: S["root"] = None; return False
+    fresh = top.returncode != 0 or os.path.realpath(top.stdout.strip()) != os.path.realpath(root)
     if fresh:
         i = _git("init")
         if i.returncode != 0: S["root"] = None; return False

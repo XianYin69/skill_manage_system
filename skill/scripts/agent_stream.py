@@ -2,7 +2,7 @@
 """agent_stream.py — sms-shell 数据流引擎：默认直达系统原生网关（config llm_gateway.enabled→gateway），网关未启用才回退已装 agent CLI；每次输入＝开新对话（红线 17），会话层 chains.set_active(conv/sess)＋session/dialogue 碎片打 member→sess 边；工作区＝gateway exec 与 agent CLI 的 cwd；技能路由命中→SMS 直接经 agent_tools.run_skill 开子会话真派发，未命中→chains.conversation 压缩记忆＋SKILL.md 索引＋治理注入送网关；话语/工具/技能/任务输出全程 msg_flow 信封（on_line 人读行＋ev 回调供 TUI 顶栏进度）；各阶段步骤名经 st 回调上报；尾行 [图:<路径>] 为网关视觉附图；状态存 <SMS_HOME>/shell/；皆无则拒绝（本体不作答）。"""
 import os, sys, shutil, subprocess
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import resolve_home, chains, dream, gateway, model_meta, tts, skill_route, prompt_builder, workspace as ws, agent_tools as at
+import resolve_home, chains, dream, gateway, model_meta, tts, skill_route, prompt_builder, workspace as ws, agent_tools as at, shell_resume as sr
 SMS = resolve_home.ensure(); STATE = os.path.join(SMS, "shell")
 ADAPTERS = {"claude": {"bin": "claude", "args": ["-p"]}, "codex": {"bin": "codex", "args": ["exec"]}, "cursor": {"bin": "cursor-agent", "args": []}, "kilocode": {"bin": "kilocode", "args": ["run"]}, "kilo": {"bin": "kilo", "args": ["run"]}, "aider": {"bin": "aider", "args": ["--message"]}}
 def adapters():
@@ -35,10 +35,10 @@ def ask(text, on_line, st=lambda n: None, ev=None):
         with ThreadPoolExecutor(max_workers=min(3, max(1, len(names)))) as ex: list(ex.map(lambda n: at.run_skill(n, text), names))
         on_line("【SMS 整合】" + sid2 + " 子会话输出如上（⧉ 前缀）；不满意可 :dispatch " + names[0] + " <更具体诉求> 重派")
     elif spec.get("native"):
-        body = text if not prefix_on() else chains.conversation(compose(text, SMS) + "\n\n" + inj); st("提示词构建·压缩记忆组装·网关流式执行")
+        body = sr.prefix() + (text if not prefix_on() else chains.conversation(compose(text, SMS) + "\n\n" + inj)); st("提示词构建·压缩记忆组装·网关流式执行")
         bl = body.split("\n"); imgs = None
         if bl[-1].startswith("[图:") and bl[-1].endswith("]"): p = bl[-1][3:-1].strip(); body = "\n".join(bl[:-1]); imgs = [p] if os.path.isfile(p) else None
-        gateway.run(body, on_line, images=imgs, ev=ev)
+        resp = gateway.run(body, on_line, images=imgs, ev=ev); resp and sr.flag() and sr.append(text, str(resp))
     else:
         st("agent CLI 执行：" + ag); args, env = list(spec.get("args", [])), dict(os.environ, PYTHONIOENCODING="utf-8", SMS_WORKSPACE=wsp, SMS_TMP=resolve_home.wtmp()); env.update(spec.get("env") or {})
         stdin = subprocess.PIPE if spec.get("prompt_stdin") else subprocess.DEVNULL

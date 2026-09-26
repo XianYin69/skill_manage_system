@@ -15,8 +15,9 @@ SCHEMA = [F("exec", "执行 shell 命令（cwd＝工作区·生成文件入 tmp�
  F("glob", "按文件名模式找文件（支持 ** 递归·默认工作区）", {"pattern": P("string", "glob 模式"), "path": P("string", "基目录，默认工作区")}, ["pattern"]),
  F("grep", "文件内容正则检索（跳过 .git/__pycache__/node_modules）", {"pattern": P("string", "正则"), "path": P("string", "基目录"), "include": P("string", "文件名过滤如 *.py"), "max": P("integer", "最多命中")}, ["pattern"]),
  F("ls", "目录清单（默认工作区）", {"path": P("string", "目录")}, []),
- F("webfetch", "网页取文（仅 http(s)·须先 :grant network）", {"url": P("string", "http(s) URL"), "chars": P("integer", "最多字符")}, ["url"])]
-REG = {"read": at.read, "write": at.write, "command": at.command, "skill": at.run_skill, "ask": at.ask, "task": atk.task, "task_detail": atk.task_detail, "user_send": at.user_send, "thinking_chain": at.thinking_chain, "glob": a2.glob, "grep": a2.grep, "ls": a2.ls, "webfetch": a2.webfetch}
+ F("webfetch", "网页取文（仅 http(s)·须先 :grant network）", {"url": P("string", "http(s) URL"), "chars": P("integer", "最多字符")}, ["url"]),
+ F("ask_user", "任务进行中向用户提问并阻塞等待其屏幕应答（一次一问·简短；无交互壳会立即返回说明）", {"question": P("string", "要问用户的问题")}, ["question"])]
+REG = {"read": at.read, "write": at.write, "command": at.command, "skill": at.run_skill, "ask": at.ask, "task": atk.task, "task_detail": atk.task_detail, "user_send": at.user_send, "thinking_chain": at.thinking_chain, "glob": a2.glob, "grep": a2.grep, "ls": a2.ls, "webfetch": a2.webfetch, "ask_user": lambda question: __import__("ask_channel").ask(question)}
 NAMES = [f["function"]["name"] for f in SCHEMA]
 def tool_on(n): return bool(settings.get("agent_tools." + n, True))
 def tools_schema(): return [f for f in SCHEMA if tool_on(f["function"]["name"])]
