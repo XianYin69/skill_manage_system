@@ -7,7 +7,9 @@ SMS = resolve_home.ensure()
 NAME = lambda: settings.get("tts.profile_name", "阿林娜")
 CAP = lambda: max(60, int(settings.get("tts.max_chars", 400)))
 def on(): return bool(settings.get("tts.enabled", False))
-def set_on(v): settings.set("tts.enabled", bool(v)); return NAME() + "：" + ("开" if v else "关") + "（写配置 tts.enabled·即时生效）"
+def set_on(v):
+    settings.set("tts.enabled", bool(v)); v or tts_say.stop()
+    return NAME() + "：" + ("开" if v else "关") + "（写配置 tts.enabled·即时生效·关即清队列）"
 def speak(text, wait=False): return tts_say.speak(tts_say.clean(text), wait)
 def voices(): return tts_say.voices()
 def hook(on_line):

@@ -12,12 +12,16 @@ def resolve():
     if os.environ.get("SMS_HOME"): return os.environ["SMS_HOME"]
     p = _bootfile()
     return (json.load(open(p, encoding="utf-8-sig")).get("sms_home") if os.path.exists(p) else None) or os.path.dirname(os.path.dirname(p))
+_CF = {}
 def conf(sms=None):
     p = os.path.join(sms or resolve(), "config", "config.json")
     seed = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "config", "config.example.json")
     if not os.path.exists(p) and os.path.exists(seed):
         os.makedirs(os.path.dirname(p), exist_ok=True); open(p, "w", encoding="utf-8").write(open(seed, encoding="utf-8").read())
-    return json.load(open(p, encoding="utf-8-sig")) if os.path.exists(p) else {}
+    try: k = (os.path.getmtime(p), os.path.getsize(p))  # mtime+size 缓存：TUI 0.15–0.5s 轮询不再反复读盘解析（整壳缓慢根因之一）
+    except Exception: return {}
+    if (e := _CF.get(p)) and e[0] == k: return dict(e[1])
+    doc = json.load(open(p, encoding="utf-8-sig")); _CF[p] = (k, doc); return dict(doc)
 def workspace(sms=None):
     w = os.environ.get("SMS_WORKSPACE") or conf(sms).get("sms_workspace")
     if w and os.path.isdir(w): return os.path.abspath(os.path.expanduser(w))
