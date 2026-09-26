@@ -1,31 +1,28 @@
 #!/usr/bin/env python3
-"""shell_tui_config.py — sms-shell TUI 图形化配置编辑（F4/Alt+C 或主菜单「图形化配置」）：settings.flat() 全 dot-path 项（api_key 掩码·含 skills.json 技能列表段）——↑↓ 选择·可打印字符增量过滤·Backspace 退格·空格＝布尔项取反即写回／其余项 ● 多选标记·Shift+Tab 或 Enter＝编辑当前值（list/dict 值以 JSON 呈现可改·子面板 Enter 确认·JSON 解析失败按原文·Esc 取消）·Esc 关面板；写回一律经 settings.set（模型参数落 config.json·技能列表键按属主路由 skills_config 落 skills.json·记 event 链），并上报 app.touched 供右侧栏显示。"""
+"""shell_tui_config.py — sms-shell TUI 图形化配置编辑（F4/Alt+C 或主菜单「图形化配置」）：settings.flat() 全 dot-path 项（api_key 掩码·含 skills.json 技能列表段）——每行＝简写＋注释（shell_tui_label·源自 settings 段 comment）＋原路径＋当前值（默认值）·↑↓ 选择·可打印字符增量过滤（命中简写/注释/路径/值）·空格＝布尔项取反即写回／其余项 ● 多选标记·Enter＝当前项编辑（布尔项弹 T/F 方向键选择器 shell_tui_edit.Bool——免键盘输入 True/False；其余弹 Edit 面板·list/dict 以 JSON 呈现）·Shift+Tab＝直接进 Edit·Esc 关面板；写回一律经 settings.set（模型参数落 config.json·技能键按属主路由 skills_config 落 skills.json·记 event 链）；配置无内存缓存——每次读写即时读文件，写回后经 app.on_config_change 即时刷新顶栏数据流，并上报 app.touched 供右侧栏显示。子面板 Edit/Bool 见 shell_tui_edit.py。"""
 import json
 from rich.text import Text
 from textual.containers import Vertical
 from textual.screen import ModalScreen
-from textual.widgets import Input, Label, ListView, ListItem, Static
+from textual.widgets import Label, ListItem, ListView, Static
 import settings
-class Edit(ModalScreen[str]):
-    BINDINGS = [("escape", "cancel", "取消")]
-    def __init__(self, path, cur): self.p = path; self.c = cur; super().__init__()
-    def compose(self): yield Vertical(Static("编辑 " + self.p + "（Enter 写入 · Esc 取消）", id="ebt"), Input(value="" if str(self.c) == "***" else (json.dumps(self.c, ensure_ascii=False) if isinstance(self.c, (list, dict)) else str(self.c)), placeholder="新值：JSON 或字面文本", id="ebi"))
-    def on_mount(self): self.query_one("#ebi", Input).focus()
-    def on_input_submitted(self, m): self.dismiss(m.value)
-    def action_cancel(self): self.dismiss(None)
+from shell_tui_edit import Edit, Bool
+import shell_tui_label
 class Config(ModalScreen[str]):
-    CSS = "Config{align:center middle} Config>Vertical{width:92%;max-width:104;height:88%;background:#181825;border:round #89b4fa;padding:1 2} #ebt{color:#f9e2af}"
+    CSS = "Config{align:center middle} Config>Vertical{width:92%;max-width:118;height:88%;background:#181825;border:round #89b4fa;padding:1 2} #ebt{color:#f9e2af}"
     BINDINGS = [("escape", "cm_close", "关闭")]
     def __init__(self): super().__init__(); self.q = ""; self.sel = set()
-    def compose(self): yield Vertical(Static("配置编辑：↑↓选择 · 输入字母数字过滤 · 空格＝布尔取反/标记多选 · Shift+Tab/Enter＝编辑值 · Esc 关闭", id="ebt"), ListView(id="ebl"))
+    def compose(self): yield Vertical(Static("配置编辑：↑↓选择 · 字母数字过滤（简写/注释/路径） · 空格＝取反/多选 · Enter＝编辑（布尔＝T/F 方向键选） · Shift+Tab＝编辑 · Esc 关闭", id="ebt"), ListView(id="ebl"))
     def on_mount(self): self.rebuild(); self.query_one("#ebl", ListView).focus()
-    def items(self): return [e for e in settings.flat() if self.q.lower() in (e["path"] + " " + str(e["value"])).lower()]
+    def items(self): return [e for e in settings.flat() if self.q.lower() in (shell_tui_label.search(e["path"]) + " " + str(e["value"])).lower()]
+    def row(self, e): return "%s %s｜%s ＝ %s（默认 %s）" % ("●" if e["path"] in self.sel else "·", shell_tui_label.label(e["path"]), e["path"], e["value"], e["default"])
     def rebuild(self):
         lv = self.query_one("#ebl", ListView); idx = lv.index if lv.index is not None else 0; es = self.items(); lv.clear()
-        lv.extend(ListItem(Label(Text("%s %s = %s（默认 %s）" % ("●" if e["path"] in self.sel else "·", e["path"], e["value"], e["default"])))) for n, e in enumerate(es))
-        lv.index = min(idx, max(0, len(es) - 1))
+        lv.extend(ListItem(Label(Text(self.row(e)))) for e in es); lv.index = min(idx, max(0, len(es) - 1))
     def cur(self): es = self.items(); i = self.query_one(ListView).index; return es[i] if i is not None and 0 <= i < len(es) else None
-    def wr(self, path, v): settings.set(path, v); hasattr(self.app, "touched") and self.app.touched.append("config:" + path); self.rebuild()
+    def wr(self, path, v):
+        settings.set(path, v); hasattr(self.app, "touched") and self.app.touched.append("config:" + path)
+        getattr(self.app, "on_config_change", lambda p: None)(path); self.rebuild()
     async def on_key(self, e):
         if e.key == "space":
             c = self.cur()
@@ -38,13 +35,15 @@ class Config(ModalScreen[str]):
         elif e.key == "shift+tab": self.edit_cur(); e.stop(); e.prevent_default()
         elif (ch := e.character) and len(ch) == 1 and ch.isprintable() and ch != " ": self.q += ch; self.rebuild(); e.stop(); e.prevent_default()
     def edit_cur(self):
-        c = self.cur()
-        if not c: return
+        if not (c := self.cur()): return
         def got(v):
             if v is None or (not str(v).strip() and str(c["value"]) == "***"): return
             try: val = json.loads(str(v))
             except Exception: val = str(v)
             self.wr(c["path"], val)
         self.app.push_screen(Edit(c["path"], c["value"]), got)
-    def on_list_view_selected(self, m): self.edit_cur()
+    def choose(self):
+        if (c := self.cur()) and isinstance(c["value"], bool): self.app.push_screen(Bool(c["path"], c["value"]), lambda b: b is not None and self.wr(c["path"], b))
+        elif c: self.edit_cur()
+    def on_list_view_selected(self, m): self.choose()
     def action_cm_close(self): self.dismiss(None)

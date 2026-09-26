@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""shell_tui_widgets.py — sms-shell Textual TUI 组件（配 shell_tui_textual）：Input（回车/ctrl+enter 提交·Tab 补全·Shift+Tab agent 菜单·「/」空行时打开 SKILL.md 索引·上下历史）、StatusBar（步进器＋每步名称轮询＋本对话用时计时，RichLog 之外的实时状态行）、TopBar（顶栏：左＝壳身份与数据流·中＝当前任务步骤滚动简述·右＝当前时间，0.5s 自刷新）、Menu（ModalScreen 快捷菜单：F1/Alt+M/Ctrl+K 打开，Enter 选择→命令串回 app.pick）。"""
+"""shell_tui_widgets.py — sms-shell Textual TUI 组件（配 shell_tui_textual）：Input（回车/ctrl+enter 提交·Tab 补全·Shift+Tab agent 菜单·「/」空行时打开 SKILL.md 技能索引（F5 为文件索引）·上下历史）、StatusBar（步进器＋每步名称轮询＋本对话用时计时，RichLog 之外的实时状态行）、TopBar（顶栏：左＝壳身份与数据流·中＝当前任务步骤滚动简述·右＝当前时间，0.5s 自刷新）、Menu（ModalScreen 快捷菜单：F1/Alt+M/Ctrl+K 打开，Enter 选择→命令串回 app.pick）。"""
 import time
 from rich.text import Text
 from textual.containers import Container, Vertical
