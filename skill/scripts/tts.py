@@ -20,8 +20,9 @@ def hook(on_line):
         e = msg_flow.parse(s)
         if e: s = str(e.get("text") or "")
         if e is None and s.startswith("⧉"): s = s.split("▸", 1)[-1]
+        if e is not None and e.get("kind") == "reasoning": return
         t = tts_say.clean(s)
-        if t and not t.startswith(("$", "▸", "sms>", "≡")):
+        if t and not t.startswith(("$", "▸", "sms>", "≡", "◌")):
             for ch in tts_say.chunks(t, CAP()): tts_say.speak(tts_say.strip_punct(ch))
     return w
 def status():
