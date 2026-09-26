@@ -37,7 +37,7 @@ def route(text, sms=None):
     if hs:
         g = "；".join("%s→%s" % (s.get("id"), os.path.join(str(s.get("install_path", "")), str(s.get("entry", "SKILL.md")))) for s in hs)
         return ",".join(str(s.get("id")) for s in hs), "[SMS 路由] 命中托管技能（" + g + "·产物目标＝工作区 tmp：" + resolve_home.wtmp() + "）：由 SMS 经 skill 工具开子会话按其 SKILL.md 全文派发执行（本消息为父对话时勿重复读 SKILL.md、勿遍历技能目录、勿以常识代答）；子会话不可用时如实说明并提示 :dispatch <技能id> <诉求>。"
-    return None, "[SMS 路由] 未命中托管技能，但必须优先从下表择最相关技能并调 skill 工具真执行；确无可用时明确回复「无匹配技能」并建议调整话语或经 Skill_Generator 创建，禁止常识代答。" + catalog(sms)
+    return None, "[SMS 路由] 未命中托管技能，但必须优先从下表择最相关技能并调 skill 工具真执行；一般知识问答/概念解释→派 general_answer（托管子技能作答，仍非本体代答）；多技能约束互斥→先派 constraint_arbiter 仲裁出执行序再动；确无可用时明确回复「无匹配技能」并建议调整话语或经 Skill_Generator 创建，禁止常识代答。" + catalog(sms)
 if __name__ == "__main__":
     a = sys.argv[1:] or ["list"]
     if a[0] == "list": print(listtext())
