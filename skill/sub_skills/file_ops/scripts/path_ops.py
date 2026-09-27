@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """path_ops.py — file_ops 子技能·路径查询（只读）：resolve 相对/绝对定位（可回退 <SMS_HOME>/ 或 temp 分配）、which 可执行定位、exists、glob 通配列举、tree 目录树（限深限数）、env 关键路径一览。仅 read 权限，不改盘；结果记 tool_call 链。用法：python -B path_ops.py resolve <path> [--sms] | which <cmd> | exists <path> | glob <dir> <pat> [--n] | tree <dir> [--depth n] | env。"""
 import os, sys, json, glob as _g, shutil
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+PS = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "scripts")); sys.path[:0] = [os.path.dirname(os.path.abspath(__file__)), PS]
 import resolve_home, chains
 SMS = resolve_home.ensure()
 def resolve(p, to_sms=False):
@@ -26,7 +26,7 @@ def tree(d, depth=2, _i=0):
     return "\n".join(out)
 def env():
     return json.dumps({"SMS_HOME": SMS, "home": os.path.expanduser("~"), "cwd": os.getcwd(),
-                       "temp_alloc": os.path.join(SMS, "tmp"), "skill_dir": os.path.dirname(os.path.dirname(os.path.abspath(__file__)))}, ensure_ascii=False, indent=1)
+                       "temp_alloc": os.path.join(SMS, "tmp"), "skill_dir": os.path.abspath(os.path.join(PS, ".."))}, ensure_ascii=False, indent=1)
 if __name__ == "__main__":
     a = sys.argv[1:] or ["env"]; c = a[0]; argv = [x for x in a[1:] if not x.startswith("--")]
     chains.log("tool", "path_ops:" + c)

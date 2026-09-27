@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""commands.py — 命令系统：汇总内置命令、各 skill 暴露接口与个性化指令（user_commands）→ registry/commands.json；help/intent/show/use 查看调用，alias/unalias 定义个性化指令格式（如 skill-update→迭代 skill），hud/deploy/shell/temp/sandbox/privacy 入口路由；SMS 本体不作答。"""
+"""commands.py — 命令系统：汇总内置命令、各 skill 暴露接口与个性化指令（user_commands）→ registry/commands.json；help/intent/show/use 查看调用，alias/unalias 定义个性化指令格式（如 skill-update→迭代 skill），hud/deploy/shell/temp/sandbox/privacy 入口路由；批16 LLM 主导：问答可直答，动手必真执行。"""
 import os, sys, json, time, subprocess
 HERE = os.path.dirname(os.path.abspath(__file__))
 BUILTIN = {"help": "列出所有命令（内置/skill 接口/个性化）", "intent": "按一句话意图匹配候选命令 <utterance>",

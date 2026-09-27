@@ -10,7 +10,7 @@ metadata:
 
 # skill_scheduler
 
-调度中心，像 OS 的 CPU + 进程表一样，把单个用户意图拆成子任务、并发调度、再整合结果。
+使用 `skill_scheduler` skill 来完成用户请求。调度中心，像 OS 的 CPU + 进程表一样，把单个用户意图拆成子任务、并发调度、再整合结果。
 
 ## 输入
 
@@ -33,7 +33,7 @@ metadata:
 
 ## 脚本
 
-- [scheduler.py](../../scripts/scheduler.py)：默认预览，`--write` 且已授予 write 才写盘；`--slots N` 指定并发槽。
+- [scheduler.py](scripts/scheduler.py)：默认预览，`--write` 且已授予 write 才写盘；`--slots N` 指定并发槽。
 
 ## 红线
 

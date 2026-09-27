@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""shell_core.py — sms-shell 共享路由（与 bin ps1 同套确定性路由）：quit·`sms/sms-shell` 前缀剥离·裸内置词零模型直达·`:dispatch` 真派发·`:sh`/`!命令` 系统 shell 联动·`:edit/:view` 返回编辑器令牌（TUI F8）·`:session new|list|use|current` 会话层链隔离·`:debug` 同步配置。其余话语经 shell_mode.utter（含 F7 三态 gate）→ data flow；agent_stream 命中技能即开子会话真派发，否则 gateway 工具循环。st 上报步骤、ev 收 msg_flow 信封供顶栏进度。"""
+"""shell_core.py — sms-shell 共享路由（与 bin ps1 同套确定性路由）：quit·`sms/sms-shell` 前缀剥离·裸内置词零模型直达·`:dispatch` 真派发·`:sh`/`!命令` 系统 shell 联动·`:edit/:view` 返回编辑器令牌（TUI F8）·`:session new|list|use|current` 会话层链隔离·`:debug` 同步配置。其余话语经 shell_mode.utter（含 F7 三态 gate）→ data flow；agent_stream 批16 LLM 主导：路由打分仅作〔参考〕注入，直答/派发由模型在 gateway 工具循环内自主决定。st 上报步骤、ev 收 msg_flow 信封供顶栏进度。"""
 import os, sys, subprocess, re; S = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, S)
-import agent_stream as ag, settings, user_commands, skill_route, user_index, debug, chains, resolve_home, sys_shells, shell_resume as sr, stop_channel as stop; from shell_help import HELP, SHORT; SMS = ag.SMS; IMG = []; BUILD = "b84"; os.environ["SMS_TMP"] = resolve_home.wtmp()
+import agent_stream as ag, settings, user_commands, skill_route, user_index, debug, chains, resolve_home, sys_shells, shell_resume as sr, stop_channel as stop; from shell_help import HELP, SHORT; SMS = ag.SMS; IMG = []; BUILD = "b85"; os.environ["SMS_TMP"] = resolve_home.wtmp()
 def banner(): return "sms-shell·build=" + BUILD + " · SMS_HOME=" + SMS + " · 会话=" + chains.cur_sess() + " · 数据流：" + (ag.current() or "未检出（:agents 查看）") + " · 技能前缀：" + ("on" if ag.prefix_on() else "off") + " · 接续前对话：" + ("on" if sr.flag() else "off（:resume on 开启）") + " · 帮助 :help（含 :dispatch/:sh/!命令/:resume/:edit/F8 编辑器/F4 debug 开关）"
 def startup_block(): n = sr.note(); return ("── 接续上次关闭前的对话 ──\n" + n) if n else ""
 def run_script(name, args):
-    try: p = subprocess.run([sys.executable, "-B", os.path.join(S, name)] + list(args), capture_output=True, text=True, encoding="utf-8", errors="replace", stdin=subprocess.DEVNULL, timeout=max(10, int(settings.get("shell.exec_timeout", 600))))
+    try: p = subprocess.run([sys.executable, "-B", os.path.join(S, name) if os.path.isfile(os.path.join(S, name)) else os.path.join(S, "..", "sub_skills", name.replace("/", os.sep))] + list(args), capture_output=True, text=True, encoding="utf-8", errors="replace", stdin=subprocess.DEVNULL, timeout=max(10, int(settings.get("shell.exec_timeout", 600))))
     except subprocess.TimeoutExpired: return "子脚本超时（" + name + "·>" + str(max(10, int(settings.get("shell.exec_timeout", 600)))) + "s）已中止——:config set shell.exec_timeout <秒> 可调"
     return (lambda p: (debug.enabled() and debug.log("exec " + name + " rc=" + str(p.returncode) + ("" if p.returncode == 0 and not p.stderr else " STDERR:" + (p.stderr or p.stdout or "")[:500])) or (p.stdout or p.stderr).strip() or "(无输出)"))(p)
 def _meta(m, a, on_line, st):
@@ -21,7 +21,7 @@ def _meta(m, a, on_line, st):
     elif m == "skill": on_line(ag.skill(not (a and a[0] == "off")))
     elif m in ("hud", "deploy", "workspace", "resume"): on_line(run_script({"resume": "shell_resume"}.get(m, m) + ".py", a))
     elif m in ("config", "web", "ext", "debug", "mode"): m == "debug" and a and a[0] in ("on", "off") and settings.set("debug.enabled", a[0] == "on"); on_line(run_script({"config": "settings", "web": "web_shell", "ext": "external", "mode": "shell_mode"}.get(m, m) + ".py", a or ["status"]))
-    elif m in ("net", "tts", "learn", "file", "path", "detail"): on_line(run_script({"net": "ff_lite", "file": "file_ops", "path": "path_ops", "detail": "shell_console"}.get(m, m) + ".py", (["tail"] + a) if m == "detail" else (a or (["status"] if m in ("tts", "net") else []))))
+    elif m in ("net", "tts", "learn", "file", "path", "detail"): on_line(run_script({"net": "ff_lite", "file": "file_ops/scripts/file_ops.py", "path": "file_ops/scripts/path_ops.py", "detail": "shell_console"}.get(m, m) + (".py" if m not in ("file", "path") else ""), (["tail"] + a) if m == "detail" else (a or (["status"] if m in ("tts", "net") else []))))
     elif m == "api": on_line(run_script("api.py", a or ["formats"]))
     elif m == "grant": on_line(run_script("permissions.py", ["grant"] + a + ["--write"]))
     elif m == "dream": on_line(run_script("dream.py", a or ["status"]))
@@ -43,7 +43,7 @@ def handle(line, on_line, st=lambda n: None, ev=None):
     if w in CFGW: st("内置词：配置状态"); on_line(_cfgline()); return "config" if w in ("打开配置", "进入配置", "配置编辑器", "图形化配置", "打开设置") else None
     if w in CMDW: st("内置词：命令表"); on_line(run_script("commands.py", ["help"])); return None
     if (mc := re.match(r"(?i)^(?:config|设置|配置)[\s,，]+(\S.*)$", t)): st("内置词：配置命令"); _meta("config", mc.group(1).split(None, 2), on_line, st); return None
-    if re.search(r"(哪些|那些|什么|可用|可以|能)[^。！!？?]{0,8}(技能|skills?\b)", t) or re.match(r"(?i)^skills?\s*list[\s!！。？?]*$|^(技能列表|可用技能|可调用技能)[\s!！。？?]*$", t): st("内置词：技能清单"); on_line(skill_route.listtext()); return None
+    if re.search(r"(哪些|那些|什么)[^。！!？?]{0,8}(技能|skills?\b)", t) or re.match(r"(?i)^skills?\s*list[\s!！。？?]*$|^(技能列表|可用技能|可调用技能)[\s!！。？?]*$", t): st("内置词：技能清单"); on_line(skill_route.listtext()); return None
     if (re.search(r"(?i)sms|shell|壳", t) and re.search("设置|配置|命令|指令|config", t) and not DIAG.search(t)) or w in ("显示提示词", "提示词", "你的提示词"): st("SMS 壳自管理直答"); on_line(SHORT + "（确定性路由·未经大模型）"); return "config" if re.search("配置|设置", t) else None
     if user_commands.find(user_commands.load(SMS), (parts := t.split())[0]): st("个性化指令展开：" + parts[0]); on_line(run_script("user_commands.py", ["run"] + parts)); return None
     img = IMG[0] if IMG else None; IMG.clear(); debug.enabled() and debug.log("utter> " + line[:300]); st("话语→数据流（agent_stream）"); line = user_index.expand(line, SMS)

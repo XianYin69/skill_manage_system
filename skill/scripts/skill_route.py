@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""skill_route.py — 数据流 SMS 技能路由（路由-派发-整合链，红线 4/7）：读 registry/register.json 活跃技能（quarantine/pending_review 信任级跳过）＋ interfaces.json 接口词，与输入打分匹配（阈值 4：技能id 子串命中或分词＋接口词双证据）；命中→chains.log("skill") 记 skill_call 链并返回命中 id——由 agent_stream 直接经 agent_tools.run_skill 开子会话真派发。批6：skills()/_terms() 共用 (mtime,size) 内存缓存 _reg（冷读 213ms→暖 ~5ms·task 扇出多调免重解析）；route 计时入 latency。用法：python -B skill_route.py match "<话语>" | list"""
+"""skill_route.py — 数据流 SMS 技能路由〔仅参考·非裁决〕（批16 LLM 主导）：读 registry/register.json 活跃技能（quarantine/pending_review 信任级跳过）＋ interfaces.json 接口词，与输入打分匹配（阈值 4：技能id 子串命中或分词＋接口词双证据）；命中→chains.log("skill") 记 skill_call 链并返回命中 id 与〔参考〕句——是否真派发由模型在网关工具循环内自主决定（旧「命中即自动开子会话」脚本扇出已废除）；match/listtext 供壳内 :skills 与 ps1 清单。批6：skills()/_terms() 共用 (mtime,size) 内存缓存 _reg（冷读 213ms→暖 ~5ms·task 扇出多调免重解析）；route 计时入 latency。用法：python -B skill_route.py match \"<话语>\" | list"""
 import os, sys, json, re, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import resolve_home, chains, latency
 def _load(sms, rel):
@@ -33,7 +33,7 @@ def match(text, sms=None):
 def catalog(sms=None):
     return ("技能全表：" + "；".join("%s（%s）" % (s.get("id"), re.sub(r"\s+", "", str(s.get("description") or ""))[:26]) for s in skills(sms)))[:620]
 def listtext(sms=None):
-    ss = skills(sms); return ("技能注册表为空：先运行 register.py 扫描安装根（config.scan_roots），或经 Skill_Generator 创建后重装。" if not ss else "可调用托管技能 %d 个（说法即自动路由，Ctrl+K 选填）：" % len(ss) + "；".join("%s（%s）" % (s.get("id"), re.sub(r"\s+", "", str(s.get("description") or ""))[:26]) for s in ss) + "。命中技能由 SMS 开子会话真派发执行（skill 工具），结果整合作答；需本机真跑脚本/调设备时以 :use 切 agent CLI 承接。")[:1400]
+    ss = skills(sms); return ("技能注册表为空：先运行 register.py 扫描安装根（config.scan_roots），或经 Skill_Generator 创建后重装。" if not ss else "可调用托管技能 %d 个（说法即打分给〔参考〕·采纳与否由模型定，Ctrl+K 可显式选填）：" % len(ss) + "；".join("%s（%s）" % (s.get("id"), re.sub(r"\s+", "", str(s.get("description") or ""))[:26]) for s in ss) + "。执行类诉求经 skill 工具开子会话真派发执行（skill 工具），结果整合作答；需本机真跑脚本/调设备时以 :use 切 agent CLI 承接。")[:1400]
 def route(text, sms=None):
     t0 = time.perf_counter(); sms = sms or resolve_home.ensure(); ss, terms = _reg(sms); u = text.lower()
     ranked = sorted(((_score(s, u, terms), i) for i, s in enumerate(ss)), key=lambda x: -x[0]); hs = [ss[i] for sc, i in ranked[:2] if sc >= 4]
@@ -41,8 +41,8 @@ def route(text, sms=None):
     latency.rec("route", ",".join(str(s.get("id")) for s in hs) or "-", (time.perf_counter() - t0) * 1000)
     if hs:
         g = "；".join("%s→%s" % (s.get("id"), os.path.join(str(s.get("install_path", "")), str(s.get("entry", "SKILL.md")))) for s in hs)
-        return ",".join(str(s.get("id")) for s in hs), "[SMS 路由] 命中托管技能（" + g + "·产物目标＝工作区 tmp：" + resolve_home.wtmp() + "）：由 SMS 经 skill 工具开子会话按其 SKILL.md 全文派发执行（本消息为父对话时勿重复读 SKILL.md、勿遍历技能目录、勿以常识代答）；子会话不可用时如实说明并提示 :dispatch <技能id> <诉求>。"
-    return None, "[SMS 路由] 未命中托管技能，但必须优先从下表择最相关技能并调 skill 工具真执行；一般知识问答/概念解释→派 general_answer（托管子技能作答，仍非本体代答）；多技能约束互斥→先派 constraint_arbiter 仲裁出执行序再动；确无可用时明确回复「无匹配技能」并建议调整话语或经 Skill_Generator 创建，禁止常识代答。" + catalog(sms)
+        return ",".join(str(s.get("id")) for s in hs), "[SMS 路由·参考] 关键词打分命中（" + g + "·产物目标＝工作区 tmp：" + resolve_home.wtmp() + "）——本行仅供参考，是否派 skill 工具开子会话真执行（按其 SKILL.md）由你结合话语自主决定；纯问答/解释可直接作答不必派发；确不采纳时简要说明理由即可。"
+    return None, "[SMS 路由·参考] 关键词未命中。一般话语：你可直答（简短·简体中文），也可对照下表/索引择最相关技能用 skill 工具真执行——执行类诉求（要动手读写/调设备/跑脚本）必须派技能或直接用工具并如实记账，禁止空口声称已执行；确无可用且属新领域时建议经 Skill_Generator 创建。" + catalog(sms)
 if __name__ == "__main__":
     a = sys.argv[1:] or ["list"]
     if a[0] == "list": print(listtext())

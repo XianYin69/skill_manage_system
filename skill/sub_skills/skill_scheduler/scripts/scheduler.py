@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """scheduler.py — 任务字段并发：五 lane 并行（理解/拆分/注册/权限/整合），写 scheduler.json。"""
 import os, sys, time
+sys.path[:0] = [os.path.dirname(os.path.abspath(__file__)), os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "scripts"))]
 from concurrent.futures import ThreadPoolExecutor
 
 LANES = ("understand", "decompose", "register", "permit", "integrate")
@@ -34,7 +35,6 @@ def schedule(sms, intent, slots, dry):
 
 
 if __name__ == "__main__":
-    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import resolve_home
     sms = resolve_home.ensure()
     intent = sys.argv[1] if len(sys.argv) > 1 else "（未填写意图）"
