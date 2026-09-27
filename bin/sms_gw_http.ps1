@@ -1,4 +1,4 @@
-﻿# sms_gw_http.ps1 — 原生网关 HTTP 层（零 python）：OpenAI 兼容 /chat/completions SSE 逐字流式解析（content/reasoning/usage/[DONE]/非 data 行兜底）；依赖 sms_state.ps1 的 Cfg/CfgGet，由 sms_shell.ps1 统一点源加载
+﻿# sms_gw_http.ps1 — 原生网关 HTTP 层（零 python）：OpenAI 兼容 /chat/completions SSE 逐字流式解析（content/reasoning/usage/[DONE]/非 data 行兜底）；批4 治「输出残缺」：data: 前缀兼容无空格写法（Substring(5)+Trim）；依赖 sms_state.ps1 的 Cfg/CfgGet，由 sms_shell.ps1 统一点源加载
 function Stream-Gateway($body, $sink) {
   $c = Cfg 'llm_gateway'
   $key = [string]$c.api_key; if ($c.api_key_env -and (Get-Item ('env:' + $c.api_key_env) -ErrorAction SilentlyContinue)) { $key = (Get-Item ('env:' + $c.api_key_env)).Value }
@@ -12,8 +12,8 @@ function Stream-Gateway($body, $sink) {
   $resp = $req.GetResponse(); $rd = New-Object IO.StreamReader -ArgumentList $resp.GetResponseStream(), ([Text.Encoding]::UTF8)
   $full = ''; $reason = ''; $buf = ''
   while ($null -ne ($ln = $rd.ReadLine())) {
-    if ($ln -notlike 'data: *') { if ($ln.Trim()) { $buf += $ln.Trim() }; continue }
-    $d = $ln.Substring(6).Trim(); if ($d -eq '[DONE]') { break }
+    if ($ln -notlike 'data:*') { if ($ln.Trim()) { $buf += $ln.Trim() }; continue }
+    $d = $ln.Substring(5).Trim(); if ($d -eq '[DONE]') { break }
     $j = $null; try { $j = $d | ConvertFrom-Json } catch { continue }
     if ($j.usage) { break }
     $ch = $j.choices[0]

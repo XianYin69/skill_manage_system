@@ -11,7 +11,7 @@ def _read(p, seed):
     try: return json.load(open(p, encoding="utf-8-sig")) if os.path.exists(p) else json.loads(json.dumps(seed))
     except Exception: return json.loads(json.dumps(seed))
 def _write(p, doc):
-    os.makedirs(os.path.dirname(p), exist_ok=True); json.dump(doc, open(p, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+    os.makedirs(os.path.dirname(p), exist_ok=True); import atomic_io; atomic_io.wjson(p, doc)
 def migrate(sms=None):
     sms = sms or resolve_home.ensure(); cp = os.path.join(sms, "config", "config.json")
     if not os.path.exists(cp): return []

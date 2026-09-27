@@ -1,22 +1,35 @@
 #!/usr/bin/env python3
-"""shell_tui_detail.py — sms-shell TUI「详细细节」分流（用户 2026-09-26 需求：主输出只留简略，细节进右栏新分区）：shrink() 把工具/技能/步骤类超长或多行输出压成首行＋提示，全文收进 app.details（末 8 条·每条 ≤3000 字）供右栏渲染；Details＝F9 全屏查看（ModalScreen·Esc 关）。llm_out 正文不折叠（那是答案本体）。"""
+"""shell_tui_detail.py — sms-shell TUI「详细细节」分流（批6·用户「调用过程进 F9·输出区只放文字结果」＋批7·用户「模型思考过程和调用输出全放F9·输出区只放非思考非工具调用文本」）：msg_flow.visible 共享判定（与 readline/单发/GUI 门控同口径）——tool/edit/sh/step/task/reasoning（◌ 模型思考流）与「⧉ 开子会话/收口」过程行→全文压进 app.details（末 60 条·每条 ≤3000 字·连续思考并入同一条免刷屏）供右栏＋F9，主输出不显示；⧉技能▸ 子会话行剥前缀再分类：其工具/步骤/思考同样只进 F9、仅正文可见。F9＝常规不透明 Screen 全屏（v3 弃 alpha 遮罩防真机合成崩屏·compose 全程 try/except 降级纯文本列表）。"""
+import re, msg_flow
 from rich.text import Text
 from textual.containers import VerticalScroll
-from textual.screen import ModalScreen
+from textual.screen import Screen
 from textual.widgets import Static
-DETAIL_PREFIX = ("$ ", "▸ ", "⧉", "! ", "≡", "✎ ", "♪ ", "✗ ")
-def shrink(app, s):
-    t = str(s)
-    if len(t) <= 240 and "\n" not in t[3:]: return t
-    if not t.startswith(DETAIL_PREFIX): return t
+from shell_tui_paint import paint
+RML = re.compile(r"^(?:⧉[^\s▸]*▸\s*)*◌\s*")
+def _push(app, t):
     d = getattr(app, "details", None)
     if d is None: d = app.details = []
-    d.append(t[:3000]); app.details = d[-8:]
-    return (t.splitlines() or [""])[0][:160] + " …〔详情→右栏·F9〕"
-class Details(ModalScreen):
-    CSS = "Details{align:center middle} Details>VerticalScroll{width:92%;max-width:150;height:88%;background:#181825;border:round #89b4fa;padding:1 2}"
-    BINDINGS = [("escape", "close", "关闭")]
-    def compose(self):
+    if (m := RML.match(t)) and d and RML.match(d[-1]) and len(d[-1]) < 3000: d[-1] = d[-1] + " " + t[m.end():]
+    else: d.append(t[:3000])
+    app.details = d[-60:]
+def split(app, s):
+    t = str(s)
+    if not msg_flow.visible(t): (not msg_flow.blank(t)) and _push(app, t); return None
+    return paint(t)
+class Details(Screen):
+    CSS = "Details{background:#11111b} Details>VerticalScroll{width:100%;max-width:170;height:100%;background:#181825;border:heavy #89b4fa;padding:1 2} Details VerticalScroll>Static{width:100%;text-wrap:wrap}"
+    BINDINGS = [("escape", "close", "关闭"), ("f9", "close", "关闭")]
+    def _blocks(self):
         ds = list(getattr(self.app, "details", []))
-        yield VerticalScroll(Static(Text(("■ 详细细节（最近 %d 条 · 工具/技能/步骤长输出）\n\n" % len(ds) + "\n———\n".join(ds)) if ds else "（暂无——超长工具/技能输出会自动收进这里）")))
-    def action_close(self): self.dismiss(None)
+        out = [Text("■ 详细细节·调用过程＋模型思考（最近 %d 条 · tool/skill/edit/sh/step/task/◌思考 · Esc/F9 关闭）" % len(ds), style="bold #f9e2af")]
+        if not ds: out.append(Text("（暂无——调用过程与思考自动收进这里·主输出只留正文文字）"))
+        for n, x in enumerate(ds, 1):
+            out.append(Text("── %d/%d ──" % (n, len(ds)), style="bold #89b4fa")); out.append(Text(x or "（空）", overflow="fold"))
+        return out
+    def compose(self):
+        try: blocks = self._blocks()
+        except Exception as e:
+            blocks = [Text("■ 详细细节（渲染降级：%s）" % (str(e)[:80], ), style="red"), Text("\n".join(str(x)[:200] for x in list(getattr(self.app, "details", []))[-8:]), overflow="fold")]
+        yield VerticalScroll(*[Static(b) for b in blocks])
+    def action_close(self): self.app.pop_screen()

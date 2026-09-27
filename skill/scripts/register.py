@@ -42,7 +42,7 @@ if __name__ == "__main__":
     import resolve_home, skills_config
     sms = resolve_home.ensure(); args = sys.argv[1:]
     if "--add-root" in args: v = args[args.index("--add-root") + 1]; print(skills_config.add_root(v, sms)); args = [a for a in args if not a.startswith("--") and a != v]
-    roots = args or skills_config.roots(sms) or DEFAULT_ROOTS
+    roots = [a for a in args if not a.startswith("--")] or skills_config.roots(sms) or DEFAULT_ROOTS  # 批4修复：--write 等旗标曾被当扫描根致注册表刷空
     out, doc = build(sms, roots)
     import emit
     print(emit.write_json(out, doc, sms, "--write" not in sys.argv))

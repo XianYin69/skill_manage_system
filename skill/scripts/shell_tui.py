@@ -8,10 +8,10 @@ try: sys.stdin.reconfigure(encoding="utf-8", errors="replace")
 except Exception: pass
 S = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, S)
-import shell_core as core
+import shell_core as core, shell_console, stop_channel
 try: import readline
 except ImportError: readline = None
-META = [":" + m for m in ("agents", "use", "skill", "cmds", "intent", "alias", "unalias", "hud", "deploy", "session", "workspace", "debug", "mode", "grant", "api", "config", "web", "ext", "net", "tts", "learn", "file", "path", "dream", "image", "help", "quit")]
+META = [":" + m for m in ("agents", "use", "skill", "cmds", "intent", "alias", "unalias", "hud", "deploy", "session", "workspace", "debug", "detail", "mode", "grant", "api", "config", "web", "ext", "net", "tts", "learn", "file", "path", "dream", "image", "help", "stop", "quit")]
 def _complete(text, state):
     try:
         import user_commands
@@ -26,7 +26,7 @@ def emit(x):
 def main():
     os.environ["SMS_DEBUG"] = "1" if "--debug" in sys.argv else os.environ.get("SMS_DEBUG", ""); pos = [a for a in sys.argv[1:] if not a.startswith("--")]
     if pos:
-        core.handle(" ".join(pos), emit); return
+        core.handle(" ".join(pos), shell_console.wrap(emit)); return
     if readline:
         readline.set_completer(_complete); readline.parse_and_bind("tab: complete")
     emit(core.banner())
@@ -34,6 +34,8 @@ def main():
         try: line = input("\x1b[38;5;39msms>\x1b[0m " if sys.stdout.isatty() else "sms> ").strip()
         except (EOFError, KeyboardInterrupt): print(); break
         if not line: continue
-        if core.handle(line, emit) == "exit": break
+        try: r = core.handle(line, shell_console.wrap(emit))
+        except KeyboardInterrupt: stop_channel.clear(); emit("⛔ Ctrl+C 已中断本轮任务（停止旗标复位·可继续输入下一句）"); continue
+        if r == "exit": break
 if __name__ == "__main__":
     main()
