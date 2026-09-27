@@ -46,5 +46,5 @@ def ask(text, on_line, st=lambda n: None, ev=None):
             for ln in iter(p.stdout.readline, ""): stop.kill_if(p); ln.strip() and on_line(ln.rstrip())
             rc = p.wait()
     except stop.Stopped as e: rc = 130; stop.clear(); on_line("⛔ 任务已停止（" + str(e)[:80] + "）——在途输出中断·会话照常收口·停止旗标已复位")
-    except Exception as e: rc = 1; __import__("debug").enabled() and __import__("debug").log("EXC " + __import__("debug").tb()[-800:]); on_line("数据流异常（会话照常收口·任务表保留·下轮按接续与任务表续跑）：" + str(e)[:160]); sr.flag() and sr.append(text, "（本轮异常中断：" + str(e)[:100] + "·对照任务表未完成行继续）")
+    except Exception as e: rc = 1; __import__("debug").enabled() and __import__("debug").log("EXC " + __import__("debug").tb()[-800:]); __import__("skill_errors").record(SMS, str(ag), "ask", str(e)[:200], True); on_line("数据流异常（会话照常收口·任务表保留·下轮按接续与任务表续跑）：" + str(e)[:160]); sr.flag() and sr.append(text, "（本轮异常中断：" + str(e)[:100] + "·对照任务表未完成行继续）")
     chains.record("session", "close:" + conv, _edge(conv)); chains.record("time", "对话 " + conv + " 收口 rc=" + str(rc), _edge(conv)); st("对话收口 rc=" + str(rc)); m_ = ws.end(wsp, virt); m_ and on_line(m_); chains.ACTIVE["conv"] = ""; return {"agent": ag, "rc": rc, "conv": conv}
