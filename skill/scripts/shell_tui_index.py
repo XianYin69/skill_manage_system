@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""shell_tui_index.py — sms-shell TUI 索引/链接 mixin（被 ShellApp 混入·与 shell_tui_menus.Menus/shell_tui_mode.Mode 组合）：F2/「/」＝SKILL.md 技能索引菜单（每项＝技能名＋其 SKILL.md frontmatter description 介绍·与文件索引分离）；F5＝文件索引菜单（用户索引项 /名称→路径＋首项＋索引文件/文件夹→shell_tui_files 可浏览并选定文件夹中的文件）；选项以「/名称」插入输入行（user_index.fill·光标随插入跳末尾），提交时 core.handle 经 user_index.expand 就地展开；技能路由命中＝agent_stream 已自动开子会话真派发（红线17），subconv_hint 仅提示结果与 :dispatch 重派入口（不再回填自引用语句——旧版连开 8 空对话死循环根因），open_subconv 保留为填 `:dispatch <id> ` 治理令牌（非路由话语·不再死循环）；F8＝action_editor 选文件开 shell_tui_editor 编辑器/查看器；_ev 收 msg_flow 信封：task 进度写 app.task_prog（顶栏）＋edit 写 app.touched（右栏）；配置写库后 on_config_change 即时刷新顶栏数据流（settings 本无缓存·每次读写即时读文件）。"""
+"""shell_tui_index.py — sms-shell TUI 索引/链接 mixin（被 ShellApp 混入·与 shell_tui_menus.Menus/shell_tui_mode.Mode 组合）：F2/「/」＝SKILL.md 技能索引菜单（每项＝技能名＋其 SKILL.md frontmatter description 介绍·与文件索引分离）；F5＝文件索引菜单（用户索引项 /名称→路径＋首项＋索引文件/文件夹→shell_tui_files 可浏览并选定文件夹中的文件）；选项以「/名称」插入输入行（user_index.fill·光标随插入跳末尾），提交时 core.handle 经 user_index.expand 就地展开；技能路由〔批16 参考句〕＝步骤名「路由参考：打分命中…」只提示不裁决（模型自主决定直答或派发），subconv_hint 仅提示参考命中与 :dispatch 重派入口（不再回填自引用语句——旧版连开 8 空对话死循环根因），open_subconv 保留为填 `:dispatch <id> ` 治理令牌（非路由话语·不再死循环）；F8＝action_editor 选文件开 shell_tui_editor 编辑器/查看器；_ev 收 msg_flow 信封：task 进度写 app.task_prog（顶栏）＋edit 写 app.touched（右栏）；配置写库后 on_config_change 即时刷新顶栏数据流（settings 本无缓存·每次读写即时读文件）。"""
 import os, re
 from textual.widgets import ProgressBar
 import shell_core as core, user_index, msg_flow
@@ -26,9 +26,9 @@ class Index:
         os.path.isdir(path) and self.log_line(core.run_script("register.py", ["--add-root", path, "--write"])); self.log_line(user_index.add(path))
     def subconv_hint(self):
         for s in getattr(self, "steps", []):
-            if not s.startswith("技能路由：命中"): continue
+            if not s.startswith("路由参考：打分命中"): continue
             sids = [x.strip() for x in s.split("命中", 1)[1].split("·")[0].split(",") if x.strip()]
-            t = Text("⧉ 命中 " + "、".join(sids) + "：SMS 已开子会话真派发执行（输出带 ⧉技能▸ 前缀·结果已整合）　重派：", style="bold #f9e2af")
+            t = Text("⧉ 路由参考命中 " + "、".join(sids) + "：是否派发由模型自主决定（⧉技能▸ 行＝真子会话输出）　可显式重派：", style="bold #f9e2af")
             t.append("[:dispatch " + (sids[0] if sids else "<技能id>") + " <诉求>]", style="bold #89b4fa underline"); self.log_line(t); break
     def open_subconv(self, sid, only_empty=False):
         try: import chains; chains.log("sub", sid)

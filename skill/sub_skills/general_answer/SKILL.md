@@ -1,9 +1,9 @@
 ---
 name: general_answer
 description: >
-  通用回答子技能：一般知识/概念/解释类诉求的托管作答口（answer_general.py 调网关一次性作答）。
-  SMS 本体不作答红线经此闭环——问答也来自托管 skill 执行结果；不确定明说、不动文件不联网、
-  网关未启用即明确报错；结果记 tool_call/knowledge 链供做梦沉淀。
+  通用回答子技能：一般知识/概念/解释类诉求的可选托管作答口（answer_general.py 调网关一次性作答）。
+  批16 LLM 主导后主壳问答可直答，本技能保留为显式派发目标（:dispatch general_answer）与兜底作答口；
+  不确定明说、不动文件不联网、网关未启用即明确报错；结果记 tool_call/knowledge 链供做梦沉淀。
 license: MIT
 metadata:
   category: answer
@@ -11,11 +11,11 @@ metadata:
 
 # general_answer
 
-使用 `general_answer` skill 来完成用户请求。SMS 的**通用回答**子技能：把「模型本身就能答」的诉求收拢到一个可派发目标，作答仍经托管技能执行、由 SMS 整合转达，不破坏「本体不作答」（红线 4）。
+使用 `general_answer` skill 来完成用户请求。SMS 的**通用回答**子技能：把「模型本身就能答」的诉求收拢到一个可派发目标（批16 LLM 主导后为可选作答口——主壳问答可直答，显式 `:dispatch general_answer` 或模型选择本技能时经托管执行、SMS 整合转达）。
 
 ## 何时派发
 
-- 用户话语是知识问答/概念解释/对比说明/闲聊寒暄，且注册表无更具执行性的技能命中。
+- 用户话语是知识问答/概念解释/对比说明/闲聊寒暄且希望走托管作答口（`:dispatch general_answer`）；主壳 LLM 主导下简单问答已可直答，本口用于需留账/统一口径的作答。
 - 其他技能明确"只干活不代答"后需要一段面向用户的说明文字。
 - 需要动手（读写/执行/联网）→ 不派本技能，派 file_ops / 目标技能。
 
@@ -31,7 +31,7 @@ python -B skill/sub_skills/general_answer/scripts/answer_general.py ask "<问题
 
 ## 联动
 
-- 路由注入见 [skill_route.py](../../scripts/skill_route.py) 未命中分支与 [gateway.py](../../scripts/gateway.py) SYS 治理句。
+- 路由注入见 [skill_route.py](../../scripts/skill_route.py)〔参考〕句与 [gateway.py](../../scripts/gateway.py) SYS 治理句（批16：问答可直答·本口可选）。
 - 作答记 tool_call 链＋knowledge 链（挂 conv/sess 边），由 [dream.py](../../scripts/dream.py) 做梦沉淀。
 - 壳内等价入口：直接话语自动路由，或 `:dispatch general_answer <问题>`。
 

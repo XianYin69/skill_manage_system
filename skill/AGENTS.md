@@ -6,7 +6,7 @@
 1. **调度器与管理器（2026-09-24 用户废止「一律委托」强制红线）**：SMS 常规运行仍是识别意图→派发→整合；agent 可直接实现/修改本工具及其 skill 层，创建/修改 skill 亦可选委托 Skill_Generator 走其修改路径（非强制）。
 2. **高危操作先询问**：递归删除、向用户目录复制/覆盖写——先向用户展示预览并取得当轮明确同意，且 `permissions.py grant danger`（敏感键，不随角色批量、TTL 到期）；禁止盲命令、禁止无 grant 执行。
 3. **部署＝仅复制 bin 文件**：把 `bin/` 下统一入口文件（sms-shell(.cmd)/sms-shell.py 启动器＋原生 DOS TUI 七件 ps1：sms_shell/sms_state/sms_chain/sms_dos/sms_gw/sms_gw_http/sms_route——壳完全在系统 shell 运行·本体零 python＋locate.py·sms_formats.py——格式 API 已并入 sms-shell，`api` 子命令/`:api`）复制到用户指定路径即完成部署；绝不整包复制 skill 本体（2026-09-24 事故教训，resistance #16）。
-4. **本体不作答**：一切作答来自托管 skill 执行结果；无匹配→委托 Skill_Generator 创建后执行；不可得→明确拒绝并说明。
+4. **LLM 主导·脚本辅助（2026-09-27 批16 用户指示改红线·旧「本体不作答」废止）**：纯知识问答/闲聊由大模型直接回答，不必先派子技能；凡要动手（读写/执行/派技能）必须真用工具或 skill 子会话执行并留账，禁止空口声称已执行；[SMS 路由] 打分行仅供参考，裁决权在模型；技能不可得且属新领域→委托 Skill_Generator 创建；未检出执行器→拒绝并引导配置，不得假装已执行。
 5. **约束不得静默丢失**：初始化第一步与每次 git 提交前跑 `python -B skill/scripts/redlines.py check`；失败即停、向用户报告，不得绕过；经用户确认的约束变更完成后须 `redlines.py seal` 重钉基线。
 6. **根入口程序**：跨 OS 入口＝根目录 `sms.py`（三段：开箱即用→依赖嗅探与修补→引导至 CLI）＋ `sms`/`sms.cmd` 壳；初始化与诊断一律经它，三段职责不得并入其他脚本。
 7. **十一链记忆·对话隔离·做梦**：会话碎片链存 `<SMS_HOME>/chains/`（含向量/频次/边）；所有链必须 git 管理（chains_git.py 自动建仓＋写入自动提交）；每次用户输入＝开新对话（压缩记忆＋当前输入），agent 的 skill 必须开新子会话并收口（resistance #17）。
