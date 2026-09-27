@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """gateway_sse.py — 原生网关 SSE 流式（2026-09-26 治「运行慢」观感·ps1 壳已流式而 python 壳整轮等待）：stream(msgs, on_line) 以 stream:true 请求 /chat/completions，按 index 合并 delta.tool_calls 分片（id/name/arguments 拼接），返回与 gateway.chat 同构的 (message, note)。批7 返工②（用户 2026-09-27 截图：思考混在 delta.content 里直刷主屏——上游 auto 不总用 reasoning_content 字段）：流式期间 content 与 reasoning 段一律经「◌ 」reasoning 信封只进 F9 过程流；轮末由 gateway.run 判定——无 tool_calls 才把整段正文送主输出，有 tool_calls 则该轮正文＝过程话永不上主屏（printed=True 防重复吐显·纯思考模型兜底 content=思考）。「残缺」根治（批4）：v2 全程另存 acc 完整正文，返回 content=acc 全文；上游不支持 event-stream 时读整包按非流式同构返回·思考走 ◌ 信封正文由 run 整段上屏；异常回 (None, err)。llm_gateway.stream=false 即回退整轮 chat()。用法：经 gateway.chat 调用；python -B gateway_sse.py "<文本>" 直连验证流式。"""
-import os, sys, json, time, urllib.request, msg_flow
+import os, sys, json, time, urllib.request, msg_flow, stop_channel as stop
 SENT = "。！？；!?…"
 def _req(msgs):
     import agent_dispatch as ad, settings
@@ -24,7 +24,7 @@ def stream(msgs, on_line):
             if "text/event-stream" not in str(r.headers.get("content-type") or ""):
                 m, note = _msg(json.loads(r.read().decode("utf-8", "replace"))); rc = m.pop("reasoning_content", "") or ""; rc and on_line(_rline(rc)); return m, note
             for raw in r:
-                ln = raw.decode("utf-8", "replace").strip()
+                stop.check(); ln = raw.decode("utf-8", "replace").strip()
                 if not ln.startswith("data:"): continue
                 p = ln[5:].strip()
                 if p == "[DONE]": break
@@ -36,6 +36,7 @@ def stream(msgs, on_line):
                 for t in de.get("tool_calls") or []:
                     e = tcs.setdefault(t.get("index", 0), {"id": "", "type": "function", "function": {"name": "", "arguments": ""}})
                     f = t.get("function") or {}; e["id"] = e["id"] or (t.get("id") or ""); e["function"]["name"] += f.get("name") or ""; e["function"]["arguments"] += f.get("arguments") or ""
+    except stop.Stopped: raise
     except Exception as e:
         detail = ""
         try: detail = e.read().decode("utf-8", "replace")[:200]

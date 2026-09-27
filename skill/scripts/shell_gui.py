@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""shell_gui.py — sms-shell GUI 前端（PySide6 窗口终端，shell.py 探测可用后启动）：QTextEdit 只读输出＋QLineEdit 输入；话语经 shell_core/agent_stream 在 QThread 后台流式执行、逐行回填不卡窗；个性化指令与 `:` 元指令行为同 TUI；关闭窗口即退出。"""
+"""shell_gui.py — sms-shell GUI 前端（PySide6 窗口终端，shell.py 探测可用后启动）：QTextEdit 只读输出＋QLineEdit 输入；话语经 shell_core/agent_stream 在 QThread 后台流式执行、逐行回填不卡窗；个性化指令与 `:` 元指令行为同 TUI；任务进行中输入 stop/停止 等词＝请求停止当前任务（stop_channel 协作式收口）；关闭窗口即退出。"""
 import os, sys, html, subprocess
 S = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, S)
-import shell_core as core, shell_console
+import shell_core as core, shell_console, stop_channel
 from PySide6.QtCore import QThread, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QApplication, QLineEdit, QMainWindow, QTextEdit, QVBoxLayout, QWidget
@@ -13,7 +13,8 @@ class Worker(QThread):
     def __init__(self, text):
         super().__init__(); self.text = text
     def run(self):
-        if core.handle(self.text, shell_console.wrap(lambda s: self.line.emit(str(s)))) == "exit": self.bye.emit()
+        r = stop_channel.guard(lambda: core.handle(self.text, shell_console.wrap(lambda s: self.line.emit(str(s)))))
+        r == stop_channel.STOP_NOTE and self.line.emit(str(r)); r == "exit" and self.bye.emit()
 
 class Shell(QMainWindow):
     def __init__(self):
@@ -40,6 +41,7 @@ class Shell(QMainWindow):
         if line == "tui":
             subprocess.Popen([sys.executable, "-B", os.path.join(S, "shell_tui.py")]); self.echo("已另起 TUI 终端壳"); return
         if line.strip() in ("quit", "exit", ":quit", ":q", ":exit"): self.close(); return
+        if any(w.isRunning() for w in self.workers) and stop_channel.is_stop_word(line): stop_channel.request("GUI 输入 stop"); self.echo("⛔ 已请求停止当前任务——流式/工具/子进程下一检查点收口（ask_user 提问中下一轮生效）"); return
         wk = Worker(line); wk.line.connect(self.echo); wk.bye.connect(self.close)
         wk.start(); self.workers.append(wk)
 

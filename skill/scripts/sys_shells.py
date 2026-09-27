@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """sys_shells.py — 基本 shell 指令与系统 shell 联动：detect 检出 powershell/pwsh/cmd/bash/zsh；批6 关键优化：detect 拒认 WSL/商店 bash 桩（System32\\bash.exe·WindowsApps\\bash.exe——它使每条 unix 命令冷启 WSL VM 实测 ~32s，是 skill/子skill exec 卡顿主因），只认真身 Git-Bash；run 对 powershell/pwsh 加 -NoProfile -NonInteractive、cmd 加 /d（免档案/AutoRun 拖慢）；unix 风格命令仅在有真 bash 时改道，否则 powershell 直跑（echo/ls/cat/git/python 在 PS 原生可用）。选择持久 <SMS_HOME>/shell/shell_kind；git 写操作（add/commit/reset…）恒门禁（红线2）；cwd＝SMS_WORKSPACE、env 注入 SMS_HOME/SMS_WORKSPACE/SMS_TMP，输出逐行回显并记 tool_call 链；export() 打印联动片段。壳内 `!命令`、`:sh`、F7 直通与 gateway exec 同一入口。用法：python -B sys_shells.py list|select <kind>|run <命令>|export"""
 import os, sys, re, shutil, subprocess, threading
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import resolve_home, chains, settings
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import resolve_home, chains, settings, stop_channel as stop
 SMS = resolve_home.ensure()
 KNOWN = {"pwsh": ["pwsh"], "powershell": ["powershell"], "cmd": ["cmd"], "bash": ["bash", r"C:\Program Files\Git\bin\bash.exe", r"C:\Program Files (x86)\Git\bin\bash.exe"], "zsh": ["zsh"]}
 WSL = re.compile(r"(?i)\\system32\\bash(\.exe)?$|\\windowsapps\\")
@@ -34,8 +34,7 @@ def run(cmd, kind=None, on_line=lambda s: None):
     p = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace", env=dict(os.environ, PYTHONIOENCODING="utf-8", SMS_HOME=SMS, SMS_WORKSPACE=resolve_home.workspace(), SMS_TMP=resolve_home.wtmp()), cwd=resolve_home.workspace())
     killed = []; tl = max(5, int(settings.get("shell.exec_timeout", 600)))
     tk = threading.Timer(tl, lambda: p.poll() is None and (killed.append(1), p.kill())); tk.daemon = True; tk.start()
-    for ln in iter(p.stdout.readline, ""):
-        if ln.strip(): on_line(("!" + k + "▸ ") + ln.rstrip())
+    for ln in iter(p.stdout.readline, ""): stop.kill_if(p); ln.strip() and on_line(("!" + k + "▸ ") + ln.rstrip())
     rc = p.wait(); tk.cancel(); chains.log("tool", "sh:" + k + ":" + str(cmd)[:60])
     return "rc=" + str(rc) + ("（超时 %ds 已中止）" % tl if killed else "")
 def export():
