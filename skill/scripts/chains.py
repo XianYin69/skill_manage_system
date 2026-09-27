@@ -5,7 +5,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import resolve_home, chain_store
 CHAINS = ("user", "memory", "logic", "time", "event", "session", "skill_call", "tool_call", "subsession", "dialogue", "knowledge")
 ISO = ("session", "skill_call", "tool_call", "subsession", "dialogue")
-RULE = "对话规则：本对话为新开对话，仅当前输入有效；压缩记忆仅供背景引用；输出结束后结束本对话；凡使用 agent 的 skill 必须另开子会话执行、完成后立即关闭子会话（禁止续用旧对话）。"
+RULE = "对话规则：本对话为新开对话，仅当前输入有效；压缩记忆仅供背景引用；输出结束后结束本对话；凡使用 agent 的 skill 必须另开子会话执行、完成后立即关闭子会话（禁止续用旧对话）；子会话收口＝返回 SMS 主流程继续调度（任务表未完行续推·整合·或答用户），不得以子技能完成为由结束整段对话；本对话收口仅指当前输入一轮收尾，壳持续接收下一输入。"
 ACTIVE = {"conv": "", "sess": ""}
 def store(): return chain_store.Store(resolve_home.ensure())
 def record(chain, text, edges=None): return store().add(chain, text, edges) if chain in CHAINS else "ERR 未知链：" + chain + "（候选：" + "、".join(CHAINS) + "）"

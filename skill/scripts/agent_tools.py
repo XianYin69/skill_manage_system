@@ -37,12 +37,12 @@ def run_skill(name, inp, tag=""):
     doc = skill_doc.package(ip, str(s.get("entry", "SKILL.md")), 60000)
     if not doc: return "SKILL.md 读取失败：" + skp
     chains.log("skill", "%s|src=%s|dst=%s" % (tl, skp, dst)); chains.log("sub", tl); emit("skill", "开子会话派发 " + tl + "（src=" + skp + "｜dst=" + dst + "）", skill=tl, tool="skill", meta={"src_path": skp, "dst_path": dst})
-    body = "【子会话·托管技能 " + str(s.get("id")) + " 真派发】红线17：本消息结束即收口子会话。技能启用只以 SKILL.md 为准——下文已按 skill_doc 解释器打包注入 SKILL.md 全文＋明示引用子文档＋脚本调用清单，禁止列举/遍历技能目录或再回读这些文件；按流程执行用户诉求（脚本按清单 exec 一步到位）；生成文件一律入目标目录 dst=" + dst + "（env SMS_TMP）。\n" + doc + "\n\n用户诉求：\n" + str(inp)[:4000] + "\n\n最后输出整合结果（≤600字·附产物绝对路径），结束消息不要携带工具调用。"
+    body = "【子会话·托管技能 " + str(s.get("id")) + " 真派发】红线17：本消息结束即收口子会话并返回 SMS 主流程（父对话继续调度·整合·推进任务表，整段对话不因你完成而结束）。技能启用只以 SKILL.md 为准——下文已按 skill_doc 解释器打包注入 SKILL.md 全文＋明示引用子文档＋脚本调用清单，禁止列举/遍历技能目录或再回读这些文件；按流程执行用户诉求（脚本按清单 exec 一步到位）；生成文件一律入目标目录 dst=" + dst + "（env SMS_TMP）。\n" + doc + "\n\n用户诉求：\n" + str(inp)[:4000] + "\n\n最后输出整合结果（≤600字·附产物绝对路径），结束消息不要携带工具调用。"
     of = c["on_line"]; c["streamed"] = False; pf = lambda x, _n=tl: (str(x).strip() and c.__setitem__("streamed", True), of(("⧉" + _n + "▸ ") + str(x)));     c["on_line"] = pf; c["depth"] += 1; ch = c["chain"]; c["chain"] = ch + [nm]
     try: out = latency.wrap("skill", tl, gateway.run, body, pf, max_rounds=int(__import__("settings").get("caps.skill_rounds", 0))) or ""  # 0＝无限（防任务断裂）·>0 强制收口
     finally: c["on_line"] = of; c["depth"] -= 1; c["chain"] = ch
     chains.log("sub", "收口:" + tl); emit("skill", "子会话收口 " + tl, skill=tl, tool="skill", ok=bool(out))
-    return (WRAP + out[:120] + "\n……（中间省略·正文已实时显示给用户）……\n" + out[-300:] + "\n（你只看到首尾片段·无法也严禁复述全文·最终回复≤40字收尾；需数据用 read 读产物路径）") if out and c["streamed"] else (out or ("（技能 " + tl + " 无输出）"))
+    return (WRAP + out[:120] + "\n……（中间省略·正文已实时显示给用户）……\n" + out[-300:] + "\n（你只看到首尾片段·无法也严禁复述全文·子会话已收口·控制权返回 SMS 主流程：〔任务表〕有未完成行或诉求有后续步骤必须继续推进（续派 skill/执行工具），全部完成后才一句 ≤40 字收尾回报；禁止把子技能完成当作整段对话结束；需数据用 read 读产物路径）") if out and c["streamed"] else (out or ("（技能 " + tl + " 无输出）"))
 def user_send(text):
     chains.record("dialogue", "agent@" + (chains.ACTIVE["conv"] or chains.session_id()) + " " + str(text)[:200], [[chains.ACTIVE["conv"] or "", "ref", 1], [chains.cur_sess(), "member", 1]]); emit("notice", str(text)); return "已送达用户"
 def thinking_chain(frm, to, why):

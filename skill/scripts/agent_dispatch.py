@@ -40,7 +40,7 @@ def execute(name, raw):
 if __name__ == "__main__":
     a = sys.argv[1:] or ["help"]
     if a[0] == "call" and len(a) > 1: print(execute(a[1], a[2] if len(a) > 2 else "{}"))
-    elif a[0] == "skill" and len(a) > 2: print(at.run_skill(a[1], " ".join(a[2:])))
+    elif a[0] == "skill" and len(a) > 2: r = at.run_skill(a[1], " ".join(a[2:])); print(("子会话 " + a[1] + " 已收口·返回 SMS 主流程（正文如上·⧉ 前缀·可继续话语或重派）") if r.startswith(at.WRAP) else r)
     elif a[0] == "task" and len(a) > 1: print(atk.task(" ".join(a[1:])))
     elif a[0] == "detail": print(atk.task_detail(a[1] if len(a) > 1 else ""))
     else: print(__doc__.strip().splitlines()[1][:400])
