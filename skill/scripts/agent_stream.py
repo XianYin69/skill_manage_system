@@ -34,7 +34,7 @@ def ask(text, on_line, st=lambda n: None, ev=None):
             names = sid2.split(","); st("任务表拆分派发：" + sid2 + ("（%d 技能·task_table 同库建表）" % len(names) if len(names) > 1 else "")); rep = atk.task(text)
             on_line("【SMS 整合】" + str(rep)[:1200] + ("\n…" if len(str(rep)) > 1200 else "") + "（任务表与子会话 ⧉ 输出如上·不满意可 task_plan 改表或 :dispatch " + names[0] + " <更具体诉求> 重派）")
         elif spec.get("native"):
-            body = sr.prefix() + tt.attach(text) + (text if not prefix_on() else chains.conversation(compose(text, SMS) + "\n\n" + inj)); st("提示词构建·任务表（非通用回答自动制表）·压缩记忆组装·网关流式执行")
+            body = sr.prefix() + tt.attach(text) + (text if not prefix_on() else chains.conversation(compose(text, SMS) + "\n\n" + inj)); st("提示词构建·任务表（仅复杂任务自动制表）·压缩记忆组装·网关流式执行")
             bl = body.split("\n"); imgs = None
             if bl[-1].startswith("[图:") and bl[-1].endswith("]"): p = bl[-1][3:-1].strip(); body = "\n".join(bl[:-1]); imgs = [p] if os.path.isfile(p) else None
             resp = gateway.run(body, on_line, images=imgs, ev=ev); sr.flag() and sr.append(text, str(resp or "（本轮网关中断·任务未必完成——下轮据接续与任务表继续推进）"))

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""task_table.py — 任务拆分与任务表制表器（SMS 子技能 task_table 本体·批12②）：非通用回答的用户话语在送网关前先拆步建表——task.decompose 拆子任务、逐行 skill_route 定「特定步骤指定特定 skill」，落 <SMS_HOME>/tasks/<id>.json（与 agent_task/shell_tui_tasks 同 schema 同真源·右栏任务表即时可见）＋msg_flow task 信封（done/total/eta_s→顶栏进度条按任务表＋模型反应时间预测剩余）；attach() 产注入网关的〔任务表〕块并命令模型按行执行——每步完成调 task_plan status 置 done，中途发现表不合理调 task_plan add/remove/skill 就地改表（改表亦经本子技能·同一真源）。单步且无执行性技能命中或仅命中 general_answer/arbiter＝通用问答免表。eta()＝未完成行×该技能 latency 均值（缺样本退 llm 均值再退 45s）。用法：python -B task_table.py plan <诉求>|show <tid>|next <tid>|eta <tid>|status <tid> <t#> <状态>|add <tid> <目标> [技能id]|remove <tid> <t#>|skill <tid> <t#> <技能id>"""
+"""task_table.py — 任务拆分与任务表制表器（SMS 子技能 task_table 本体·批12②·批14①改复杂任务门控）：仅复杂任务（拆步≥2 且至少一步命中执行性技能）的用户话语在送网关前先拆步建表——task.decompose 拆子任务、逐行 skill_route 定「特定步骤指定特定 skill」，落 <SMS_HOME>/tasks/<id>.json（与 agent_task/shell_tui_tasks 同 schema 同真源·右栏任务表即时可见）＋msg_flow task 信封（done/total/eta_s→顶栏进度条按任务表＋模型反应时间预测剩余）；attach() 产注入网关的〔任务表〕块并命令模型按行执行——每步完成调 task_plan status 置 done，中途发现表不合理调 task_plan add/remove/skill 就地改表（改表亦经本子技能·同一真源）。免表＝非复杂：单步话语（含命中单技能·走直接派发）、纯问答、无技能命中多步一律直送网关（用户 2026-09-27 指示「不是什么都写任务表，只是复杂任务才建表」）。eta()＝未完成行×该技能 latency 均值（缺样本退 llm 均值再退 45s）。用法：python -B task_table.py plan <诉求>|show <tid>|next <tid>|eta <tid>|status <tid> <t#> <状态>|add <tid> <目标> [技能id]|remove <tid> <t#>|skill <tid> <t#> <技能id>"""
 import os, sys, json, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import resolve_home, chains, task as tsk, skill_route, settings, atomic_io, latency, msg_flow
 SMS = resolve_home.ensure(); GEN = ("general_answer", "constraint_arbiter")
@@ -20,7 +20,7 @@ def plan(intent):
     subs = tsk.decompose(str(intent)); hs = []
     for x in subs:
         sid, _ = skill_route.route(x["goal"]); h = (sid or "").split(",")[0] or None; x["skill"] = h; x["inst"] = h or x["id"]; x["status"] = "pending"; hs.append(h)
-    if len(subs) == 1 and (not hs[0] or hs[0] in GEN): return None
+    if len(subs) < 2 or not any(h and h not in GEN for h in hs): return None
     tid = "task-" + time.strftime("%Y%m%d-%H%M%S") + "-" + "%03d" % (time.time() * 1000 % 1000)
     doc = {"id": tid, "intent": str(intent), "conv": chains.ACTIVE["conv"], "sess": chains.cur_sess(), "created": time.strftime("%Y-%m-%d %H:%M:%S"), "table": "task_table", "subtasks": subs}
     _save(doc); emit(doc, "任务表（task_table 拆分建表）"); return doc
@@ -43,7 +43,7 @@ def revise(op, tid, row="", value=""):
     return "用法 task_plan show|next|eta|add|remove|status|skill <表id> [行id] [值]"
 if __name__ == "__main__":
     a = sys.argv[1:] or ["help"]
-    if a[0] == "plan" and len(a) > 1: d = plan(" ".join(a[1:])); print(block(d) if d else "（通用问答·免表，直接送网关）")
-    elif a[0] == "attach" and len(a) > 1: print(attach(" ".join(a[1:])) or "（通用问答·免表）")
+    if a[0] == "plan" and len(a) > 1: d = plan(" ".join(a[1:])); print(block(d) if d else "（非复杂任务·免表，直接送网关）")
+    elif a[0] == "attach" and len(a) > 1: print(attach(" ".join(a[1:])) or "（非复杂任务·免表）")
     elif len(a) > 1: print(revise(a[0], a[1], a[2] if len(a) > 2 else "", " ".join(a[3:])))
     else: print(__doc__.strip().splitlines()[-1])
