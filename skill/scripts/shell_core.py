@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """shell_core.py — sms-shell 共享路由（与 bin ps1 同套确定性路由）：quit·`sms/sms-shell` 前缀剥离·裸内置词零模型直达·`:dispatch` 真派发·`:sh`/`!命令` 系统 shell 联动·`:edit/:view` 返回编辑器令牌（TUI F8）·`:session new|list|use|current` 会话层链隔离·`:debug` 同步配置。其余话语经 shell_mode.utter（含 F7 三态 gate）→ data flow；agent_stream 命中技能即开子会话真派发，否则 gateway 工具循环。st 上报步骤、ev 收 msg_flow 信封供顶栏进度。"""
 import os, sys, subprocess, re; S = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, S)
-import agent_stream as ag, settings, user_commands, skill_route, user_index, debug, chains, resolve_home, sys_shells, shell_resume as sr, stop_channel as stop; from shell_help import HELP, SHORT; SMS = ag.SMS; IMG = []; BUILD = "b81"; os.environ["SMS_TMP"] = resolve_home.wtmp()
+import agent_stream as ag, settings, user_commands, skill_route, user_index, debug, chains, resolve_home, sys_shells, shell_resume as sr, stop_channel as stop; from shell_help import HELP, SHORT; SMS = ag.SMS; IMG = []; BUILD = "b83"; os.environ["SMS_TMP"] = resolve_home.wtmp()
 def banner(): return "sms-shell·build=" + BUILD + " · SMS_HOME=" + SMS + " · 会话=" + chains.cur_sess() + " · 数据流：" + (ag.current() or "未检出（:agents 查看）") + " · 技能前缀：" + ("on" if ag.prefix_on() else "off") + " · 接续前对话：" + ("on" if sr.flag() else "off（:resume on 开启）") + " · 帮助 :help（含 :dispatch/:sh/!命令/:resume/:edit/F8 编辑器/F4 debug 开关）"
 def startup_block(): n = sr.note(); return ("── 接续上次关闭前的对话 ──\n" + n) if n else ""
 def run_script(name, args):
@@ -11,7 +11,7 @@ def run_script(name, args):
 def _meta(m, a, on_line, st):
     if m == "dispatch":
         import agent_tools as at; st("技能派发：" + a[0]) if len(a) > 1 else None
-        r = stop.guard(lambda: at.run_skill(a[0], " ".join(a[1:]))) if len(a) > 1 else "用法 :dispatch <技能id> <诉求>（技能子会话真派发·:skills 查清单）"; on_line("子会话 " + a[0] + " 已收口（正文如上·⧉ 前缀）" if r.startswith(at.WRAP) else r); return None
+        r = stop.guard(lambda: at.run_skill(a[0], " ".join(a[1:]))) if len(a) > 1 else "用法 :dispatch <技能id> <诉求>（技能子会话真派发·:skills 查清单）"; on_line("子会话 " + a[0] + " 已收口·返回 SMS 主流程（正文如上·⧉ 前缀·可继续话语或 :dispatch 重派）" if r.startswith(at.WRAP) else r); return None
     if m == "sh": st("系统 shell"); on_line(stop.guard(lambda: sys_shells.run(" ".join(a), on_line=on_line)) if a and a[0] not in ("list", "select", "export") else (sys_shells.select(a[1]) if a and a[0] == "select" and len(a) > 1 else sys_shells.export() if a and a[0] == "export" else sys_shells.listtext())); return None
     if m in ("edit", "view"): return (on_line("用法 :" + m + " <路径>（TUI F8 或主菜单·查看器 :view）") and None) if not a else m + ":" + os.path.abspath(os.path.expanduser(" ".join(a)))
     if m == "session": c = a[0] if a else "current"; on_line(chains.new_sess(" ".join(a[1:])) if c == "new" else chains.list_sess() if c == "list" else chains.use_sess(a[1]) if c == "use" and len(a) > 1 else ("当前会话 " + chains.cur_sess() + "（对话 conv 在其内自动开收·防跨会话污染）" if c == "current" else run_script("session.py", a))); return None

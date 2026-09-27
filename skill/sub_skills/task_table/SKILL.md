@@ -1,11 +1,11 @@
 ---
 name: task_table
 description: >
-  任务拆分与任务表制表器子技能：非通用回答的用户话语送网关前自动拆步建表
-  （task_table.py·特定步骤经 skill_route 指定特定 skill），落 <SMS_HOME>/tasks/<id>.json
+  任务拆分与任务表制表器子技能：仅复杂任务（拆步≥2且至少一步命中执行性技能）的用户话语
+  送网关前自动拆步建表（task_table.py·特定步骤经 skill_route 指定特定 skill），落 <SMS_HOME>/tasks/<id>.json
   供右栏任务表与顶栏进度条/剩余时间预测（latency 反应时间均值×未完成行预测）；
   模型每步完成经 task_plan 工具置行 done，中途发现表不合理同径 add/remove/skill 改表；
-  单步且无执行性技能命中＝通用问答免表；建表开关 task.auto_table（F4）。
+  单步（含命中单技能）/纯问答/无技能命中多步一律免表直送网关；建表开关 task.auto_table（F4）。
 license: MIT
 metadata:
   category: meta
@@ -18,8 +18,9 @@ SMS 的**制表**子技能：把「该拆步骤、该派技能、该看进度」
 
 ## 何时建表 / 免表
 
-- 建表：话语拆出多步，或命中执行性技能（route 非 general_answer/constraint_arbiter）。
-- 免表：单步且仅命中通用回答/仲裁＝「经通用回答」路径，直接送托管作答口。
+- 建表（＝复杂任务·用户 2026-09-27 指示「不是什么都建表」）：拆步≥2 **且**至少一步命中执行性技能（route 非 general_answer/constraint_arbiter）。
+- 免表（简单输入直送网关）：单步话语（含命中单技能＝直接派发）、纯问答、仅命中通用回答/仲裁、无技能命中的多步。
+- 中途变复杂：模型用 task 工具或 `python -B task_table.py plan "<诉求>"` 升表后按表推进（同一真源·不旁改 JSON）。
 - 开关：`:config set task.auto_table false` 关自动制表（task_plan/手改仍可用）。
 
 ## 用法
