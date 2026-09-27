@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """agent_tools2.py — 常规 agent 工具补齐（集成 codex/kilocode 等 read 一族·与 agent_tools 同信封上报）：glob(pattern,path) 递归找文件（默认工作区）·grep(pattern,path,include,max) 内容检索（跳过 .git/__pycache__/node_modules）·ls(path) 目录清单·webfetch(url,chars) 网页取文（默认拒绝——须 :grant network，urllib 直取失败回原因不抛异常）；全部输出截 ≤4000 字，经 agent_dispatch 注册后仍受 settings agent_tools.<name> 逐项门控。用法：python -B agent_tools2.py glob|grep|ls|webfetch <参数…>"""
 import os, sys, re, fnmatch, glob as _g, urllib.request
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import resolve_home, permissions, agent_tools as at
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import resolve_home, permissions, settings, agent_tools as at
 SMS = resolve_home.ensure()
 def _base(path): return at._r(path or resolve_home.workspace())
 def glob(pattern="**/*", path=""):
@@ -26,17 +26,17 @@ def ls(path="", limit=200):
     except Exception as e: return "ls 失败：" + str(e)[:120]
     at.emit("tool", "ls " + b + "（" + str(len(rows)) + " 项）", tool="ls", ok=True)
     return "\n".join(x + (os.sep if os.path.isdir(os.path.join(b, x)) else "") for x in rows) or "（空目录）"
-def ask_sub(question, rounds=3):
-    import gateway, agent_dispatch as ad
+def ask_sub(question, rounds=None):
+    import gateway, agent_dispatch as ad, stop_channel as stop; cap = int(rounds if rounds is not None else settings.get("caps.ask_rounds", 0)); n = 0  # 0＝无限（默认·防任务断裂）·F4 caps.ask_rounds
     msgs = [{"role": "system", "content": "你是 SMS 数据流的子问答：只据所问简明作答（简体中文≤300字），不确定就说不确定；需要本机事实就调工具取到再答（finish=tool_calls 时须回填结果续答，不得把工具轮当失败）。"}, {"role": "user", "content": str(question)[:4000]}]
-    for _ in range(rounds):
-        m, err = gateway.chat(msgs)
+    while True:
+        if (n := n + 1) and cap and n > cap: at.emit("tool", "子问答达 %d 轮上限" % cap, tool="ask", ok=False); return "子问答：工具轮次用尽，未得结论（caps.ask_rounds＝0 即无限）"
+        stop.check(); m, err = gateway.chat(msgs)  # 无限轮须留 :stop 手动收口出口（批10 通道·Stopped 上抛 gateway 轮首兜住）
         if not m: at.emit("tool", "子问答失败", tool="ask", ok=False); return "子问答失败：" + err
         if not (tcs := m.get("tool_calls") or []): at.emit("tool", "子问答完成", tool="ask", ok=True); return (m.get("content") or m.get("reasoning_content") or "") or "（子问答空响应）"
         msgs.append(m)
         for tc in tcs:
             f = tc.get("function") or {}; msgs.append({"role": "tool", "tool_call_id": tc.get("id", ""), "content": str(ad.execute(str(f.get("name", "")), str(f.get("arguments") or "{}")))[:2000] or "(无输出)"})
-    at.emit("tool", "子问答达 %d 轮上限" % rounds, tool="ask", ok=False); return "子问答：工具轮次用尽，未得结论"
 def webfetch(url, chars=4000):
     if not re.match(r"(?i)^https?://", str(url)): return "拒绝：仅允许 http(s) 地址"
     if not permissions.allow(SMS, "network"): return "拒绝：webfetch 需 :grant network（默认拒绝·敏感键不随角色批量）"
