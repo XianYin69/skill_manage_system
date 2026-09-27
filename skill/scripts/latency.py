@@ -16,6 +16,7 @@ def wrap(kind, name, fn, *a, **k):
     try: return fn(*a, **k)
     finally: rec(kind, name, (time.perf_counter() - t) * 1000)
 def _pct(s, p): return s[min(len(s) - 1, int(len(s) * p))]
+def avg(k): e = report().get(k); return e and e["mean"]
 def report():
     try: ls = [json.loads(x) for x in open(_f(), encoding="utf-8").read().splitlines() if x.strip()]
     except FileNotFoundError: return {}

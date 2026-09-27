@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """shell_tui_index.py — sms-shell TUI 索引/链接 mixin（被 ShellApp 混入·与 shell_tui_menus.Menus/shell_tui_mode.Mode 组合）：F2/「/」＝SKILL.md 技能索引菜单（每项＝技能名＋其 SKILL.md frontmatter description 介绍·与文件索引分离）；F5＝文件索引菜单（用户索引项 /名称→路径＋首项＋索引文件/文件夹→shell_tui_files 可浏览并选定文件夹中的文件）；选项以「/名称」插入输入行（user_index.fill·光标随插入跳末尾），提交时 core.handle 经 user_index.expand 就地展开；技能路由命中＝agent_stream 已自动开子会话真派发（红线17），subconv_hint 仅提示结果与 :dispatch 重派入口（不再回填自引用语句——旧版连开 8 空对话死循环根因），open_subconv 保留为填 `:dispatch <id> ` 治理令牌（非路由话语·不再死循环）；F8＝action_editor 选文件开 shell_tui_editor 编辑器/查看器；_ev 收 msg_flow 信封：task 进度写 app.task_prog（顶栏）＋edit 写 app.touched（右栏）；配置写库后 on_config_change 即时刷新顶栏数据流（settings 本无缓存·每次读写即时读文件）。"""
 import os, re
-import shell_core as core, user_index
+from textual.widgets import ProgressBar
+import shell_core as core, user_index, msg_flow
 from rich.text import Text
 class Index:
     def _fdesc(self, s):
@@ -37,9 +38,10 @@ class Index:
     def _ev(self, e):
         try:
             m = e.get("meta") or {}; k = e.get("kind")
-            if k == "task": self.call_from_thread(setattr, self, "task_prog", "≡ %s ▸ %s/%s" % (str(m.get("id", ""))[-6:], m.get("done", 0), m.get("total", 0)))
+            if k == "task": self.call_from_thread(setattr, self, "task_prog", "≡ %s ▸ %s/%s%s" % (str(m.get("id", ""))[-6:], m.get("done", 0), m.get("total", 0), (" ▸" + msg_flow.fmt(m["eta_s"])) if m.get("eta_s") else "")); self.call_from_thread(self._taskbar, m)
             elif k == "edit": self.call_from_thread(self.touched.append, str(e.get("text") or ""))
         except Exception: pass
+    def _taskbar(self, m): t = int(m.get("total", 0) or 0); t > 0 and self.query_one("#prog", ProgressBar).update(total=t, progress=int(m.get("done", 0) or 0))
     def action_editor(self):
         from shell_tui_files import Files; self.push_screen(Files(), lambda p: p and self._open_editor(p))
     def _open_editor(self, p, ro=False):

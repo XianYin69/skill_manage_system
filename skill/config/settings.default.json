@@ -10,7 +10,10 @@
     "timeout": 120,
     "temperature": null,
     "top_p": null,
-    "comment": "SMS 原生大模型网关（gateway.py）：base_url+api_key+model 即可对话；stream=true 经 gateway_sse.py 逐段吐字（false 回退整轮等待）；temperature/top_p 为模型参数（null＝不发送，用上游默认）；密钥可 api_key_env 指向环境变量"
+    "reasoning_effort": null,
+    "retries": 1,
+    "stream_max_chunks": 20000,
+    "comment": "SMS 原生大模型网关（gateway.py）：base_url+api_key+model 即可对话；stream=true 经 gateway_sse.py 逐段吐字（false 回退整轮等待）；temperature/top_p 为模型参数（null＝不发送，用上游默认）；reasoning_effort＝推理等级（low|medium|high·null＝不发送——chat/SSE 请求体 reasoning_effort 字段，F4 可改）；retries＝网关瞬时错误自动重试次数（批12 防任务半途断）；stream_max_chunks＝流式吐块保险上限（防无限慢流卡死）；密钥可 api_key_env 指向环境变量"
   },
   "model_meta": {
     "auto_refresh": true,
@@ -19,6 +22,8 @@
     "comment": "上游模型元数据自动抓取（model_meta.py）：GET /models 扩展字段＋探测响应头 x-ratelimit；缓存 <SMS_HOME>/config/models.json；defaults＝上游未提供时的兜底标注"
   },
   "caps": { "gateway_rounds": 0, "skill_rounds": 0, "ask_rounds": 0, "comment": "agent 循环轮次上限（熔断保险丝）：0＝无限（默认——设上限会令长任务中途断裂强制收口）；>0＝达上限强制收口（子技能收不了口卡死时可设）。gateway_rounds＝gateway.py 对话/工具主循环；skill_rounds＝skill 工具子会话派发；ask_rounds＝ask 子问答循环；F4 图形配置或 :config caps.<键> 可调" },
+  "task": { "auto_table": true, "max_parallel": 3, "comment": "任务表（task_table.py 制表器·批12）：auto_table＝非通用回答的话语送网关前自动拆分建表（右栏任务表＋顶栏进度/剩余时间·模型经 task_plan 工具按步推进与中途改表）；max_parallel＝task 工具并行子任务上限" },
+  "shell": { "exec_timeout": 600, "comment": "系统 shell 与子脚本单条超时（秒·sys_shells.run 与 shell_core.run_script 共用·到点强杀防卡死）" },
   "chains": {
     "default": { "enabled": true, "merge_thr": 0.92, "prune_days": 14, "min_freq": 1 },
     "comment": "各链设置：chains.<链名> 覆盖 default（user/memory/logic/time/event/session/skill_call/tool_call/subsession/dialogue）；enabled=false 即停写该链；knowledge 钉选链不受修剪影响"

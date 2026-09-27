@@ -32,7 +32,7 @@ function Invoke-Ask($text, $sink) {
   if ($ag -eq 'gateway') {
     $c = Cfg 'llm_gateway'
     $body = @{ model = [string]$c.model; messages = @(@{ role = 'system'; content = $SYS }, (UserMsg $text)); stream = $true; max_tokens = [int]$c.max_tokens }
-    if ($null -ne $c.temperature) { $body.temperature = $c.temperature }; if ($null -ne $c.top_p) { $body.top_p = $c.top_p }
+    if ($null -ne $c.temperature) { $body.temperature = $c.temperature }; if ($null -ne $c.top_p) { $body.top_p = $c.top_p }; if ($null -ne $c.reasoning_effort) { $body.reasoning_effort = [string]$c.reasoning_effort }
     try { $out = Stream-Gateway $body $sink } catch { $d = ''; try { $d = (New-Object IO.StreamReader -ArgumentList $_.Exception.Response.GetResponseStream()).ReadToEnd() } catch {}; Write-Line ('网关错误：' + $_.Exception.Message + ' ' + $d.Substring(0, [Math]::Min(200, $d.Length))) }
     Record 'tool' ('gateway:' + $c.model + '@' + $conv)
   } else {
@@ -40,6 +40,6 @@ function Invoke-Ask($text, $sink) {
     $lines = @(); try { Push-Location (SMS_WS); & $sp.bin @($sp.args + $text) | ForEach-Object { Write-Line $_; $lines += [string]$_ } } catch { Write-Line ('agent CLI 调用失败：' + $_.Exception.Message) } finally { Pop-Location }
     $out = $lines -join "`n"; Record 'tool' ('cli:' + $ag + '@' + $conv)
   }
-  if ($out) { Record 'dialogue' ('agent@' + $conv + ' ' + $out); TailPush 'U' $text; TailPush 'A' $out }
+  if ($out) { Record 'dialogue' ('agent@' + $conv + ' ' + $out); TailPush 'U' $text; TailPush 'A' $out } else { TailPush 'U' $text; TailPush 'A' '（本轮网关中断·任务未必完成——下轮据接续继续）' }
   Record 'session' ('close:' + $conv); Record 'time' ('对话 ' + $conv + ' 收口（sms-shell 原生）')
 }

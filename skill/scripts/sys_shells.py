@@ -33,7 +33,7 @@ def run(cmd, kind=None, on_line=lambda s: None):
     if not binp: return "未检出可用系统 shell（:sh list）"
     if (g := guarded(cmd)): on_line(g); return g
     argv = [binp, "/d", "/c", str(cmd)] if k == "cmd" else ([binp, "-NoProfile", "-NonInteractive", "-Command", str(cmd)] if k in ("powershell", "pwsh") else [binp, "-c", str(cmd)])
-    p = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace", env=dict(os.environ, PYTHONIOENCODING="utf-8", SMS_HOME=SMS, SMS_WORKSPACE=resolve_home.workspace(), SMS_TMP=resolve_home.wtmp()), cwd=resolve_home.workspace())
+    p = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace", stdin=subprocess.DEVNULL, env=dict(os.environ, PYTHONIOENCODING="utf-8", SMS_HOME=SMS, SMS_WORKSPACE=resolve_home.workspace(), SMS_TMP=resolve_home.wtmp()), cwd=resolve_home.workspace())  # stdin=DEVNULL：命令误读输入直接 EOF 而非挂住壳（批12 卡死根治）
     killed = []; tl = max(5, int(settings.get("shell.exec_timeout", 600))); tk = threading.Timer(tl, lambda: p.poll() is None and (killed.append(1), p.kill())); tk.daemon = True; tk.start()
     for ln in iter(p.stdout.readline, ""): stop.kill_if(p); ln.strip() and on_line(("!" + k + "▸ ") + ln.rstrip())
     rc = p.wait(); tk.cancel(); chains.log("tool", "sh:" + k + ":" + str(cmd)[:60])
