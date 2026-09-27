@@ -2,10 +2,11 @@
 name: task_table
 description: >
   任务拆分与任务表制表器子技能：仅复杂任务（拆步≥2且至少一步命中执行性技能）的用户话语
-  送网关前自动拆步建表（task_table.py·特定步骤经 skill_route 指定特定 skill），落 <SMS_HOME>/tasks/<id>.json
-  供右栏任务表与顶栏进度条/剩余时间预测（latency 反应时间均值×未完成行预测）；
+  送网关前自动粗分建表（task_table.py·特定步骤经 skill_route 指定特定 skill·行数无上限·模型首轮据实改表），
+  落 <SMS_HOME>/tasks/<id>.json 供右栏任务表与顶栏进度条/剩余时间预测（latency 反应时间均值×未完成行预测）；
   模型每步完成经 task_plan 工具置行 done，中途发现表不合理同径 add/remove/skill 改表；
-  单步（含命中单技能）/纯问答/无技能命中多步一律免表直送网关；建表开关 task.auto_table（F4）。
+  批18 主流程守卫：pending(conv) 供 gateway 检测未完成行·禁止收口并注入续推提示；无依赖子任务 task 工具并发（parallel=true·模型判定无冲突才并发·有依赖 parallel=false 依序）；
+  单步（含命中单技能）/纯问答/无技能命中多步一律免表直送网关；开关 task.auto_table 与 task.auto_continue（F4）。
 license: MIT
 metadata:
   category: meta
@@ -32,14 +33,13 @@ python -B skill/scripts/task_table.py next <表id>          # 下一个未完成
 python -B skill/scripts/task_table.py eta <表id>           # 剩余时间预测
 python -B skill/scripts/task_table.py status <表id> t2 done
 python -B skill/scripts/task_table.py add <表id> "<补漏步骤目标>"   # 自动路由指定技能
-python -B skill/scripts/task_table.py remove <表id> t3
-python -B skill/scripts/task_table.py skill <表id> t2 <技能id>     # 壳内 :task <同参数> 手改
+python -B skill/scripts/task_table.py remove <表id> t3 | skill <表id> t2 <技能id>   # 删行/改派（壳内 :task 同参数手改）
 ```
 
 ## 接线
 
 - 建表口：[agent_stream.py](../../scripts/agent_stream.py) 原生网关分支 `attach()`＝话语前注入〔任务表〕块＋执行规则。
-- 工具口：[agent_dispatch.py](../../scripts/agent_dispatch.py) `task_plan`（op/tid/row/value）→ [gateway.py](../../scripts/gateway.py) SYS「按表推进·改表不绕表」。
+- 工具口：[agent_dispatch.py](../../scripts/agent_dispatch.py) `task_plan`（op/tid/row/value）→ [gateway.py](../../scripts/gateway.py) SYS「按表推进·改表不绕表」＋批18 主流程守卫（`tt.pending(conv)` 检测未完成行·depth==0 时禁止收口并注入续推·`task.auto_continue`/`task.max_continue` 控）。
 - 进度/预测：[msg_flow.py](../../scripts/msg_flow.py) task 信封 meta（done/total/eta_s）→ 顶栏 `shell_tui_index._taskbar` 进度条＋右栏 [shell_tui_tasks.py](../../scripts/shell_tui_tasks.py) 表；均值样本来自 [latency.py](../../scripts/latency.py)。
 - task 工具（[agent_task.py](../../scripts/agent_task.py)）与本表同 schema 同库，命中多技能话语由 SMS 直接经其并行派发并建表。
 

@@ -8,7 +8,7 @@ SCHEMA = [F("exec", "执行 shell 命令（cwd＝工作区·生成文件入 tmp�
  F("write", "写文本文件（工作区/SMS 默认可写，越界需授权）", {"path": P("string", "路径"), "content": P("string", "内容"), "append": P("boolean", "是否追加")}, ["path", "content"]),
  F("skill", "把诉求派发给托管技能在其子会话按其 SKILL.md 全文执行（执行类诉求用真派发；纯问答可直答不强制）", {"name": P("string", "技能id"), "input": P("string", "用户诉求")}, ["name", "input"]),
  F("ask", "子问答：需要独立小答案时用（≤300字·不面向用户复述）", {"question": P("string", "问题")}, ["question"]),
- F("task", "把复合诉求拆分为子任务并行执行并整合（进度实时上顶栏）", {"intent": P("string", "诉求")}, ["intent"]),
+ F("task", "把复合诉求拆分为子任务执行并整合（进度实时上顶栏·批18：parallel=true 子任务无依赖/无冲突时并发派发〔默认〕·parallel=false 有先后依赖则依序串行——并发前提是你判定子任务互不冲突）", {"intent": P("string", "诉求"), "parallel": P("boolean", "true＝无依赖并发（默认）·false＝有依赖依序")}, ["intent"]),
  F("task_detail", "查询任务进度（id 空＝最近清单）", {"id": P("string", "任务id")}, []),
  F("task_plan", "任务表制表器 task_table 的改表口：按〔任务表〕行推进——status 置行 done/running、add 补漏步（自动路由技能）、remove 删不合理行、skill 改指定技能、show/next/eta 查询；每次改表顶栏进度与剩余时间同步刷新", {"op": P("string", "show|next|eta|add|remove|status|skill"), "tid": P("string", "任务表id"), "row": P("string", "行id（t1/t2…）"), "value": P("string", "add＝新步骤目标；status＝状态；skill＝技能id")}, ["op", "tid"]),
  F("user_send", "向用户客户端发送一条提示/结果文本", {"text": P("string", "文本")}, ["text"]),

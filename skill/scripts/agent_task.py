@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""agent_task.py — 任务工具 task/task_detail（诉求拆分·按技能实例并行子会话·合并）：tsk.decompose 拆子任务→逐笔 skill_route 路由，同一技能多次命中编号为实例（skill 两派＝sk_1/sk_2·各开独立子会话·流前缀 ⧉实例▸·agent_ctx 线程隔离防串台）→ThreadPool 并行（settings task.max_parallel 默认 3·全部子任务同时跑可加大）；子任务异常记 error 不中断其余；每完成一笔经 atomic_io 落 <SMS_HOME>/tasks/<id>.json＋msg_flow task 进度信封（meta.done/total→顶栏实时）；subsession/skill_call 链在 run_skill 内按实例名记；收口生成合并报告（逐实例状态＋全结果＋技能×次数统计），task_detail 复算并再发进度信封（模型/顶栏共用同一进度真源）。用法：python -B agent_task.py run "<诉求>" | detail [task-id]"""
+"""agent_task.py — 任务工具 task/task_detail（诉求拆分·按技能实例并行子会话·合并）：tsk.decompose 拆子任务→逐笔 skill_route 路由，同一技能多次命中编号为实例（skill 两派＝sk_1/sk_2·各开独立子会话·流前缀 ⧉实例▸·agent_ctx 线程隔离防串台）→ThreadPool 并行（settings task.max_parallel 默认 3·全部子任务同时跑可加大·批18：parallel=false 改依序串行·由模型判定子任务有无依赖/冲突）；子任务异常记 error 不中断其余；每完成一笔经 atomic_io 落 <SMS_HOME>/tasks/<id>.json＋msg_flow task 进度信封（meta.done/total→顶栏实时）；subsession/skill_call 链在 run_skill 内按实例名记；收口生成合并报告（逐实例状态＋全结果＋技能×次数统计），task_detail 复算并再发进度信封（模型/顶栏共用同一进度真源）。用法：python -B agent_task.py run "<诉求>" | detail [task-id]"""
 import os, sys, json, time, threading
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import resolve_home, chains, skill_route, task as tsk, agent_tools as at, agent_ctx as ac, atomic_io, settings, stop_channel as stop, task_table as tt
 SMS = resolve_home.ensure()
 def _tf(tid): return os.path.join(SMS, "tasks", tid + ".json")
 def _save(doc): os.makedirs(os.path.join(SMS, "tasks"), exist_ok=True); atomic_io.wjson(_tf(doc["id"]), doc)
-def task(intent):
+def task(intent, parallel=True):
     from concurrent.futures import ThreadPoolExecutor
     subs = tsk.decompose(str(intent)); tid = "task-" + time.strftime("%Y%m%d-%H%M%S") + "-" + "%03d" % (time.time() * 1000 % 1000)  # 毫秒后缀：同秒连发两任务不再互相覆盖 tasks/<id>.json（实测 task2 撞名 IndexOverwrite）
     doc = {"id": tid, "intent": str(intent), "conv": chains.ACTIVE["conv"], "sess": chains.cur_sess(), "created": time.strftime("%Y-%m-%d %H:%M:%S"), "subtasks": subs}; _save(doc)
-    at.emit("task", "任务 " + tid + "：拆出 " + str(len(subs)) + " 子任务并行派发（剩余时间预测见顶栏）", tool="task", meta={"id": tid, "done": 0, "total": len(subs), "eta_s": tt.eta(doc)})
+    at.emit("task", "任务 " + tid + "：拆出 " + str(len(subs)) + " 子任务·" + ("并行派发" if parallel is not False else "依序串行") + "（剩余时间预测见顶栏）", tool="task", meta={"id": tid, "done": 0, "total": len(subs), "eta_s": tt.eta(doc)})
     lk = threading.Lock(); cnt = {}; parent = ac.cur()
     def one(st):
         ac.adopt(parent); stop.check(); sid, _ = skill_route.route(st["goal"]); sk = (sid or "").split(",")[0] or None
@@ -22,7 +22,8 @@ def task(intent):
         with lk: dn = sum(1 for x in subs if x["status"] == "done"); _save(doc)
         at.emit("task", "任务 " + tid + " 进度 " + str(dn) + "/" + str(len(subs)) + "（" + st["inst"] + " " + st["goal"][:30] + (" " + st["status"] if st["status"] != "done" else "") + "）", tool="task_detail", meta={"id": tid, "done": dn, "total": len(subs), "eta_s": tt.eta(doc)})
         return st
-    with ThreadPoolExecutor(max_workers=max(1, min(max(1, int(settings.get("task.max_parallel", 3))), len(subs)))) as ex: res = list(ex.map(one, subs))
+    workers = 1 if parallel is False else max(1, min(max(1, int(settings.get("task.max_parallel", 3))), len(subs)))
+    with ThreadPoolExecutor(max_workers=workers) as ex: res = list(ex.map(one, subs))
     stat = "、".join(k + "×" + str(v) for k, v in sorted(cnt.items())) or "无技能命中（子问答作答）"
     merged = "任务 " + tid + " 完成（" + str(len(subs)) + " 子任务 · " + stat + " · 成功 " + str(sum(1 for r in res if r["status"] == "done")) + "/" + str(len(res)) + "）：\n" + "\n".join("[" + r["status"] + "] " + r["inst"] + " · " + r["goal"][:40] + " → " + r["result"] for r in res)
     chains.record("event", "task " + tid + " 收口 " + str(len(subs)) + " 子任务（" + stat + "）", [[chains.ACTIVE["conv"] or "", "ref", 1], [chains.cur_sess(), "member", 1]])
