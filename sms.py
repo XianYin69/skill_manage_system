@@ -19,7 +19,7 @@ def sniff(argv, say):
     ags = sorted(agent_stream.detected())
     say("agent CLI：%s" % ("、".join(ags) if ags else "未检出→shell 拒绝派发；装任一 agent 或在 <SMS_HOME>/config/config.json 配 agent_cli {bin,args}"))
     st = json.loads(run("dream.py", "status").stdout); frags = chains.store().all_frags()
-    say("做梦机制：上次 %s%s；链碎片 %d 条（%d 链）" % (time.strftime("%m-%d %H:%M", time.localtime(st["last_run"])) if st["last_run"] else "从未", "（已到期待跑）" if st["due"] else "（未到期）", len(frags), len(chains.CHAINS)))
+    say("做梦机制：间隔 %d 分（用户设置·时间戳程序按间隔算）·上次 %s%s；链碎片 %d 条（%d 链）" % (st["interval_min"], time.strftime("%m-%d %H:%M", time.localtime(st["last_run"])) if st["last_run"] else "从未", "（已到期待跑）" if st["due"] else "（未到期）", len(frags), len(chains.CHAINS)))
     reg = os.path.join(resolve_home.resolve(), "registry", "register.json")
     if os.path.exists(reg) and "--rebuild" not in argv:
         return say("注册表：已存在（register/interfaces/connections/deps）")

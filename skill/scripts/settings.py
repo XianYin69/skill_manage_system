@@ -11,7 +11,7 @@ def _dm(a, b):
 def eff(sms=None):
     sms = sms or resolve_home.ensure(); c = resolve_home.conf(sms); c.pop("dream_interval_min", None)
     d = _dm(_dm(json.loads(json.dumps(DEFAULTS)), c), skills_config.load(sms))
-    for k in ("interval_min", "next_run"): (d.get("dream") or {}).pop(k, None)
+    (d.get("dream") or {}).pop("next_run", None)  # interval_min＝用户设置；next_run 运行时间戳恒程序按间隔计算，不随配置进
     return d
 def _walk(d, path): return reduce(lambda a, k: a.get(k) if isinstance(a, dict) else None, path.split("."), d)
 def get(path, default=None, sms=None):

@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
-"""skill_errors.py — 记录 skill 出错位置与日志：SMS/errors/skill_errors.json；同一(skill,where)合并计数；未解决≥TH 时 due 提示启用 Skill_Generator self_update 修复（list/due 同义）。"""
+"""skill_errors.py — 记录 skill 出错位置与日志：SMS/errors/skill_errors.json；同一(skill,where)合并计数；每笔直调 debug.py error 通道落 debug.log（做梦自修取错误现场）；未解决≥TH 时 due 提示启用 Skill_Generator self_update 修复（list/due 同义）。"""
 import os, sys, json, time
-
 TH = 3; DATE = time.strftime("%Y-%m-%d")
-
-
 def _p(sms): return os.path.join(sms, "errors", "skill_errors.json")
 
 def _doc(sms):
@@ -24,6 +21,7 @@ def record(sms, skill, where, msg, write):
     e = next((x for x in doc["entries"] if x["skill"] == skill and x["where"] == where and x["status"] == "open"), None)
     if e: e["count"] += 1; e["last"] = DATE
     else: doc["entries"].append({"skill": skill, "where": where, "msg": msg, "count": 1, "first": DATE, "last": DATE, "status": "open"})
+    import debug; debug.error("skill_error %s@%s ×%d %s" % (skill, where, (e or doc["entries"][-1])["count"], msg), sms)
     return _save(sms, doc, write)
 
 def resolve(sms, skill, write):

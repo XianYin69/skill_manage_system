@@ -20,13 +20,13 @@
 
 ## 做梦机制（dream.py，惰性触发）
 
-- `maybe()` 由 sms.py 入口、emit 会话写盘、agent_stream 派发调用；间隔＝程序按链碎片规模自动计算（45→720 分钟·用户不可设置），`dream.py status` 显示下次时间与计算值。
-- 一次做梦：跨链合并近义碎片 → 修剪陈旧低频（knowledge 钉选除外）→ 重建 `chains/retrieval.md` → 高频 knowledge 同步 `memory.json` 钉选 → 审计对话开-收口与子会话悬挂（`chains/violations.md`）→ skill_errors≥3 记升级事件（user_commands `skill-update`→Skill_Generator 修改路径，实现所有 skill 自动迭代）→ event 链留痕。
+- `maybe()` 由 sms.py 入口、emit 会话写盘、agent_stream 派发调用；间隔＝用户设置（settings `dream.interval_min`·默认 360 分钟·程序钳 5–720），`dream.py status` 显示间隔、程序按间隔算出的下次触发时间戳（`chains/next_run_ts`·不可手动设）与到期状态。
+- 一次做梦：跨链合并近义碎片 → 修剪陈旧低频（knowledge 钉选除外）→ 重建 `chains/retrieval.md` → 高频 knowledge 同步 `memory.json` 钉选 → 记忆沉淀（dream_mem.py：高频有用碎片 knowledge/logic/user→memory 链去重写入；私人信息经 privacy.py 混淆+掩码+矩阵入 `<SMS_HOME>/privacy/`·须 grant privacy·记忆链只存引用号，供个性化对话）→ 审计对话开-收口与子会话悬挂（`chains/violations.md`）→ 错误自修（dream_fix.py：skill_errors≥3 open 逐条直调 Skill_Generator `self_update.py report` 登记，自更新运行在 Skill_Generator 侧；错误现场＝skill_errors 直调 debug.py error 通道落 debug.log）→ event 链留痕。
 - 手动：`python dream.py run|maybe|status [--sync]`。
 
 ## 各链与做梦设置（config 段 chains / dream，settings.py 统一改）
 
-- `chains.<链>` 覆盖 `chains.default{enabled, merge_thr, prune_days, min_freq}`：enabled=false 停写该链（chain_store 建库时读取、add 拒绝并提示恢复命令），merge/修剪按链取阈值与天数；`dream.enabled` 控制做梦开关（触发时间恒程序自算，interval_min/next_run 配置键已剔除·不可设置）；knowledge 钉选链不参与修剪停用。改法：`python -B settings.py set chains.tool_call.enabled false`、壳内 `:config set ...`、或网页壳「链设置」区；每次变更记 event 链（契约 [../schemas/settings.schema.json](../schemas/settings.schema.json)）。
+- `chains.<链>` 覆盖 `chains.default{enabled, merge_thr, prune_days, min_freq}`：enabled=false 停写该链（chain_store 建库时读取、add 拒绝并提示恢复命令），merge/修剪按链取阈值与天数；`dream.enabled` 控制做梦开关、`dream.interval_min` 为用户设置的做梦间隔（分钟·程序钳 5–720），触发时间戳 next_run 恒程序按间隔计算（非配置键）；knowledge 钉选链不参与修剪停用。改法：`python -B settings.py set dream.interval_min 120`、`settings.py set chains.tool_call.enabled false`、壳内 `:config set ...`、或网页壳「链设置」区；每次变更记 event 链（契约 [../schemas/settings.schema.json](../schemas/settings.schema.json)）。
 
 ## 学习脚本（learn.py，联动做梦·resistance #17/#19）
 
