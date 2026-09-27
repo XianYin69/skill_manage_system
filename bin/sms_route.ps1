@@ -41,7 +41,7 @@ function Handle-Line($line, $sink) {
   if ($w -in @('config', '设置', '配置', '状态', 'status', '修改配置', '打开设置', '打开配置', '进入配置', '配置编辑器', '图形化配置')) { Show-Cfg 'status' @(); Write-Line '改配置：:config set <path> <json> · 技能扫描根：:index <路径> · 全量：:config show'; return }
   if ($w -in @('cmds', '命令', '指令', '命令表')) { Run-Engine 'commands.py' @('help'); return }
   if ($t -match '^(?i)(?:config|设置|配置)[\s,，]+(\S.*)$') { $ca = $Matches[1] -split '\s+'; Show-Cfg $ca[0] $(if ($ca.Count -gt 1) { @($ca | Select-Object -Skip 1) } else { , @() }); return }
-  if (($t -match '(哪些|那些|什么|可用|可以|能)[^。！!？?]{0,8}(技能|skills?\b)') -or ($t -match '^(?i)skills?\s*list$' -or $w -in @('技能列表', '可用技能', '可调用技能'))) { Run-Engine 'skill_route.py' @('list'); return }
+  if (($t -match '(哪些|那些|什么)[^。！!？?]{0,8}(技能|skills?\b)') -or ($t -match '^(?i)skills?\s*list$' -or $w -in @('技能列表', '可用技能', '可调用技能'))) { Run-Engine 'skill_route.py' @('list'); return }
   if (($t -match '(?i)sms|shell|壳' -and $t -match '设置|配置|命令|指令|config' -and $t -notmatch '问题|故障|报错|错误|异常|失败|无法|检查|诊断|为什么') -or ($w -in @('显示提示词', '提示词', '你的提示词'))) { Write-Line 'sms-shell：话语即数据流 · !命令＝系统 shell · :config 配置 · :cmds 全表 · :help 速查（确定性路由·未经大模型）'; return }
   if (AliasFind (($t -split '\s+')[0])) { Run-Engine 'user_commands.py' (@('run') + ($t -split '\s+')); return }
   Invoke-Ask $t $sink
