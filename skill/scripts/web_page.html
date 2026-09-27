@@ -97,7 +97,7 @@ async function toggleExt(on){if(on&&!confirm("开启对外端口＝向网络暴�
 async function setExtParams(){await set("external.session_ttl_min",j(document.getElementById("exttl").value));await set("external.pq_mode",document.getElementById("extpq").value)}
 async function rotate(){const r=await api("/api/token/rotate",{});T=r.token;sessionStorage.setItem("sms_tok",T);localStorage.setItem("sms_tok",T);flash("token 已轮换（旧 token 失效）")}
 document.getElementById("inp").addEventListener("keydown",e=>{if(e.key=="Enter"&&!e.shiftKey){e.preventDefault();send()}});
-if(T&&localStorage.getItem("sms_tok")==T){try{boot(await api("/api/info"))}catch(e){}}
+(async()=>{if(T&&localStorage.getItem("sms_tok")==T){try{boot(await api("/api/info"))}catch(e){}}})();
 </script>
 </body>
 </html>
