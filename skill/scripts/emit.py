@@ -5,7 +5,7 @@ import os, json
 
 def write_json(path, doc, sms, dry):
     if dry:
-        return json.dumps(doc, ensure_ascii=False, indent=2)
+        return "（dry-run 预览·未写盘——加 --write 且已 grant write 才生效）\n" + json.dumps(doc, ensure_ascii=False, indent=2)
     import permissions
     if not permissions.allow(sms, "write"):
         return "DENIED: 会话未授予 write 权限（permissions.json），拒绝写盘"

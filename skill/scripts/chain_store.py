@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""chain_store.py — 十一链（用户/记忆/逻辑/时间/事件/会话/调用skill/调用工具/子会话/对话/钉选knowledge）碎片存储层：每条链为 JSON 碎片（语句化/最小化），含向量（64 维哈希投影，语句指向）、频次（使用计数）、边（语义/时间/因果/引用，树形·神经网络型）。数据 <SMS_HOME>/chains/<链>/<id>.json；纯标准库、零依赖。性能（2026-09-26 治「每句全量读盘 1-2s」）：all_frags 经 FC 按 (size,mtime) 增量缓存——scandir 目录遍历仅 stat 比对，改动文件才重新解析 JSON，未变文件复用缓存对象；写路径 _wj 同步刷新缓存，跨进程改动由 mtime 失效自动兜住。"""
+"""chain_store.py — 十一链（用户/记忆/逻辑/时间/事件/会话/调用skill/调用工具/子会话/对话/钉选knowledge）碎片存储层：每条链为 JSON 碎片（语句化/最小化），含向量（64 维哈希投影，语句指向）、频次（使用计数）、边（语义/时间/因果/引用/成员member，树形·神经网络型；ts＝ISO 字符串秒级）。数据 <SMS_HOME>/chains/<链>/<id>.json；纯标准库、零依赖。性能（2026-09-26 治「每句全量读盘 1-2s」）：all_frags 经 FC 按 (size,mtime) 增量缓存——scandir 目录遍历仅 stat 比对，改动文件才重新解析 JSON，未变文件复用缓存对象；写路径 _wj 同步刷新缓存，跨进程改动由 mtime 失效自动兜住。"""
 import os, sys, json, re, time, math, hashlib; sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import chains_git, resolve_home, atomic_io
 FC = {}  # path -> (size, mtime, frag)：all_frags 增量缓存，见 docstring
 def _toks(s):
