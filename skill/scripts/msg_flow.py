@@ -7,7 +7,7 @@ CLASS = {"llm_out": "body", "user_in": "echo", "err": "alert", "step": "status",
 FOLD = frozenset(k for k, c in CLASS.items() if c == "detail")
 def cls(kind): return CLASS.get(kind, "detail")
 def foldable(kind): return kind in FOLD
-SUB = re.compile(r"^⧉[^\s▸]*▸\s*")
+SUB = re.compile(r"^(?:⧉[^\s▸]*▸\s*)+")
 PRE = (("$ ", "tool"), ("▸ ", "step"), ("⧉", "skill"), ("! ", "sh"), ("≡", "task"), ("✎ ", "edit"), ("♪ ", "tts"), ("✗ ", "err"), ("• ", "notice"), ("◌ ", "reasoning"))
 HIDE = frozenset(("tool", "edit", "sh", "step", "task", "reasoning"))
 def kindof(t):

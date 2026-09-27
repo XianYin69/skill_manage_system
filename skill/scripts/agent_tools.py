@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """agent_tools.py — 网关大模型可用的 agent 工具核心（SMS 本体的手和脚，红线：不作答只执行）：command(=exec)/read/write/ask/skill/user_send/thinking_chain。每笔调用经 msg_flow 信封上报客户端（技能名＋工具链＋输出＋ts＋conv/sess 归属；on_line 人读行供显示·ev 回调结构化供顶栏进度/审计），task/task_detail 在 agent_task.py、schema 与派发在 agent_dispatch.py。skill＝托管技能真派发（红线17）：记 skill_call＋subsession 链→SKILL.md 全文＋用户诉求→嵌套 gateway 工具循环（前缀 ⧉技能▸ 回显）→收口子会话返回整合结果（批7④：正文已经⧉前缀实时显示给用户时返回改 WRAP 首尾片段包装·防主模型整段复读·:dispatch 见 WRAP 打收口行）；深度≤2 防子对话自路由死循环（修复用户追责「无法使用Skill完成需求」：旧版命中技能只注入 1400 字截断 SKILL.md 让网关空转、subconv 提示回填自引用致连开 8 个空对话）。write 守卫：工作区/SMS 默认可写；其余路径需 :grant write；skill 目录需 :grant danger。用法：python -B agent_tools.py（常规经网关工具调用；单跑见 agent_dispatch.py）"""
 import os, sys; sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import resolve_home, chains, msg_flow, skill_route, permissions
-SMS = resolve_home.ensure(); SKROOT = os.path.realpath(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))); CTX = {"on_line": lambda s: None, "ev": False, "depth": 0, "streamed": False}; WRAP = "【子会话正文·已经⧉前缀实时显示给用户·最终回复禁止复述引用】\n"
+SMS = resolve_home.ensure(); SKROOT = os.path.realpath(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))); CTX = {"on_line": lambda s: None, "ev": False, "depth": 0, "streamed": False, "chain": []}; WRAP = "【子会话正文·已经⧉前缀实时显示给用户·最终回复禁止复述引用】\n"
 def bind(on_line=None, ev=False):
     if on_line: CTX["on_line"] = on_line
     if ev is not False: CTX["ev"] = ev; return CTX
@@ -31,14 +31,16 @@ def run_skill(name, inp):
     s = next((x for x in skill_route.skills() if str(x.get("id", "")).lower() == str(name).strip().lower()), None)
     if not s: return "无托管技能：" + name + "（:skills 查清单）"
     if CTX["depth"] >= 2: return "拒绝：技能子会话已达 2 层（防自路由死循环）——请直接按已注入的 SKILL.md 用工具执行"
+    nm = str(s.get("id")).lower()
+    if nm in (CTX.get("chain") or []): return "拒绝：" + nm + " 自派发（本技能链已派发过它·防双 ⧉ 前缀复读循环）——请直接按已注入的 SKILL.md 用工具执行"
     ip = str(s.get("install_path")); skp = os.path.join(ip, str(s.get("entry", "SKILL.md"))); dst = resolve_home.wtmp()
     doc = skill_doc.package(ip, str(s.get("entry", "SKILL.md")), 60000)
     if not doc: return "SKILL.md 读取失败：" + skp
     chains.log("skill", "%s|src=%s|dst=%s" % (s.get("id"), skp, dst)); chains.log("sub", str(s.get("id"))); emit("skill", "开子会话派发 " + str(s.get("id")) + "（src=" + skp + "｜dst=" + dst + "）", skill=str(s.get("id")), tool="skill", meta={"src_path": skp, "dst_path": dst})
     body = "【子会话·托管技能 " + str(s.get("id")) + " 真派发】红线17：本消息结束即收口子会话。技能启用只以 SKILL.md 为准——下文已按 skill_doc 解释器打包注入 SKILL.md 全文＋明示引用子文档＋脚本调用清单，禁止列举/遍历技能目录或再回读这些文件；按流程执行用户诉求（脚本按清单 exec 一步到位）；生成文件一律入目标目录 dst=" + dst + "（env SMS_TMP）。\n" + doc + "\n\n用户诉求：\n" + str(inp)[:4000] + "\n\n最后输出整合结果（≤600字·附产物绝对路径），结束消息不要携带工具调用。"
-    of = CTX["on_line"]; CTX["streamed"] = False; pf = lambda x, _n=str(s.get("id")): (str(x).strip() and CTX.__setitem__("streamed", True), of(("⧉" + _n + "▸ ") + str(x))); CTX["on_line"] = pf; CTX["depth"] += 1
+    of = CTX["on_line"]; CTX["streamed"] = False; pf = lambda x, _n=str(s.get("id")): (str(x).strip() and CTX.__setitem__("streamed", True), of(("⧉" + _n + "▸ ") + str(x)));     CTX["on_line"] = pf; CTX["depth"] += 1; ch = CTX["chain"]; CTX["chain"] = ch + [nm]
     try: out = latency.wrap("skill", str(s.get("id")), gateway.run, body, pf, max_rounds=int(__import__("settings").get("skill.max_rounds", 12))) or ""
-    finally: CTX["on_line"] = of; CTX["depth"] -= 1
+    finally: CTX["on_line"] = of; CTX["depth"] -= 1; CTX["chain"] = ch
     chains.log("sub", "收口:" + str(s.get("id"))); emit("skill", "子会话收口 " + str(s.get("id")), skill=str(s.get("id")), tool="skill", ok=bool(out))
     return (WRAP + out[:120] + "\n……（中间省略·正文已实时显示给用户）……\n" + out[-300:] + "\n（你只看到首尾片段·无法也严禁复述全文·最终回复≤40字收尾；需数据用 read 读产物路径）") if out and CTX["streamed"] else (out or ("（技能 " + str(s.get("id")) + " 无输出）"))
 def user_send(text):

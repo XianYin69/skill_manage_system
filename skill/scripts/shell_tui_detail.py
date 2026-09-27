@@ -6,7 +6,7 @@ from textual.containers import VerticalScroll
 from textual.screen import Screen
 from textual.widgets import Static
 from shell_tui_paint import paint
-RML = re.compile(r"^(?:⧉[^\s▸]*▸\s*)?◌\s*")
+RML = re.compile(r"^(?:⧉[^\s▸]*▸\s*)*◌\s*")
 def _push(app, t):
     d = getattr(app, "details", None)
     if d is None: d = app.details = []
