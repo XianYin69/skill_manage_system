@@ -37,6 +37,7 @@ def run(text, on_line=lambda ln: None, images=None, ev=None, max_rounds=None):
         stop.check(); n += 1
         if cap and n > cap: on_line("⚠ 工具循环达 %d 轮上限——强制收口返回（caps.gateway_rounds＝0 即无限·F4 图形配置可调）" % cap); return last or "（达轮次上限·无正文输出）"
         m, err = latency.wrap("llm", cfg().get("model") or "auto", chat, msgs, on_line)
+        if m and not (m.get("tool_calls") or []) and not ((m.get("content") or "") + (m.get("reasoning_content") or "")).strip(): m, err = None, "空响应（上游 200 无正文·多为并发过载）"
         if not m and left > 0: left -= 1; time.sleep(1.2); on_line(msg_flow.brief(msg_flow.make("reasoning", "网关瞬时错误（" + str(err)[:80] + "）自动重试 " + str(R - left) + "/" + str(R) + "·stop 可中断"))); continue
         if not m: on_line("网关错误：" + str(err)[:150] + "（重试仍失败——本轮收口·未尽事项由接续注入下轮续跑）"); return last or None
         if not (tcs := m.get("tool_calls") or []): r = m.get("reasoning_content") or ""; txt = m.get("content") or ""; p = not m.get("printed"); p and r and on_line(msg_flow.brief(msg_flow.make("reasoning", r))); txt = txt or (r if p else ""); txt and on_line(txt); return txt
