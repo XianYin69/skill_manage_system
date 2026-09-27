@@ -2,6 +2,12 @@
 
 十一链：user 用户链 · memory 记忆链 · knowledge 钉选链 · logic 逻辑链 · time 时间链 · event 事件链 · session 会话链 · skill_call 调用skill链 · tool_call 调用工具链 · subsession 子会话链 · dialogue 代理对话链。
 
+## 读写时序分层（批17·chain_timing.py·链＝省 token 的介质）
+
+- 在谈链（user/logic/dialogue/session/skill_call/tool_call/subsession）＝会话中即读即写——对话进行时模型直接读写（chain 工具/每输入注入）。
+- 收口链（memory/knowledge/time/event）＝沉淀与拓扑类，会话中攒着：`chains.record`/`learn` 写入先进缓冲（假 id `buf-*`，镜像 `<SMS_HOME>/shell/deferred.json` 抗崩溃），对话收口统一 flush 落盘、边随迁真 id；上一轮崩溃残留下轮开头重放。
+- 模型直读写口＝`chain` 工具（agent_tools3.py）：recall 向量+频次检索（可限单链）、append 语句化写入、stats 计数——涉既往经验先 recall、有价值结论即 append，不经脚本裁决。
+
 ## 存储（chain_store.py，契约 [../schemas/chains.schema.json](../schemas/chains.schema.json)）
 
 - 碎片＝语句化·最小化 JSON：`{"id","chain","ts","text","vec","freq","edges"}`，存 `<SMS_HOME>/chains/<链>/<id>.json`，禁止入 skill 目录；`ts` 为 ISO 字符串（`%Y-%m-%dT%H:%M:%S`·秒级截断，跨进程比较须归一＋容差）。
@@ -20,9 +26,9 @@
 
 ## 做梦机制（dream.py，惰性触发）
 
-- `maybe()` 由 sms.py 入口、emit 会话写盘、agent_stream 派发调用；间隔＝用户设置（settings `dream.interval_min`·默认 360 分钟·程序钳 5–720），`dream.py status` 显示间隔、程序按间隔算出的下次触发时间戳（`chains/next_run_ts`·不可手动设）与到期状态。
-- 一次做梦：跨链合并近义碎片 → 修剪陈旧低频（knowledge 钉选除外）→ 重建 `chains/retrieval.md` → 高频 knowledge 同步 `memory.json` 钉选 → 记忆沉淀（dream_mem.py：高频有用碎片 knowledge/logic/user→memory 链去重写入；私人信息经 privacy.py 混淆+掩码+矩阵入 `<SMS_HOME>/privacy/`·须 grant privacy·记忆链只存引用号，供个性化对话）→ 审计对话开-收口与子会话悬挂（`chains/violations.md`）→ 错误自修（dream_fix.py：skill_errors≥3 open 逐条直调 Skill_Generator `self_update.py report` 登记，自更新运行在 Skill_Generator 侧；错误现场＝skill_errors 直调 debug.py error 通道落 debug.log）→ event 链留痕。
-- 手动：`python dream.py run|maybe|status [--sync]`。
+- `maybe()` 由 sms.py 入口、emit 会话写盘、agent_stream 派发调用；到期即拉起**分离后台子进程**执行（批17·dream_bg.py·日志 `<SMS_HOME>/logs/dream.log`·`chains/dream.lock` 防重复、45 分钟陈旧自动可再拉），对话前台零占用；间隔＝用户设置（settings `dream.interval_min`·默认 360 分钟·程序钳 5–720），`dream.py status` 显示间隔、后台态、漫游开关、程序按间隔算出的下次触发时间戳（`chains/next_run_ts`·不可手动设）与到期状态。
+- 一次做梦：跨链合并近义碎片 → 修剪陈旧低频（knowledge 钉选除外）→ 重建 `chains/retrieval.md` → 高频 knowledge 同步 `memory.json` 钉选 → 记忆沉淀（dream_mem.py：高频有用碎片 knowledge/logic/user→memory 链去重写入；私人信息经 privacy.py 混淆+掩码+矩阵入 `<SMS_HOME>/privacy/`·须 grant privacy·记忆链只存引用号，供个性化对话）→ 审计对话开-收口与子会话悬挂（`chains/violations.md`）→ 错误自修（dream_fix.py：skill_errors≥3 open 逐条直调 Skill_Generator `self_update.py report` 登记，自更新运行在 Skill_Generator 侧；错误现场＝skill_errors 直调 debug.py error 通道落 debug.log）→ **网络漫游**（批17·dream_roam.py：话题取 `dream.roam_topics` 或 user/dialogue 链高频语句→ff_lite 搜索→未访问页 learn.from_url 蒸馏入 knowledge/logic 链·须 grant network·量控 roam_pages/roam_keep·防重游 roam_seen.json）→ event 链留痕。
+- 手动：`python dream.py run|maybe|status [--sync]`（run 默认同步跑完回 JSON，`--async` 走后台拉起；`chain_timing.py status|flush` 查/清收口缓冲）。
 
 ## 各链与做梦设置（config 段 chains / dream，settings.py 统一改）
 

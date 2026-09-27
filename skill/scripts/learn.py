@@ -7,15 +7,13 @@ SMS = resolve_home.ensure()
 def note(text, chain="knowledge", to="", rel="semantic"):
     text = " ".join(str(text).split())
     if len(text) < 4: return "语句过短，未记录"
-    st = cs.Store(SMS); fid = st.add(chain, text)
-    if to and fid and not str(fid).startswith("ERR"): st.link(fid, to, rel)
+    fid = chains.record(chain, text, [[to, rel, 1.0]] if to else None)
     chains.log("tool", "learn:note:" + chain); dream.maybe(SMS); return fid
 def _absorb(sents, tag):
-    st = cs.Store(SMS); prev, n = None, 0
+    prev, n = None, 0
     for s in sents:
-        fid = st.add("knowledge", "%s %s" % (tag, s.strip()[:200]))
+        fid = chains.record("knowledge", "%s %s" % (tag, s.strip()[:200]), [[prev, "causal", 0.8]] if prev else None)
         if fid and not str(fid).startswith("ERR"):
-            if prev: st.link(prev, fid, "causal", 0.8)
             prev = fid; n += 1
     chains.log("tool", "learn:absorb:%d" % n); dream.maybe(SMS); return n
 def from_url(url, keep=6):

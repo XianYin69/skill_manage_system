@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""agent_dispatch.py — agent 工具 schema 与派发（gateway 工具循环与 CLI 共用·单一真源）：SCHEMA＝OpenAI function 清单 exec·read·write·skill·ask·task·task_detail·user_send·thinking_chain·glob·grep·ls·webfetch（read 一族与联网取文 2026-09-26 集成，实现见 agent_tools2.py）；execute(name, raw_args)→agent_tools/agent_task 对应实现，参数按形参名过滤、异常回错误文本给模型（不中断工具循环）。工具权限——settings agent_tools.<name>（默认 true）门控：tools_schema() 供 gateway 只暴露启用工具、execute() 拒调禁用工具，菜单 F1→大模型工具权限 或 `:tools`/`:config set agent_tools.read false` 增删。用法：python -B agent_dispatch.py call <工具> '<json>' | skill <id> <诉求> | task <诉求> | detail [task-id] | tools [enable|disable <name>]"""
+"""agent_dispatch.py — agent 工具 schema 与派发（gateway 工具循环与 CLI 共用·单一真源）：SCHEMA＝OpenAI function 清单 exec·read·write·skill·ask·task·task_detail·user_send·thinking_chain·chain·debate·glob·grep·ls·webfetch（read 一族与联网取文 2026-09-26 集成见 agent_tools2.py；批17 链直读写 chain 与双链辩论 debate 见 agent_tools3.py）；execute(name, raw_args)→agent_tools/agent_task 对应实现，参数按形参名过滤、异常回错误文本给模型（不中断工具循环）。工具权限——settings agent_tools.<name>（默认 true）门控：tools_schema() 供 gateway 只暴露启用工具、execute() 拒调禁用工具，菜单 F1→大模型工具权限 或 `:tools`/`:config set agent_tools.read false` 增删。用法：python -B agent_dispatch.py call <工具> '<json>' | skill <id> <诉求> | task <诉求> | detail [task-id] | tools [enable|disable <name>]"""
 import os, sys, json
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import agent_tools as at, agent_tools2 as a2, agent_task as atk, task_table as tt, settings
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import agent_tools as at, agent_tools2 as a2, agent_tools3 as a3, agent_task as atk, task_table as tt, settings
 P = lambda t, d: {"type": t, "description": d}; F = lambda n, d, p, r: {"type": "function", "function": {"name": n, "description": d, "parameters": {"type": "object", "properties": p, "required": r}}}
 SCHEMA = [F("exec", "执行 shell 命令（cwd＝工作区·生成文件入 tmp）", {"cmd": P("string", "命令")}, ["cmd"]),
  F("read", "读文本文件", {"path": P("string", "路径"), "max_lines": P("integer", "最多行数")}, ["path"]),
@@ -17,8 +17,10 @@ SCHEMA = [F("exec", "执行 shell 命令（cwd＝工作区·生成文件入 tmp�
  F("grep", "文件内容正则检索（跳过 .git/__pycache__/node_modules）", {"pattern": P("string", "正则"), "path": P("string", "基目录"), "include": P("string", "文件名过滤如 *.py"), "max": P("integer", "最多命中")}, ["pattern"]),
  F("ls", "目录清单（默认工作区）", {"path": P("string", "目录")}, []),
  F("webfetch", "网页取文（仅 http(s)·须先 :grant network）", {"url": P("string", "http(s) URL"), "chars": P("integer", "最多字符")}, ["url"]),
+ F("chain", "十一链直接读写（链＝省 token 的记忆介质·批17）：op=recall 按查询检索链经验（可限单链·链名或 all）、op=append 把一条结论/经验写入链（memory/knowledge/logic/user…·收口链对话收口时落盘）、op=stats 各链计数——涉及既往经验先 recall 再答，得出有价值结论即 append", {"op": P("string", "recall|append|stats"), "chain": P("string", "链名或 all"), "query": P("string", "检索词（recall）"), "text": P("string", "语句（append）"), "to": P("string", "可选：挂边目标碎片 id"), "rel": P("string", "边关系 semantic|causal|ref")}, ["op"]),
+ F("debate", "正反双辩论（Skill_Generator 辩论链思想）：对论断铺 pro/con 论据清单生成双链＋verdict 记逻辑链——决策岔路先自辩修正路径（人多在回路旁），裁决仅供参考、最终在你", {"claim": P("string", "论断"), "pro": {"type": "array", "items": {"type": "string"}, "description": "正方论据清单"}, "con": {"type": "array", "items": {"type": "string"}, "description": "反方论据清单"}}, ["claim"]),
  F("ask_user", "任务进行中向用户提问并阻塞等待其屏幕应答（一次一问·简短；无交互壳会立即返回说明）", {"question": P("string", "要问用户的问题")}, ["question"])]
-REG = {"read": at.read, "write": at.write, "command": at.command, "skill": at.run_skill, "ask": at.ask, "task": atk.task, "task_detail": atk.task_detail, "task_plan": tt.revise, "user_send": at.user_send, "thinking_chain": at.thinking_chain, "glob": a2.glob, "grep": a2.grep, "ls": a2.ls, "webfetch": a2.webfetch, "ask_user": lambda question: __import__("ask_channel").ask(question)}
+REG = {"read": at.read, "write": at.write, "command": at.command, "skill": at.run_skill, "ask": at.ask, "task": atk.task, "task_detail": atk.task_detail, "task_plan": tt.revise, "user_send": at.user_send, "thinking_chain": at.thinking_chain, "chain": a3.chain, "debate": a3.debate, "glob": a2.glob, "grep": a2.grep, "ls": a2.ls, "webfetch": a2.webfetch, "ask_user": lambda question: __import__("ask_channel").ask(question)}
 NAMES = [f["function"]["name"] for f in SCHEMA]
 def tool_on(n): return bool(settings.get("agent_tools." + n, True))
 def tools_schema(): return [f for f in SCHEMA if tool_on(f["function"]["name"])]
