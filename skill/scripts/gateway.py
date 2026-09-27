@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """gateway.py — SMS 原生大模型网关（OpenAI 兼容·TUI 默认直连）：config llm_gateway{enabled,base_url,api_key,api_key_env,model}；对话/工具/视觉不依赖 agent CLI——run() 工具循环经 agent_dispatch 执行 exec/read/write/skill/ask/task/task_detail/user_send/thinking_chain 并回填（子进程 UTF-8 中文·附图 base64（>800KB 经可选 Pillow 缩为 JPEG）），首条恒为 SYS 系统提示词（SMS 治理红线＋涉及 SMS 设置/命令必先工具查证）；输出区治理（批7②）：只有末轮（无 tool_calls）正文经 on_line 上主输出，工具轮 content/reasoning 与非流式思考全走 ◌ reasoning 信封进 F9/detail.json——思考混进 content 的上游同样不漏进主屏；工具输出与进度经 msg_flow 信封（on_line 人读行＋ev 结构化回调供顶栏 task 进度）；每次调用记 tool_call 链（挂当前 conv/sess 边）。用法：python -B gateway.py ask|models|doctor "<文本>" [图片路径…]。"""
 import os, sys, json, base64, urllib.request
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import resolve_home, chains, settings, msg_flow, agent_dispatch as ad, latency
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import resolve_home, chains, settings, msg_flow, agent_dispatch as ad, latency, stop_channel as stop
 def _b64img(p):
     if os.path.getsize(p) > 800_000:
         try:
@@ -36,12 +36,13 @@ def run(text, on_line=lambda ln: None, images=None, ev=None, max_rounds=None):
     ad.bind(on_line=on_line, ev=ev if ev is not None else False); cap = max_rounds or int(settings.get("gateway.max_rounds", 24)); n = 0; last = ""  # 轮次上限熔断：修复子技能已输出结束信息仍收不了口＝整壳卡死根因之一
     msgs = [image_message(text, images) if images else {"role": "user", "content": text}]
     while True:
+        stop.check()
         if (n := n + 1) > cap: on_line("⚠ 工具循环达 %d 轮上限——强制收口返回（可调 settings gateway.max_rounds）" % cap); return last or "（达轮次上限·无正文输出）"
         m, err = latency.wrap("llm", cfg().get("model") or "auto", chat, msgs, on_line)
         if not m: on_line("网关错误：" + err); return last or None
         if not (tcs := m.get("tool_calls") or []): r = m.get("reasoning_content") or ""; txt = m.get("content") or ""; p = not m.get("printed"); p and r and on_line(msg_flow.brief(msg_flow.make("reasoning", r))); txt = txt or (r if p else ""); txt and on_line(txt); return txt
         r = m.get("reasoning_content") or ""; c = "" if m.get("printed") else (m.get("content") or ""); (x := (r + (("过程·" + c) if c else ""))[:2000]) and on_line(msg_flow.brief(msg_flow.make("reasoning", x))); msgs.append(m); last = m.get("content") or last
-        for tc in tcs: f = tc.get("function") or {}; res = latency.wrap("tool", str(f.get("name", "")), ad.execute, str(f.get("name", "")), str(f.get("arguments") or "{}")); msgs.append({"role": "tool", "tool_call_id": tc.get("id", ""), "content": str(res)[:4000] or "(无输出)"})
+        for tc in tcs: f = tc.get("function") or {}; res = latency.wrap("tool", str(f.get("name", "")), ad.execute, str(f.get("name", "")), str(f.get("arguments") or "{}")); stop.check(); msgs.append({"role": "tool", "tool_call_id": tc.get("id", ""), "content": str(res)[:4000] or "(无输出)"})
 if __name__ == "__main__":
     a = sys.argv[1:] or ["doctor"]; cmd, arg, c = a[0], " ".join(a[1:]), cfg()
     if cmd == "doctor": print(json.dumps({"enabled": bool(c.get("enabled")), "base_url": c.get("base_url"), "model": c.get("model"), "key": "set" if c.get("api_key") else "missing"}, ensure_ascii=False))
