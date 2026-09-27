@@ -8,7 +8,9 @@ def chain(op="recall", chain="all", query="", text="", to="", rel="semantic"):
     if op == "append":
         if chain not in chains.CHAINS: return "未知链：" + chain + "（候选：" + "、".join(chains.CHAINS) + "）"
         fid = chains.record(chain, str(text), [[to, rel, 1.0]] if to else None)
-        at.emit("step", "链已记 " + chain + " " + str(fid)[:14], tool="chain"); return ("已写入 " + chain + " 链 " + str(fid)) if fid and not str(fid).startswith("ERR") else str(fid)
+        at.emit("step", "链已记 " + chain + " " + str(fid)[:14], tool="chain")
+        if str(fid).startswith("buf-"): return "已缓冲 " + chain + " 链（收口链·对话收口时落盘换真 id，暂持 " + str(fid) + " 勿作持久引用）"
+        return ("已写入 " + chain + " 链 " + str(fid)) if fid and not str(fid).startswith("ERR") else str(fid)
     st = cs.Store(SMS); qv = cs.vec(str(query))
     if op == "stats":
         c = {}
