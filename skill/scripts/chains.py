@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""chains.py — 十一链记录 API（用户/记忆/逻辑/时间/事件/会话/调用skill/调用工具/子会话/对话/钉选knowledge）＋双层对话规则（红线 17：每次输入＝开新对话、结束即收口；用 agent 的 skill 必开子会话并收口，dream 审计）＋会话层 sess（session＝多对话容器，防跨会话污染：session/skill_call/tool_call/subsession/dialogue 碎片打 member→sess 边，prompt_pack 检索只收当前 sess）；清单存 <SMS_HOME>/shell/sessions.json＋current_session。用法：python -B chains.py <链> "<语句>" [--to <目标>] [--rel 关系] | session new [名]|list|use <id>|current | log <skill|tool|sub> "<名>" | list [链]"""
+"""chains.py — 十一链记录 API（用户/记忆/逻辑/时间/事件/会话/调用skill/调用工具/子会话/对话/钉选knowledge）＋双层对话规则（红线 17：每次输入＝开新对话、结束即收口；用 agent 的 skill 必开子会话并收口，dream 审计）＋会话层 sess（session＝多对话容器，防跨会话污染：session/skill_call/tool_call/subsession/dialogue 碎片打 member→sess 边，prompt_pack 检索只收当前 sess）；清单存 <SMS_HOME>/shell/sessions.json＋current_session；批17 读写时序分层——在谈链（user/logic/dialogue/session/skill_call/tool_call/subsession）会话中即写，收口链（memory/knowledge/time/event）对话中经 chain_timing 缓冲、收口统一落盘。用法：python -B chains.py <链> "<语句>" [--to <目标>] [--rel 关系] | session new [名]|list|use <id>|current | log <skill|tool|sub> "<名>" | list [链]"""
 import os, sys, json, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import resolve_home, chain_store
+import resolve_home, chain_store, chain_timing
 CHAINS = ("user", "memory", "logic", "time", "event", "session", "skill_call", "tool_call", "subsession", "dialogue", "knowledge")
 ISO = ("session", "skill_call", "tool_call", "subsession", "dialogue")
 RULE = "对话规则：本对话为新开对话，仅当前输入有效；压缩记忆仅供背景引用；输出结束后结束本对话；凡使用 agent 的 skill 必须另开子会话执行、完成后立即关闭子会话（禁止续用旧对话）；子会话收口＝返回 SMS 主流程继续调度（任务表未完行续推·整合·或答用户），不得以子技能完成为由结束整段对话；本对话收口仅指当前输入一轮收尾，壳持续接收下一输入。"
 ACTIVE = {"conv": "", "sess": ""}
 def store(): return chain_store.Store(resolve_home.ensure())
-def record(chain, text, edges=None): return store().add(chain, text, edges) if chain in CHAINS else "ERR 未知链：" + chain + "（候选：" + "、".join(CHAINS) + "）"
+def record(chain, text, edges=None): return chain_timing.buffer(chain, text, edges) if chain in CHAINS and chain_timing.deferred(chain) else store().add(chain, text, edges) if chain in CHAINS else "ERR 未知链：" + chain + "（候选：" + "、".join(CHAINS) + "）"
 def session_id(): return "conv-" + time.strftime("%Y%m%d-%H%M%S")
 def _st(n): p = os.path.join(resolve_home.ensure(), "shell"); os.makedirs(p, exist_ok=True); return os.path.join(p, n)
 def _smap():
