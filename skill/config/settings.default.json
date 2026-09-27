@@ -22,7 +22,7 @@
     "default": { "enabled": true, "merge_thr": 0.92, "prune_days": 14, "min_freq": 1 },
     "comment": "各链设置：chains.<链名> 覆盖 default（user/memory/logic/time/event/session/skill_call/tool_call/subsession/dialogue）；enabled=false 即停写该链；knowledge 钉选链不受修剪影响"
   },
-  "dream": { "enabled": true, "comment": "做梦机制：enabled＝开关；触发时间由程序按链规模自动计算（间隔 45→720 分钟浮动·chains/next_run_ts 调度），用户不可设置间隔；:dream status|run" },
+  "dream": { "enabled": true, "interval_min": 360, "comment": "做梦机制：enabled＝开关；interval_min＝用户设置的做梦间隔（分钟·程序钳 5–720·默认 360）；运行时间戳由程序按间隔自动计算写 chains/next_run_ts 到点触发（next_run 非配置键不可手动设）；做梦＝整理十一链与会话＋错误自修登记（dream_fix→Skill_Generator self_update·错误经 skill_errors 直调 debug 错误通道留现场）＋记忆沉淀（dream_mem→memory 链·私人信息经 privacy 变换入 privacy/ 供个性化）；:dream status|run" },
   "web_shell": { "enabled": true, "host": "127.0.0.1", "port": 8737, "comment": "本地加密网页壳（web_shell.py）：HTTPS 自签指纹证书＋配对 token；:web start|stop|token" },
   "external": {
     "enabled": false,
