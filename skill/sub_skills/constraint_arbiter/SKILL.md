@@ -11,7 +11,7 @@ metadata:
 
 # constraint_arbiter
 
-SMS 的**约束冲突仲裁**子技能：多技能同时命中、或技能 SKILL.md 红线与 SMS 治理/彼此互斥时，先派本技能出「执行约束序＋冲突裁决」，再按裁决派发（红线 4/6：仲裁也是托管技能在跑，SMS 本体不拍脑袋）。
+使用 `constraint_arbiter` skill 来完成用户请求。SMS 的**约束冲突仲裁**子技能：多技能同时命中、或技能 SKILL.md 红线与 SMS 治理/彼此互斥时，先派本技能出「执行约束序＋冲突裁决」，再按裁决派发（红线 4/6：仲裁也是托管技能在跑，SMS 本体不拍脑袋）。
 
 ## 何时派发
 
@@ -22,8 +22,8 @@ SMS 的**约束冲突仲裁**子技能：多技能同时命中、或技能 SKILL
 ## 用法
 
 ```
-python -B skill/scripts/arbiter.py judge <技能id[,id…]> [用户话语]
-python -B skill/scripts/arbiter.py constraints <技能id[,id…]> --json
+python -B skill/sub_skills/constraint_arbiter/scripts/arbiter.py judge <技能id[,id…]> [用户话语]
+python -B skill/sub_skills/constraint_arbiter/scripts/arbiter.py constraints <技能id[,id…]> --json
 ```
 
 - 优先级阶梯恒定：**P0 用户当轮话语 ＞ P1 SMS 治理（AGENTS＋resistance）＞ P2 目标技能红线节 ＞ P3 描述行**。

@@ -35,7 +35,7 @@ def run(sms, name, args):
             toks = [t.strip('"') for x in shlex.split(body, posix=False) for t in (args[len(subs):] if x == "{args}" else [sstr(x)])]
             p = subprocess.run([sys.executable, "-B", os.path.join(HERE, toks[0])] + toks[1:], capture_output=True, text=True, encoding="utf-8", errors="replace")
             out.append({"script": " ".join(toks), "rc": p.returncode, "out": (p.stdout or p.stderr).strip()[:400]})
-        elif kind == "delegate": out.append({"delegate": sstr(body), "next": "回 SMS：dispatch 派托管 skill 执行、SMS 整合结果作答（红线 6，本体不作答）"})
+        elif kind == "delegate": out.append({"delegate": sstr(body), "next": "回 SMS：dispatch 派托管 skill 执行、整合结果作答（红线 6·批16 LLM 主导：动手必真执行）"})
         else: out.append({"say": sstr(body)})
     return {"command": name, "executed": out}
 if __name__ == "__main__":

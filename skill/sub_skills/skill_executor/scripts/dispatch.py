@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """dispatch.py — 依据 task.json + register.json 规划子任务→技能→工具→权限。"""
 import os, sys, json, time
-
+sys.path[:0] = [os.path.dirname(os.path.abspath(__file__)), os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "scripts"))]
 PERMS = {
     "read": "read", "glob": "read", "grep": "read", "semantic_search": "read",
     "skill": "read", "question": "read", "list_mcp_resources": "read", "read_mcp_resource": "read",

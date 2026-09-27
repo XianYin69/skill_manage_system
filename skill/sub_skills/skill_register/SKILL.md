@@ -1,4 +1,4 @@
----
+﻿---
 name: skill_register
 description: >
   标记用户电脑上技能的安装位置与所用工具，扫描各安装根目录，
@@ -10,7 +10,7 @@ metadata:
 
 # skill_register
 
-标记用户电脑上技能的**安装位置**与**所用工具**，生成 `SMS/registry/register.json`。
+使用 `skill_register` skill 来完成用户请求。 标记用户电脑上技能的**安装位置**与**所用工具**，生成 `SMS/registry/register.json`。
 
 ## 输入
 

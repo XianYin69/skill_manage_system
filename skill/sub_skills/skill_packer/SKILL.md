@@ -1,4 +1,4 @@
----
+﻿---
 name: skill_packer
 description: >
   读取 skill_register 的 register.json，描述每个技能的可用接口与用途，
@@ -10,7 +10,7 @@ metadata:
 
 # skill_packer
 
-描述用户电脑上技能的**可用接口**与**用途**，生成 `SMS/registry/interfaces.json`。
+使用 `skill_packer` skill 来完成用户请求。 描述用户电脑上技能的**可用接口**与**用途**，生成 `SMS/registry/interfaces.json`。
 
 ## 输入
 

@@ -6,7 +6,7 @@ P = lambda t, d: {"type": t, "description": d}; F = lambda n, d, p, r: {"type": 
 SCHEMA = [F("exec", "执行 shell 命令（cwd＝工作区·生成文件入 tmp）", {"cmd": P("string", "命令")}, ["cmd"]),
  F("read", "读文本文件", {"path": P("string", "路径"), "max_lines": P("integer", "最多行数")}, ["path"]),
  F("write", "写文本文件（工作区/SMS 默认可写，越界需授权）", {"path": P("string", "路径"), "content": P("string", "内容"), "append": P("boolean", "是否追加")}, ["path", "content"]),
- F("skill", "把诉求派发给托管技能在其子会话按其 SKILL.md 全文执行（命中技能必须用它，禁止自行代答）", {"name": P("string", "技能id"), "input": P("string", "用户诉求")}, ["name", "input"]),
+ F("skill", "把诉求派发给托管技能在其子会话按其 SKILL.md 全文执行（执行类诉求用真派发；纯问答可直答不强制）", {"name": P("string", "技能id"), "input": P("string", "用户诉求")}, ["name", "input"]),
  F("ask", "子问答：需要独立小答案时用（≤300字·不面向用户复述）", {"question": P("string", "问题")}, ["question"]),
  F("task", "把复合诉求拆分为子任务并行执行并整合（进度实时上顶栏）", {"intent": P("string", "诉求")}, ["intent"]),
  F("task_detail", "查询任务进度（id 空＝最近清单）", {"id": P("string", "任务id")}, []),

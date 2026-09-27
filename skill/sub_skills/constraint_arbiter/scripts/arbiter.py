@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """arbiter.py — 约束冲突仲裁子技能（constraint_arbiter）执行体（2026-09-26 批4 用户需求「多 skill 约束冲突时处理决策冲突」）：多技能同时命中/多 SKILL.md 约束互相打架时，SMS 先派本技能仲裁再执行。确定性优先级阶梯（不可逾越）：P0 用户当轮话语 ＞ P1 SMS 治理（AGENTS.md＋resistance 红线）＞ P2 目标技能 SKILL.md 红线节 ＞ P3 子技能/接口描述行。检测＝约束句抽 2-gram 主题词，同主题（交集≥2）且极性相反（禁/不得/勿 vs 必须/须/应/仅）判为冲突；裁决＝低序号方胜出，同级冲突不擅断→输出「请用户拍板」建议问句。结果记 logic 链（frm→to：why）供审计与做梦。用法：python -B arbiter.py judge <技能id[,id…]> [话语] | constraints <技能id> [--json]"""
 import os, sys, json, re
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import resolve_home, chains, skill_route
+sys.path[:0] = [os.path.dirname(os.path.abspath(__file__)), os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "scripts"))]; import resolve_home, chains, skill_route
 SMS = resolve_home.ensure(); NEG = re.compile("禁止|不得|勿|不要|拒|禁"); POS = re.compile("必须|须|应|仅|只|要"); CL = re.compile("禁止|不得|勿|不要|拒|禁|必须|须|应|仅|只|要")
 def _big(s): t = re.sub(r"\s+", "", str(s)); return {t[i:i + 2] for i in range(len(t) - 1) if "\u4e00" <= t[i] <= "\u9fff"}
 def _cons(text, rank, src):
@@ -12,7 +12,7 @@ def _cons(text, rank, src):
     return out
 def load(ids):
     cs = []
-    ag = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "AGENTS.md")
+    ag = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "AGENTS.md"))
     if os.path.exists(ag): cs += _cons(open(ag, encoding="utf-8").read(), 1, "SMS治理")
     rs = open(os.path.join(os.path.dirname(ag), "resistance", "resistance.md"), encoding="utf-8").read() if os.path.exists(os.path.join(os.path.dirname(ag), "resistance", "resistance.md")) else ""
     if rs: cs += _cons(rs, 1, "SMS治理")

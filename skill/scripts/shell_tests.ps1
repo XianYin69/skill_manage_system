@@ -2,11 +2,8 @@
 $root = Split-Path (Split-Path $PSScriptRoot); $bin = Join-Path $root 'bin\sms-shell.cmd'
 $rep = Join-Path $root 'tmp\shell_tests_report.txt'; $fail = 0; $lines = @()
 function RunOne([string[]]$argvs) { (& $bin @argvs 2>&1 | Out-String) }
-function T([string]$desc, [string[]]$argvs, [string[]]$expects) {
-  $out = RunOne $argvs
-   $miss = @($expects | Where-Object { $out.IndexOf($_, [System.StringComparison]::Ordinal) -lt 0 })
-  if ($miss.Count -eq 0) { $script:lines += ('PASS ' + $desc) } else { $script:fail++; $e = ($out -replace '\s+', ' '); if ($e.Length -gt 260) { $e = $e.Substring(0, 260) }; $script:lines += ('FAIL ' + $desc + ' 缺[' + ($miss -join ';') + '] 实际: ' + $e) }
-}
+function T([string]$desc, [string[]]$argvs, [string[]]$expects) { $out = RunOne $argvs; $miss = @($expects | Where-Object { $out.IndexOf($_, [System.StringComparison]::Ordinal) -lt 0 }); if ($miss.Count -eq 0) { $script:lines += ('PASS ' + $desc) } else { $script:fail++; $e = ($out -replace '\s+', ' '); if ($e.Length -gt 260) { $e = $e.Substring(0, 260) }; $script:lines += ('FAIL ' + $desc + ' 缺[' + ($miss -join ';') + '] 实际: ' + $e) } }
+function TN([string]$desc, [string[]]$argvs, [string]$bad) { $out = RunOne $argvs; if ($out.IndexOf($bad, [System.StringComparison]::Ordinal) -lt 0) { $script:lines += ('PASS ' + $desc) } else { $script:fail++; $script:lines += ('FAIL ' + $desc + ' 误回技能清单') } }
 T '裸 help＝内置速查表（精简）' @('help') @('元指令', '全量命令表')
 T '裸 ?＝内置' @('?') @('元指令')
 T ':help 单发' @(':help') @(':config', ':quit', ':dispatch', ':sh', ':mode')
@@ -44,6 +41,8 @@ if (-not $Offline) {
   $t4 = RunOne @(':session', 'new', 'ps1冒烟')
   if ($t4 -match 'sess-') { $lines += 'PASS :session new 会话层单发' } else { $fail++; $lines += ('FAIL :session new: ' + ($t4 -replace '\s+', ' ').Trim()) }
   RunOne @(':session', 'use', ($t4 -replace '[^a-zA-Z0-9\-]', ' ' ).Trim().Split(' ')[-1]) | Out-Null
+  TN '建技能动作话语不被清单劫持（批15）' @('你可以新建技能吗') '可调用托管技能'
+  TN '编程技能思路话语不被清单劫持（批15）' @('建立一个通用编程技能 思路和 技能生成器一样') '可调用托管技能'
 }
 $lines += ('TOTAL fail=' + $fail)
 [IO.File]::WriteAllLines($rep, [string[]]$lines, (New-Object Text.UTF8Encoding $true))

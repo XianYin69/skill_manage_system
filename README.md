@@ -1,6 +1,6 @@
-# skill_manage_system（SMS）— 独立智能体工具
+﻿# skill_manage_system（SMS）— 独立智能体工具
 
-技能操作系统的**独立智能体工具**（非客户端 skill 包）：以 `sms-shell` 为交互入口、`skill/scripts/` 为引擎，调度电脑上已安装的 agent CLI 与技能生态——本身不作答，一切用户请求经数据流派给已装 agent / 托管 skill 执行、由 SMS 整合结果作答（无匹配→委托 Skill_Generator 创建后执行，不可得→明确拒绝）。工具全部层集中于 `skill/`：skill 身份（SKILL.md/AGENTS.md/agent/ 四格式提示词）、`scripts/` 引擎、`schemas/` 契约、`config/` 模板、`resistance/` 红线、`sub_skills/` 子技能；根目录只留跨 OS 入口（sms.py/sms/sms.cmd）与部署包 `bin/`（sms-shell 统一入口：交互壳＋`api` 格式 API 子命令），工具本体不依赖客户端发现机制。
+技能操作系统的**独立智能体工具**（非客户端 skill 包）：以 `sms-shell` 为交互入口、`skill/scripts/` 为引擎，调度电脑上已安装的 agent CLI 与技能生态——批16 起 LLM 主导·脚本辅助：纯知识问答由大模型直答，动手类请求经数据流派给已装 agent / 托管 skill 真执行、整合结果作答（无匹配→委托 Skill_Generator 创建后执行，不可得→明确拒绝）。工具全部层集中于 `skill/`：skill 身份（SKILL.md/AGENTS.md/agent/ 四格式提示词）、`scripts/` 引擎、`schemas/` 契约、`config/` 模板、`resistance/` 红线、`sub_skills/` 子技能；根目录只留跨 OS 入口（sms.py/sms/sms.cmd）与部署包 `bin/`（sms-shell 统一入口：交互壳＋`api` 格式 API 子命令），工具本体不依赖客户端发现机制。
 
 ## 结构
 
@@ -22,10 +22,10 @@ python -B skill/scripts/session.py "查天气，然后写报告" --write
 python -B skill/scripts/permissions.py grant write --write
 python -B skill/scripts/init_registry.py --write
 python -B skill/scripts/task.py "查天气，然后写报告" --write
-python -B skill/scripts/scheduler.py "查天气，然后写报告" --slots 3 --write
+python -B skill/sub_skills/skill_scheduler/scripts/scheduler.py "查天气，然后写报告" --slots 3 --write
 python -B skill/scripts/process.py spawn skill_connector --write
 python -B skill/scripts/bootstrap.py --write
-python -B skill/scripts/dispatch.py --write
+python -B skill/sub_skills/skill_executor/scripts/dispatch.py --write
 # 个性化指令（如 skill-update→委托 Skill_Generator 迭代）与任务进行时顶面 HUD
 python -B skill/scripts/commands.py alias skill-update --desc="迭代指定 skill" --args=skill,需求 --step="script:session.py 迭代{skill}" --step="delegate:Skill_Generator 修改 {skill}：{需求}" --write
 python -B skill/scripts/hud.py session "SMS 任务进行中"

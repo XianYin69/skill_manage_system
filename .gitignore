@@ -10,3 +10,5 @@ sessions/
 config/config.json
 .DS_Store
 *.out
+
+_*  # scratch output
