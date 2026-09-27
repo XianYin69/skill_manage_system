@@ -17,7 +17,7 @@ def wrap(on_line):
     def w(s):
         t = str(s)
         if msg_flow.visible(t): on_line(t)
-        else: record(t)
+        elif not msg_flow.blank(t): record(t)
     return w
 if __name__ == "__main__":
     a = sys.argv[1:]

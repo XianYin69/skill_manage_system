@@ -15,7 +15,7 @@ def _push(app, t):
     app.details = d[-60:]
 def split(app, s):
     t = str(s)
-    if not msg_flow.visible(t): _push(app, t); return None
+    if not msg_flow.visible(t): (not msg_flow.blank(t)) and _push(app, t); return None
     return paint(t)
 class Details(Screen):
     CSS = "Details{background:#11111b} Details>VerticalScroll{width:100%;max-width:170;height:100%;background:#181825;border:heavy #89b4fa;padding:1 2} Details VerticalScroll>Static{width:100%;text-wrap:wrap}"
