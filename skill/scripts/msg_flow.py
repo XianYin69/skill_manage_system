@@ -17,6 +17,7 @@ def kindof(t):
     return next((k for p, k in PRE if base.startswith(p)), "llm_out"), bool(m)
 def blank(t):
     t = str(t); m = SUB.match(t); return not (t[m.end():] if m else t).strip()
+def fmt(s): s = max(0, int(s or 0)); return ("约剩 %dm%02ds" % divmod(s, 60)) if s >= 60 else ("约剩 %ds" % s)
 def visible(t):
     if blank(t): return False
     k, sub = kindof(t); return not (k in HIDE or (k == "skill" and not sub))
@@ -33,7 +34,7 @@ def parse(s):
     return e if isinstance(e, dict) and e.get("v") == 1 and e.get("kind") in KINDS else None
 def brief(e, jsonline=False):
     if jsonline: return dumps(e)
-    m = e.get("meta") or {}; tag = {"task": "≡ %s %s/%s" % (e.get("skill") or e.get("tool"), m.get("done", 0), m.get("total", 0))}.get(e["kind"])
+    m = e.get("meta") or {}; tag = {"task": "≡ %s %s/%s%s" % (e.get("skill") or e.get("tool"), m.get("done", 0), m.get("total", 0), (" ▸" + fmt(m["eta_s"])) if m.get("eta_s") else "")}.get(e["kind"])
     if not tag:
         head = {"user_in": "✎ ", "llm_out": "", "tool": "$ ", "skill": "⧉ ", "step": "▸ ", "notice": "• ", "err": "✗ ", "edit": "✎ ", "sh": "! ", "tts": "♪ ", "reasoning": "◌ "}.get(e["kind"], "")
         bits = [x for x in ((("技能:" + e["skill"]) if e.get("skill") else ""), (("工具:" + e["tool"]) if e.get("tool") else "")) if x]

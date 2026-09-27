@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """agent_stream.py — sms-shell 数据流引擎：默认直达系统原生网关（config llm_gateway.enabled→gateway），网关未启用才回退已装 agent CLI；每次输入＝开新对话（红线 17），会话层 chains.set_active(conv/sess)＋session/dialogue 碎片打 member→sess 边；工作区＝gateway exec 与 agent CLI 的 cwd；技能路由命中→SMS 直接经 agent_tools.run_skill 开子会话真派发，未命中→chains.conversation 压缩记忆＋SKILL.md 索引＋治理注入送网关；话语/工具/技能/任务输出全程 msg_flow 信封（on_line 人读行＋ev 回调供 TUI 顶栏进度）；各阶段步骤名经 st 回调上报；尾行 [图:<路径>] 为网关视觉附图；状态存 <SMS_HOME>/shell/；皆无则拒绝（本体不作答）。"""
-import os, sys, shutil, subprocess, concurrent.futures as cf
+import os, sys, shutil, subprocess
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import resolve_home, chains, dream, gateway, model_meta, tts, skill_route, prompt_builder, workspace as ws, agent_tools as at, shell_resume as sr, stop_channel as stop
+import resolve_home, chains, dream, gateway, model_meta, tts, skill_route, prompt_builder, workspace as ws, agent_tools as at, shell_resume as sr, stop_channel as stop, agent_task as atk, task_table as tt
 SMS = resolve_home.ensure(); STATE = os.path.join(SMS, "shell")
 ADAPTERS = {"claude": {"bin": "claude", "args": ["-p"]}, "codex": {"bin": "codex", "args": ["exec"]}, "cursor": {"bin": "cursor-agent", "args": []}, "kilocode": {"bin": "kilocode", "args": ["run"]}, "kilo": {"bin": "kilo", "args": ["run"]}, "aider": {"bin": "aider", "args": ["--message"]}}
 def adapters():
@@ -31,14 +31,13 @@ def ask(text, on_line, st=lambda n: None, ev=None):
     chains.record("dialogue", "user@" + conv + " " + text[:200], _edge(conv)); rc = 0; st("话语送数据流")
     try:
         if sid2 and spec.get("native"):
-            names = sid2.split(","); st("派发子会话：" + sid2 + ("（%d 技能并行）" % len(names) if len(names) > 1 else ""))
-            with cf.ThreadPoolExecutor(max_workers=min(3, max(1, len(names)))) as ex: list(ex.map(lambda n: at.run_skill(n, text), names))
-            on_line("【SMS 整合】" + sid2 + " 子会话输出如上（⧉ 前缀）；不满意可 :dispatch " + names[0] + " <更具体诉求> 重派")
+            names = sid2.split(","); st("任务表拆分派发：" + sid2 + ("（%d 技能·task_table 同库建表）" % len(names) if len(names) > 1 else "")); rep = atk.task(text)
+            on_line("【SMS 整合】" + str(rep)[:1200] + ("\n…" if len(str(rep)) > 1200 else "") + "（任务表与子会话 ⧉ 输出如上·不满意可 task_plan 改表或 :dispatch " + names[0] + " <更具体诉求> 重派）")
         elif spec.get("native"):
-            body = sr.prefix() + (text if not prefix_on() else chains.conversation(compose(text, SMS) + "\n\n" + inj)); st("提示词构建·压缩记忆组装·网关流式执行")
+            body = sr.prefix() + tt.attach(text) + (text if not prefix_on() else chains.conversation(compose(text, SMS) + "\n\n" + inj)); st("提示词构建·任务表（非通用回答自动制表）·压缩记忆组装·网关流式执行")
             bl = body.split("\n"); imgs = None
             if bl[-1].startswith("[图:") and bl[-1].endswith("]"): p = bl[-1][3:-1].strip(); body = "\n".join(bl[:-1]); imgs = [p] if os.path.isfile(p) else None
-            resp = gateway.run(body, on_line, images=imgs, ev=ev); resp and sr.flag() and sr.append(text, str(resp))
+            resp = gateway.run(body, on_line, images=imgs, ev=ev); sr.flag() and sr.append(text, str(resp or "（本轮网关中断·任务未必完成——下轮据接续与任务表继续推进）"))
         else:
             st("agent CLI 执行：" + ag); args, env = list(spec.get("args", [])), dict(os.environ, PYTHONIOENCODING="utf-8", SMS_WORKSPACE=wsp, SMS_TMP=resolve_home.wtmp()); env.update(spec.get("env") or {})
             stdin = subprocess.PIPE if spec.get("prompt_stdin") else subprocess.DEVNULL
@@ -47,4 +46,5 @@ def ask(text, on_line, st=lambda n: None, ev=None):
             for ln in iter(p.stdout.readline, ""): stop.kill_if(p); ln.strip() and on_line(ln.rstrip())
             rc = p.wait()
     except stop.Stopped as e: rc = 130; stop.clear(); on_line("⛔ 任务已停止（" + str(e)[:80] + "）——在途输出中断·会话照常收口·停止旗标已复位")
+    except Exception as e: rc = 1; __import__("debug").enabled() and __import__("debug").log("EXC " + __import__("debug").tb()[-800:]); on_line("数据流异常（会话照常收口·任务表保留·下轮按接续与任务表续跑）：" + str(e)[:160]); sr.flag() and sr.append(text, "（本轮异常中断：" + str(e)[:100] + "·对照任务表未完成行继续）")
     chains.record("session", "close:" + conv, _edge(conv)); chains.record("time", "对话 " + conv + " 收口 rc=" + str(rc), _edge(conv)); st("对话收口 rc=" + str(rc)); m_ = ws.end(wsp, virt); m_ and on_line(m_); chains.ACTIVE["conv"] = ""; return {"agent": ag, "rc": rc, "conv": conv}

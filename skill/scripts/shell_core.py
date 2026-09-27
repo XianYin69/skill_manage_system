@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """shell_core.py — sms-shell 共享路由（与 bin ps1 同套确定性路由）：quit·`sms/sms-shell` 前缀剥离·裸内置词零模型直达·`:dispatch` 真派发·`:sh`/`!命令` 系统 shell 联动·`:edit/:view` 返回编辑器令牌（TUI F8）·`:session new|list|use|current` 会话层链隔离·`:debug` 同步配置。其余话语经 shell_mode.utter（含 F7 三态 gate）→ data flow；agent_stream 命中技能即开子会话真派发，否则 gateway 工具循环。st 上报步骤、ev 收 msg_flow 信封供顶栏进度。"""
-import os, sys, subprocess, re
-S = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, S)
-import agent_stream as ag, settings, user_commands, skill_route, user_index, debug, chains, resolve_home, sys_shells, shell_resume as sr, stop_channel as stop; from shell_help import HELP, SHORT; SMS = ag.SMS; IMG = []; BUILD = "b80"; os.environ["SMS_TMP"] = resolve_home.wtmp()
+import os, sys, subprocess, re; S = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, S)
+import agent_stream as ag, settings, user_commands, skill_route, user_index, debug, chains, resolve_home, sys_shells, shell_resume as sr, stop_channel as stop; from shell_help import HELP, SHORT; SMS = ag.SMS; IMG = []; BUILD = "b81"; os.environ["SMS_TMP"] = resolve_home.wtmp()
 def banner(): return "sms-shell·build=" + BUILD + " · SMS_HOME=" + SMS + " · 会话=" + chains.cur_sess() + " · 数据流：" + (ag.current() or "未检出（:agents 查看）") + " · 技能前缀：" + ("on" if ag.prefix_on() else "off") + " · 接续前对话：" + ("on" if sr.flag() else "off（:resume on 开启）") + " · 帮助 :help（含 :dispatch/:sh/!命令/:resume/:edit/F8 编辑器/F4 debug 开关）"
 def startup_block(): n = sr.note(); return ("── 接续上次关闭前的对话 ──\n" + n) if n else ""
 def run_script(name, args):
-    return (lambda p: (debug.enabled() and debug.log("exec " + name + " rc=" + str(p.returncode) + ("" if p.returncode == 0 and not p.stderr else " STDERR:" + (p.stderr or p.stdout or "")[:500])) or (p.stdout or p.stderr).strip() or "(无输出)"))(subprocess.run([sys.executable, "-B", os.path.join(S, name)] + list(args), capture_output=True, text=True, encoding="utf-8", errors="replace"))
+    try: p = subprocess.run([sys.executable, "-B", os.path.join(S, name)] + list(args), capture_output=True, text=True, encoding="utf-8", errors="replace", stdin=subprocess.DEVNULL, timeout=max(10, int(settings.get("shell.exec_timeout", 600))))
+    except subprocess.TimeoutExpired: return "子脚本超时（" + name + "·>" + str(max(10, int(settings.get("shell.exec_timeout", 600)))) + "s）已中止——:config set shell.exec_timeout <秒> 可调"
+    return (lambda p: (debug.enabled() and debug.log("exec " + name + " rc=" + str(p.returncode) + ("" if p.returncode == 0 and not p.stderr else " STDERR:" + (p.stderr or p.stdout or "")[:500])) or (p.stdout or p.stderr).strip() or "(无输出)"))(p)
 def _meta(m, a, on_line, st):
     if m == "dispatch":
         import agent_tools as at; st("技能派发：" + a[0]) if len(a) > 1 else None
@@ -25,14 +26,13 @@ def _meta(m, a, on_line, st):
     elif m == "grant": on_line(run_script("permissions.py", ["grant"] + a + ["--write"]))
     elif m == "dream": on_line(run_script("dream.py", a or ["status"]))
     elif m in ("cmds", "intent"): on_line(run_script("commands.py", ["help"] if (m == "cmds" and not a) else (["show"] + a if m == "cmds" else ["intent"] + a)))
-    elif m == "tools": on_line(run_script("agent_dispatch.py", ["tools"] + a))
+    elif m in ("tools", "task", "manual"): on_line(run_script("agent_dispatch.py", ["tools"] + a) if m == "tools" else run_script("task_table.py", a or ["show"]) if m == "task" else run_script("sys_shells.py", ["manual"] + a))
     elif m == "perms": on_line(run_script("permissions.py", ["status"] + a))
     elif m in ("index", "skills"): on_line(run_script("register.py" if (m == "index" and a) else ("skills_config.py" if m == "index" else "skill_route.py"), (["--add-root"] + a + ["--write"]) if (m == "index" and a) else (["roots"] if m == "index" else ["list"])) + (("\n" + user_index.add(" ".join(a), SMS)) if m == "index" and a else ""))
     elif m in ("alias", "unalias"): on_line(run_script("user_commands.py", [("add" if m == "alias" else "rm")] + a + ["--write"]))
     else: on_line(HELP if m in ("help", "?") else "未知元指令 :" + m + "（:help）")
-HELPW = ("help", "?", "h", "帮助", "用法"); CFGW = ("config", "设置", "配置", "状态", "status", "修改配置", "打开设置", "查看配置", "如何修改配置", "怎么修改配置", "如何查看配置", "修改配置文件", "打开配置", "进入配置", "配置编辑器", "图形化配置"); CMDW = ("cmds", "命令", "指令", "命令表")
-DIAG = re.compile("问题|故障|报错|错误|异常|失败|无法|不能|检查|诊断|为什么|怎么回事|卡|崩|慢"); METAS = frozenset(("agents","use","skill","image","dispatch","sh","edit","view","session","hud","deploy","workspace","resume","config","web","ext","debug","detail","mode","net","tts","learn","file","path","api","grant","dream","cmds","intent","index","skills","alias","unalias","help","?","quit","tools","perms","stop"))
-def _cfgline(): g = settings.status()["gateway"]; return "gateway: enabled=%s base_url=%s model=%s api_key=%s max_tokens=%s · 文件=<SMS_HOME>/config/config.json\n改配置：:config set <path> <json> · 全量：:config show · TUI F4 图形化（debug 开关/输出路径同处）" % (g["enabled"], g["base_url"], g["model"], g["api_key"], g["max_tokens"])
+HELPW = ("help", "?", "h", "帮助", "用法"); CFGW = ("config", "设置", "配置", "状态", "status", "修改配置", "打开设置", "查看配置", "如何修改配置", "怎么修改配置", "如何查看配置", "修改配置文件", "打开配置", "进入配置", "配置编辑器", "图形化配置"); CMDW = ("cmds", "命令", "指令", "命令表"); DIAG = re.compile("问题|故障|报错|错误|异常|失败|无法|不能|检查|诊断|为什么|怎么回事|卡|崩|慢"); METAS = frozenset(("agents","use","skill","image","dispatch","sh","edit","view","session","hud","deploy","workspace","resume","config","web","ext","debug","detail","mode","net","tts","learn","file","path","api","grant","dream","cmds","intent","index","skills","alias","unalias","help","?","quit","tools","perms","stop","task","manual"))
+def _cfgline(): g = settings.status()["gateway"]; return "gateway: enabled=%s base_url=%s model=%s api_key=%s max_tokens=%s 推理=%s · 文件=<SMS_HOME>/config/config.json\n改配置：:config set <path> <json> · 全量：:config show · TUI F4 图形化（debug 开关/输出路径同处）· 推理等级 :config set llm_gateway.reasoning_effort \"high\"（low|medium|high·null 不发送）" % (g["enabled"], g["base_url"], g["model"], g["api_key"], g["max_tokens"], g.get("reasoning", "-"))
 def handle(line, on_line, st=lambda n: None, ev=None):
     if not (t := line.strip()): return None
     if t.lower() in ("quit", "exit", ":quit", ":q", ":exit"): return "exit"

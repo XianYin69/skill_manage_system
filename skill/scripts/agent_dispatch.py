@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """agent_dispatch.py — agent 工具 schema 与派发（gateway 工具循环与 CLI 共用·单一真源）：SCHEMA＝OpenAI function 清单 exec·read·write·skill·ask·task·task_detail·user_send·thinking_chain·glob·grep·ls·webfetch（read 一族与联网取文 2026-09-26 集成，实现见 agent_tools2.py）；execute(name, raw_args)→agent_tools/agent_task 对应实现，参数按形参名过滤、异常回错误文本给模型（不中断工具循环）。工具权限——settings agent_tools.<name>（默认 true）门控：tools_schema() 供 gateway 只暴露启用工具、execute() 拒调禁用工具，菜单 F1→大模型工具权限 或 `:tools`/`:config set agent_tools.read false` 增删。用法：python -B agent_dispatch.py call <工具> '<json>' | skill <id> <诉求> | task <诉求> | detail [task-id] | tools [enable|disable <name>]"""
 import os, sys, json
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import agent_tools as at, agent_tools2 as a2, agent_task as atk, settings
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import agent_tools as at, agent_tools2 as a2, agent_task as atk, task_table as tt, settings
 P = lambda t, d: {"type": t, "description": d}; F = lambda n, d, p, r: {"type": "function", "function": {"name": n, "description": d, "parameters": {"type": "object", "properties": p, "required": r}}}
 SCHEMA = [F("exec", "执行 shell 命令（cwd＝工作区·生成文件入 tmp）", {"cmd": P("string", "命令")}, ["cmd"]),
  F("read", "读文本文件", {"path": P("string", "路径"), "max_lines": P("integer", "最多行数")}, ["path"]),
@@ -10,6 +10,7 @@ SCHEMA = [F("exec", "执行 shell 命令（cwd＝工作区·生成文件入 tmp�
  F("ask", "子问答：需要独立小答案时用（≤300字·不面向用户复述）", {"question": P("string", "问题")}, ["question"]),
  F("task", "把复合诉求拆分为子任务并行执行并整合（进度实时上顶栏）", {"intent": P("string", "诉求")}, ["intent"]),
  F("task_detail", "查询任务进度（id 空＝最近清单）", {"id": P("string", "任务id")}, []),
+ F("task_plan", "任务表制表器 task_table 的改表口：按〔任务表〕行推进——status 置行 done/running、add 补漏步（自动路由技能）、remove 删不合理行、skill 改指定技能、show/next/eta 查询；每次改表顶栏进度与剩余时间同步刷新", {"op": P("string", "show|next|eta|add|remove|status|skill"), "tid": P("string", "任务表id"), "row": P("string", "行id（t1/t2…）"), "value": P("string", "add＝新步骤目标；status＝状态；skill＝技能id")}, ["op", "tid"]),
  F("user_send", "向用户客户端发送一条提示/结果文本", {"text": P("string", "文本")}, ["text"]),
  F("thinking_chain", "把一步决策记入逻辑链（frm→to：why）", {"frm": P("string", "从"), "to": P("string", "到"), "why": P("string", "理由")}, ["frm", "to", "why"]),
  F("glob", "按文件名模式找文件（支持 ** 递归·默认工作区）", {"pattern": P("string", "glob 模式"), "path": P("string", "基目录，默认工作区")}, ["pattern"]),
@@ -17,7 +18,7 @@ SCHEMA = [F("exec", "执行 shell 命令（cwd＝工作区·生成文件入 tmp�
  F("ls", "目录清单（默认工作区）", {"path": P("string", "目录")}, []),
  F("webfetch", "网页取文（仅 http(s)·须先 :grant network）", {"url": P("string", "http(s) URL"), "chars": P("integer", "最多字符")}, ["url"]),
  F("ask_user", "任务进行中向用户提问并阻塞等待其屏幕应答（一次一问·简短；无交互壳会立即返回说明）", {"question": P("string", "要问用户的问题")}, ["question"])]
-REG = {"read": at.read, "write": at.write, "command": at.command, "skill": at.run_skill, "ask": at.ask, "task": atk.task, "task_detail": atk.task_detail, "user_send": at.user_send, "thinking_chain": at.thinking_chain, "glob": a2.glob, "grep": a2.grep, "ls": a2.ls, "webfetch": a2.webfetch, "ask_user": lambda question: __import__("ask_channel").ask(question)}
+REG = {"read": at.read, "write": at.write, "command": at.command, "skill": at.run_skill, "ask": at.ask, "task": atk.task, "task_detail": atk.task_detail, "task_plan": tt.revise, "user_send": at.user_send, "thinking_chain": at.thinking_chain, "glob": a2.glob, "grep": a2.grep, "ls": a2.ls, "webfetch": a2.webfetch, "ask_user": lambda question: __import__("ask_channel").ask(question)}
 NAMES = [f["function"]["name"] for f in SCHEMA]
 def tool_on(n): return bool(settings.get("agent_tools." + n, True))
 def tools_schema(): return [f for f in SCHEMA if tool_on(f["function"]["name"])]
