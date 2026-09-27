@@ -37,6 +37,6 @@ class ShellApp(Menus, Index, Ws, Mode, Perms, Flow, App):
 if __name__ == "__main__":
     os.environ["SMS_DEBUG"] = "1" if "--debug" in sys.argv else os.environ.get("SMS_DEBUG", ""); pos = [a for a in sys.argv[1:] if not a.startswith("--")]
     if pos:
-        with contextlib.suppress(Exception): core.handle(" ".join(pos), print)
+        with contextlib.suppress(Exception): core.handle(" ".join(pos), __import__("shell_console").wrap(print))
         sys.exit(0)
     ShellApp().run()

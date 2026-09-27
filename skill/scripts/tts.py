@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""tts.py — 朗读引擎「阿林娜（alina）」开关与挂钩（合成后端 tts_say.py）：开关单一真源＝settings tts.enabled（:tts on|off 直接写配置）。模型输出经 agent_stream 调 hook() 逐句读出：msg_flow JSON 信封行只朗读其 text 字段；步骤/命令/提示回显不朗读；markdown 符号/URL/文件路径剥净（tts_say.clean）；批6：标点符号与文件路径不朗读（strip_punct 去标点·clean 去路径·按句切仍保留断句）；⧉技能▸ 前缀剥后朗读子会话正文。用法：python -B tts.py say "<文本>" | test | on | off | toggle | status | voices。"""
+"""tts.py — 朗读引擎「阿林娜（alina）」开关与挂钩（合成后端 tts_say.py）：开关单一真源＝settings tts.enabled（:tts on|off 直接写配置）。模型输出经 agent_stream 调 hook() 逐句读出：批7③——朗读门控与主输出显示同一真源 msg_flow.visible（思考◌/$ 工具/⧉技能过程/▸步骤/≡任务/空行一律不读·⧉技能 剥前缀后其正文照读·JSON 信封只读 text 字段）；markdown 符号/URL/文件路径剥净（tts_say.clean）；批6：标点符号与文件路径不朗读（strip_punct 去标点·clean 去路径·按句切仍保留断句）。用法：python -B tts.py say "<文本>" | test | on | off | toggle | status | voices。"""
 import os, sys, json
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import resolve_home, settings, chains, msg_flow, tts_say
@@ -16,12 +16,12 @@ def hook(on_line):
     if not on(): return on_line
     def w(ln):
         on_line(ln); s = str(ln).strip()
-        if not s or s.startswith(("注意：", "拒绝：", "网关错误", "!", "•")): return
+        if not s or not msg_flow.visible(s) or s.startswith(("注意：", "拒绝：", "网关错误", "!", "•")): return
+        if (m := msg_flow.SUB.match(s)): s = s[m.end():]
         e = msg_flow.parse(s)
         if e: s = str(e.get("text") or "")
-        if e is None and s.startswith("⧉"): s = s.split("▸", 1)[-1]
         t = tts_say.clean(s)
-        if t and not t.startswith(("$", "▸", "sms>", "≡")):
+        if t and not t.startswith(("sms>", "◌")):
             for ch in tts_say.chunks(t, CAP()): tts_say.speak(tts_say.strip_punct(ch))
     return w
 def status():
