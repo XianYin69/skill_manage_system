@@ -36,7 +36,7 @@ def set(path, value, sms=None):
 def status(sms=None):
     import model_meta, dream, net_util, ext_net, ff_lite, tts
     sms = sms or resolve_home.ensure(); e = eff(sms); g = e["llm_gateway"]; base = e["chains"].get("default", {}); key = os.environ.get(g.get("api_key_env") or "", "") or g.get("api_key")
-    return {"gateway": {"enabled": g.get("enabled"), "base_url": g.get("base_url"), "model": g.get("model"), "api_key": "set" if key else "missing", "temperature": g.get("temperature"), "top_p": g.get("top_p"), "max_tokens": g.get("max_tokens")},
+    return {"gateway": {"enabled": g.get("enabled"), "base_url": g.get("base_url"), "model": g.get("model"), "api_key": "set" if key else "missing", "temperature": g.get("temperature"), "top_p": g.get("top_p"), "max_tokens": g.get("max_tokens"), "reasoning": g.get("reasoning_effort"), "retries": g.get("retries")},
      "model_meta": model_meta.summary(), "agent_tools": __import__("agent_dispatch").tools_status(),
      "dream": {"enabled": e["dream"]["enabled"], "interval_min": dream.interval_min(sms), "next_run": dream.next_run(sms), "due": dream.due(sms)},
      "chains": {c: {**base, **(e["chains"].get(c) or {})} for c in CH}, "hud": e.get("hud"),
