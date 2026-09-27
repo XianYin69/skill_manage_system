@@ -1,4 +1,4 @@
----
+﻿---
 name: skill_connector
 description: >
   依据 register.json 与 interfaces.json，生成技能间上下文连接链，
@@ -10,7 +10,7 @@ metadata:
 
 # skill_connector
 
-处理不同技能之间的**上下文连接**，生成 `SMS/registry/connections.json`。
+使用 `skill_connector` skill 来完成用户请求。 处理不同技能之间的**上下文连接**，生成 `SMS/registry/connections.json`。
 
 ## 输入
 

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """file_ops.py — file_ops 子技能引擎：文件 读/写/追加/复制/移动/删除/列举/信息。读只读开放；写盘统一经 emit 门控（默认预览，--write 且会话 grant write 才落盘）；复制/移动/覆盖/删除＝高危，先预览并经用户当轮同意（--yes）且 grant danger（红线16）。禁止写入 skill 本体目录（一律落 <SMS_HOME>/）。每次动作记 tool_call 链。用法：python -B file_ops.py read <path> [--max n] | write <path> (--text ".."|--from f) [--append] | copy <src> <dst> | move <src> <dst> | delete <path> | list <dir> [--glob pat] [--write] | stat <path>；高危动作加 --yes --write。"""
 import os, sys, json, glob as _g, shutil
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+PS = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "scripts")); sys.path[:0] = [os.path.dirname(os.path.abspath(__file__)), PS]
 import resolve_home, permissions, chains
-SMS = resolve_home.ensure(); SK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-def _guard(p): a = os.path.abspath(p); return a == SK or a.startswith(SK + os.sep)
+SMS = resolve_home.ensure(); SK = os.path.abspath(os.path.join(PS, ".."))
+def _guard(p): a = os.path.abspath(p); return a == SK or a.startswith(SK + os.sep) or a == SMS or a.startswith(SMS + os.sep)
 def read(p, mx=20000):
     if not os.path.isfile(p): return "文件不存在：" + p
     d = open(p, encoding="utf-8", errors="replace").read(int(mx))

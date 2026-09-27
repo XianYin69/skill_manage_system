@@ -11,20 +11,20 @@ metadata:
 
 # file_ops
 
-SMS 的**基本操作**子技能：把「文件读写、路径查询、浏览器操作」这三类底层动作收拢到一个可被 dispatch 的目标，统一受权限门控与十一链登记，运行完回 SMS 整合（`return_to=sms`，红线 6）。
+使用 `file_ops` skill 来完成用户请求。SMS 的**基本操作**子技能：把「文件读写、路径查询、浏览器操作」这三类底层动作收拢到一个可被 dispatch 的目标，统一受权限门控与十一链登记，运行完回 SMS 整合（`return_to=sms`，红线 6）。
 
 ## 三类操作
 
-- **文件读写** — [`file_ops.py`](../../scripts/file_ops.py)：`read`/`write`(`--text`|`--from`，`--append`)/`copy`/`move`/`delete`/`list`/`stat`。读只读开放；写盘默认预览，`--write` 且会话已 `grant write` 才落盘；复制/移动/删除＝高危，须 `--yes` 且 `grant danger`（红线 16）；拒绝写/删 skill 本体目录。
-- **路径查询** — [`path_ops.py`](../../scripts/path_ops.py)：`resolve`(可 `--sms` 回退 `<SMS_HOME>/`)/`temp`(分配 `<SMS_HOME>/tmp/` 子目录)/`which`/`exists`/`glob`/`tree`/`env`。全部只读。
+- **文件读写** — [`file_ops.py`](scripts/file_ops.py)：`read`/`write`(`--text`|`--from`，`--append`)/`copy`/`move`/`delete`/`list`/`stat`。读只读开放；写盘默认预览，`--write` 且会话已 `grant write` 才落盘；复制/移动/删除＝高危，须 `--yes` 且 `grant danger`（红线 16）；拒绝写/删 skill 本体目录与 `<SMS_HOME>/`。
+- **路径查询** — [`path_ops.py`](scripts/path_ops.py)：`resolve`(可 `--sms` 回退 `<SMS_HOME>/`)/`temp`(分配 `<SMS_HOME>/tmp/` 子目录)/`which`/`exists`/`glob`/`tree`/`env`。全部只读。
 - **浏览器操作** — [`ff_lite.py`](../../scripts/ff_lite.py)：firefox lite 内核 `search`/`fetch`/`download`（渲染优先 playwright 无头 Firefox，缺则回退 urllib，绝不自动装依赖）。动作须 `grant network`；下载只落 `<SMS_HOME>/downloads/`，覆盖须 `--force` 且 `grant danger`。
 
 ## 用法
 
 ```
-python -B skill/scripts/file_ops.py read <path> [--max n]
-python -B skill/scripts/file_ops.py write <path> --text ".." --write
-python -B skill/scripts/path_ops.py resolve <path> --sms | which <cmd> | tree <dir>
+python -B skill/sub_skills/file_ops/scripts/file_ops.py read <path> [--max n]
+python -B skill/sub_skills/file_ops/scripts/file_ops.py write <path> --text ".." --write
+python -B skill/sub_skills/file_ops/scripts/path_ops.py resolve <path> --sms | which <cmd> | tree <dir>
 python -B skill/scripts/ff_lite.py  search "关键词" 5 | fetch <url> | download <url> 名
 ```
 

@@ -11,7 +11,7 @@ metadata:
 
 # general_answer
 
-SMS 的**通用回答**子技能：把「模型本身就能答」的诉求收拢到一个可派发目标，作答仍经托管技能执行、由 SMS 整合转达，不破坏「本体不作答」（红线 4）。
+使用 `general_answer` skill 来完成用户请求。SMS 的**通用回答**子技能：把「模型本身就能答」的诉求收拢到一个可派发目标，作答仍经托管技能执行、由 SMS 整合转达，不破坏「本体不作答」（红线 4）。
 
 ## 何时派发
 
@@ -22,8 +22,8 @@ SMS 的**通用回答**子技能：把「模型本身就能答」的诉求收拢
 ## 用法
 
 ```
-python -B skill/scripts/answer_general.py ask "<问题>"
-python -B skill/scripts/answer_general.py ask "<问题>" --json
+python -B skill/sub_skills/general_answer/scripts/answer_general.py ask "<问题>"
+python -B skill/sub_skills/general_answer/scripts/answer_general.py ask "<问题>" --json
 ```
 
 - 非流式一次性作答（≤600 字·简体中文）；返回整段文本供 SMS 整合。

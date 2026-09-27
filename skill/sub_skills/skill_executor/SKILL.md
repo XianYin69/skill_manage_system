@@ -10,7 +10,7 @@ metadata:
 
 # skill_executor
 
-调度执行器：像 OS 的系统调用分发器一样，把 SMS 的 subtask 映射到具体的 agent 工具调用。
+使用 `skill_executor` skill 来完成用户请求。调度执行器：像 OS 的系统调用分发器一样，把 SMS 的 subtask 映射到具体的 agent 工具调用。
 
 ## 输入
 
@@ -40,7 +40,7 @@ metadata:
 
 ## 脚本
 
-- [dispatch.py](../../scripts/dispatch.py)：默认预览，`--write` 且已授予 write 才写盘。
+- [dispatch.py](scripts/dispatch.py)：默认预览，`--write` 且已授予 write 才写盘。
 
 ## 红线
 
