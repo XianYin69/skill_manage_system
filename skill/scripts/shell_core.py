@@ -10,7 +10,7 @@ def run_script(name, args):
 def _meta(m, a, on_line, st):
     if m == "dispatch":
         import agent_tools as at; st("技能派发：" + a[0]) if len(a) > 1 else None
-        on_line(at.run_skill(a[0], " ".join(a[1:])) if len(a) > 1 else "用法 :dispatch <技能id> <诉求>（技能子会话真派发·:skills 查清单）"); return None
+        r = at.run_skill(a[0], " ".join(a[1:])) if len(a) > 1 else "用法 :dispatch <技能id> <诉求>（技能子会话真派发·:skills 查清单）"; on_line("子会话 " + a[0] + " 已收口（正文如上·⧉ 前缀）" if r.startswith(at.WRAP) else r); return None
     if m == "sh": st("系统 shell"); on_line(sys_shells.run(" ".join(a), on_line=on_line) if a and a[0] not in ("list", "select", "export") else (sys_shells.select(a[1]) if a and a[0] == "select" and len(a) > 1 else sys_shells.export() if a and a[0] == "export" else sys_shells.listtext())); return None
     if m in ("edit", "view"): return (on_line("用法 :" + m + " <路径>（TUI F8 或主菜单·查看器 :view）") and None) if not a else m + ":" + os.path.abspath(os.path.expanduser(" ".join(a)))
     if m == "session": c = a[0] if a else "current"; on_line(chains.new_sess(" ".join(a[1:])) if c == "new" else chains.list_sess() if c == "list" else chains.use_sess(a[1]) if c == "use" and len(a) > 1 else ("当前会话 " + chains.cur_sess() + "（对话 conv 在其内自动开收·防跨会话污染）" if c == "current" else run_script("session.py", a))); return None
