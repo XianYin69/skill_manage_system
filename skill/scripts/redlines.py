@@ -3,7 +3,7 @@
 import os, sys, re, json, hashlib
 SK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ROOT = os.path.dirname(SK)
-MUST = {"AGENTS.md": ["调度器", "先询问", "委托 Skill_Generator", "仅复制 bin", "十一链记忆·对话隔离·做梦"],
+MUST = {"AGENTS.md": ["调度器", "先询问", "委托 Skill_Generator", "仅复制 bin", "十一链记忆·对话隔离·做梦", "主流程守卫"],
         "SKILL.md": ["委托 Skill_Generator", "redlines.py", "仅复制 bin", "直接回答", "十一链"],
         os.path.join("resistance", "resistance.md"): ["grant danger", "部署＝", "先询问", "17. 记忆链·对话隔离·做梦"]}
 def _scan():
