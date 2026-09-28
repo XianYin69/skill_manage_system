@@ -32,7 +32,7 @@ def ask(text, on_line, st=lambda n: None, ev=None):
     try:
         if spec.get("native"):
             body = sr.prefix() + tt.attach(text) + (text if not prefix_on() else chains.conversation(compose(text, SMS) + "\n\n" + inj))
-            st("提示词构建·任务表（仅复杂任务自动制表）·压缩记忆组装·网关流式执行（路由命中仅作〔参考〕，直答/派工具由模型自主定）")
+            st("提示词构建·任务表（脚本粗分种子＋批22 复杂判定交模型）·压缩记忆组装·网关流式执行（路由命中仅作〔参考〕，直答/派工具/建表/建技能由模型自主定）")
             bl = body.split("\n"); imgs = None
             if bl[-1].startswith("[图:") and bl[-1].endswith("]"): p = bl[-1][3:-1].strip(); body = "\n".join(bl[:-1]); imgs = [p] if os.path.isfile(p) else None
             resp = gateway.run(body, on_line, images=imgs, ev=ev); sr.flag() and sr.append(text, str(resp or "（本轮网关中断·任务未必完成——下轮据接续与任务表继续推进）"))

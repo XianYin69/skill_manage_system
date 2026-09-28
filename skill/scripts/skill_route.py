@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""skill_route.py — 数据流 SMS 技能路由〔仅参考·非裁决〕（批16 LLM 主导）：读 registry/register.json 活跃技能（quarantine/pending_review 信任级跳过）＋ interfaces.json 接口词，与输入打分匹配（阈值 4：技能id 子串命中或分词＋接口词双证据）；命中→chains.log("skill") 记 skill_call 链并返回命中 id 与〔参考〕句——是否真派发由模型在网关工具循环内自主决定（旧「命中即自动开子会话」脚本扇出已废除）；match/listtext 供壳内 :skills 与 ps1 清单。批6：skills()/_terms() 共用 (mtime,size) 内存缓存 _reg（冷读 213ms→暖 ~5ms·task 扇出多调免重解析）；route 计时入 latency。用法：python -B skill_route.py match \"<话语>\" | list"""
+"""skill_route.py — 数据流 SMS 技能路由〔仅参考·非裁决〕（批16 LLM 主导）：读 registry/register.json 活跃技能（quarantine/pending_review 信任级跳过）＋ interfaces.json 接口词，与输入打分匹配（阈值 4：技能id 子串命中或分词＋接口词双证据）；命中→chains.log("skill") 记 skill_call 链并返回命中 id 与〔参考〕句——是否真派发由模型在网关工具循环内自主决定（旧「命中即自动开子会话」脚本扇出已废除）；未命中注入技能全表＋批22 指引：动手类无相近技能且属新领域/需复用→模型先派 Skill_Generator 创建再执行；match/listtext 供壳内 :skills 与 ps1 清单。批6：skills()/_terms() 共用 (mtime,size) 内存缓存 _reg（冷读 213ms→暖 ~5ms·task 扇出多调免重解析）；route 计时入 latency。用法：python -B skill_route.py match \"<话语>\" | list"""
 import os, sys, json, re, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import resolve_home, chains, latency
 def _load(sms, rel):
@@ -42,7 +42,7 @@ def route(text, sms=None):
     if hs:
         g = "；".join("%s→%s" % (s.get("id"), os.path.join(str(s.get("install_path", "")), str(s.get("entry", "SKILL.md")))) for s in hs)
         return ",".join(str(s.get("id")) for s in hs), "[SMS 路由·参考] 关键词打分命中（" + g + "·产物目标＝工作区 tmp：" + resolve_home.wtmp() + "）——本行仅供参考，是否派 skill 工具开子会话真执行（按其 SKILL.md）由你结合话语自主决定；纯问答/解释可直接作答不必派发；确不采纳时简要说明理由即可。"
-    return None, "[SMS 路由·参考] 关键词未命中。一般话语：你可直答（简短·简体中文），也可对照下表/索引择最相关技能用 skill 工具真执行——执行类诉求（要动手读写/调设备/跑脚本）必须派技能或直接用工具并如实记账，禁止空口声称已执行；确无可用且属新领域时建议经 Skill_Generator 创建。" + catalog(sms)
+    return None, "[SMS 路由·参考] 关键词未命中。你可直答（简短·简体中文）或对照下表/索引择最相关技能用 skill 工具真执行。**判复杂且无现成技能可做的动手诉求（要读写/调设备/跑脚本）：先经 skill 工具派发 Skill_Generator（create 路径）按需新建技能，再回来派发执行——不要因「没找到技能」就空口声称已做或拒绝。** 下表为已装技能，命中与否、直答还是派发或新建，均由你结合意图自主决定，禁止空口声称已执行。" + catalog(sms)
 if __name__ == "__main__":
     a = sys.argv[1:] or ["list"]
     if a[0] == "list": print(listtext())
