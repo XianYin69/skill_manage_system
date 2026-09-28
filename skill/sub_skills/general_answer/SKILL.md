@@ -26,7 +26,7 @@ python -B skill/sub_skills/general_answer/scripts/answer_general.py ask "<问题
 python -B skill/sub_skills/general_answer/scripts/answer_general.py ask "<问题>" --json
 ```
 
-- 非流式一次性作答（≤600 字·简体中文）；返回整段文本供 SMS 整合。
+- 非流式一次性作答（≤600 字·批24 内部英语处理·输出用户语言）；返回整段文本供 SMS 整合。
 - 网关未启用 / 返回空正文 → 明确报错退出（exit 2），绝不静默代答。
 
 ## 联动

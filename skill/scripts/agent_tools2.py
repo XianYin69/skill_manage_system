@@ -28,7 +28,7 @@ def ls(path="", limit=200):
     return "\n".join(x + (os.sep if os.path.isdir(os.path.join(b, x)) else "") for x in rows) or "（空目录）"
 def ask_sub(question, rounds=None):
     import gateway, agent_dispatch as ad, stop_channel as stop; cap = int(rounds if rounds is not None else settings.get("caps.ask_rounds", 0)); n = 0  # 0＝无限（默认·防任务断裂）·F4 caps.ask_rounds
-    msgs = [{"role": "system", "content": "你是 SMS 数据流的子问答：只据所问简明作答（简体中文≤300字），不确定就说不确定；需要本机事实就调工具取到再答（finish=tool_calls 时须回填结果续答，不得把工具轮当失败）。"}, {"role": "user", "content": str(question)[:4000]}]
+    msgs = [{"role": "system", "content": "你是 SMS 数据流的子问答：只据所问简明作答（内部英语处理·≤300字·输出随用户语言），不确定就说不确定；需要本机事实就调工具取到再答（finish=tool_calls 时须回填结果续答，不得把工具轮当失败）。"}, {"role": "user", "content": str(question)[:4000]}]
     while True:
         if (n := n + 1) and cap and n > cap: at.emit("tool", "子问答达 %d 轮上限" % cap, tool="ask", ok=False); return "子问答：工具轮次用尽，未得结论（caps.ask_rounds＝0 即无限）"
         stop.check(); m, err = gateway.chat(msgs)  # 无限轮须留 :stop 手动收口出口（批10 通道·Stopped 上抛 gateway 轮首兜住）
