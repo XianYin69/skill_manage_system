@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""shell_tui_sessions.py — 会话总览数据（供右栏「会话总览」区）：从 <SMS_HOME>/chains 读 session 链 open:/close: 碎片得各对话创建/收口时间，配 dialogue 链 user@<conv> 首条话语作简略信息；overview() 按创建时间倒序返回 [(conv, 创建时间, 简略)]，纯读不落盘。"""
+"""shell_tui_sessions.py — 对话一览数据（供右栏「对话一览 conv」区·批23 对等对话：每用户输入与每技能派发各成一个 conv——派发 conv 由 run_skill 记 session 链 open:/close: 故同样入列）：从 <SMS_HOME>/chains 读 session 链 open:/close: 碎片得各对话创建/收口时间，配 dialogue 链 user@<conv> 首条话语作简略信息；overview() 按创建时间倒序返回 [(conv, 创建时间, 简略)]，纯读不落盘。"""
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import chain_store, resolve_home
 def overview(sms=None, n=6):

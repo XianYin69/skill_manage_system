@@ -32,4 +32,4 @@
 4. 注入环境：`SMS_HOME`、`SMS_WORKSPACE`（cwd）、`SMS_TMP`（产物唯一去处）；`:sh export` 可 eval 联动。
 5. 超时 `shell.exec_timeout`（默认 600s）到点强杀；行内出现停止词即协作收口（stop_channel）。
 6. git 写命令（add/commit/reset/push…）恒门禁：当轮确认＋`:grant danger`（红线 2）。
-7. 手册检索：`python -B skill/scripts/sys_shells.py manual [pwsh|powershell|cmd|bash|zsh|all]`；`register-manual` 登记 `<SMS_HOME>/shell/manual.json` 供壳/子会话读取。
+7. 手册检索：`python -B skill/scripts/sys_shells.py manual [pwsh|powershell|cmd|bash|zsh|all]`；`register-manual` 登记 `<SMS_HOME>/shell/manual.json` 供壳/派发对话读取。

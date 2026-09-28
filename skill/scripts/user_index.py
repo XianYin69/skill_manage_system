@@ -27,7 +27,7 @@ def refs(sms=None):
 def expand(text, sms=None):
     rep = []
     for name, x in refs(sms).items():
-        r = ("托管技能 " + name + "（按其 SKILL.md 开新子会话执行：" + x["path"] + "）") if x["kind"] == "skill" else (("目录：" if x["kind"] == "dir" else "文件：") + x["path"])
+        r = ("托管技能 " + name + "（按其 SKILL.md 派发对等对话执行：" + x["path"] + "）") if x["kind"] == "skill" else (("目录：" if x["kind"] == "dir" else "文件：") + x["path"])
         text, n = re.subn(r"(?:(?<=^)|(?<=[\s,，;；（(]))/" + re.escape(name) + r"(?=$|[\s,，;；。！？?!）)])", lambda _m, _r=r: _r, text)
         if n: rep.append("/" + name)
     return text + (("\n[索引展开] " + "、".join(rep)) if rep else "")

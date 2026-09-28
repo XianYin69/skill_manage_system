@@ -6,7 +6,7 @@ P = lambda t, d: {"type": t, "description": d}; F = lambda n, d, p, r: {"type": 
 SCHEMA = [F("exec", "执行 shell 命令（cwd＝工作区·生成文件入 tmp）", {"cmd": P("string", "命令")}, ["cmd"]),
  F("read", "读文本文件", {"path": P("string", "路径"), "max_lines": P("integer", "最多行数")}, ["path"]),
  F("write", "写文本文件（工作区/SMS 默认可写，越界需授权）", {"path": P("string", "路径"), "content": P("string", "内容"), "append": P("boolean", "是否追加")}, ["path", "content"]),
- F("skill", "把诉求派发给托管技能在其子会话按其 SKILL.md 全文执行（执行类诉求用真派发；纯问答可直答不强制；无匹配技能且属新领域/动手需求→先 name=Skill_Generator input=需求 走 create 路径新建技能再派发，不得空手拒绝）", {"name": P("string", "技能id"), "input": P("string", "用户诉求")}, ["name", "input"]),
+ F("skill", "把诉求派发给托管技能——批23 对等对话：每次派发自开一个独立 conv 独立链归属（与你的对话无主次，互任监视者/指导者/训诫者），技能在其对话内按其 SKILL.md 全文执行；收口＝形式停止返回你的对话续推任务表（执行类诉求用真派发；纯问答可直答不强制；无匹配技能且属新领域/动手需求→先 name=Skill_Generator input=需求 走 create 路径新建技能再派发，不得空手拒绝）", {"name": P("string", "技能id"), "input": P("string", "用户诉求")}, ["name", "input"]),
  F("ask", "子问答：需要独立小答案时用（≤300字·不面向用户复述）", {"question": P("string", "问题")}, ["question"]),
  F("task", "把复合诉求拆分为子任务执行并整合（进度实时上顶栏·批18：parallel=true 子任务无依赖/无冲突时并发派发〔默认〕·parallel=false 有先后依赖则依序串行——并发前提是你判定子任务互不冲突）", {"intent": P("string", "诉求"), "parallel": P("boolean", "true＝无依赖并发（默认）·false＝有依赖依序")}, ["intent"]),
  F("task_detail", "查询任务进度（id 空＝最近清单）", {"id": P("string", "任务id")}, []),
@@ -42,7 +42,7 @@ def execute(name, raw):
 if __name__ == "__main__":
     a = sys.argv[1:] or ["help"]
     if a[0] == "call" and len(a) > 1: print(execute(a[1], a[2] if len(a) > 2 else "{}"))
-    elif a[0] == "skill" and len(a) > 2: r = at.run_skill(a[1], " ".join(a[2:])); print(("子会话 " + a[1] + " 已收口·返回 SMS 主流程（正文如上·⧉ 前缀·可继续话语或重派）") if r.startswith(at.WRAP) else r)
+    elif a[0] == "skill" and len(a) > 2: r = at.run_skill(a[1], " ".join(a[2:])); print(("派发对话 " + a[1] + " 已形式收口·控制权回调用方（正文如上·⧉ 前缀·任务表未完行请继续推进或重派）") if r.startswith(at.WRAP) else r)
     elif a[0] == "task" and len(a) > 1: print(atk.task(" ".join(a[1:])))
     elif a[0] == "detail": print(atk.task_detail(a[1] if len(a) > 1 else ""))
     else: print(__doc__.strip().splitlines()[1][:400])

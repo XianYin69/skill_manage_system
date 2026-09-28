@@ -5,7 +5,7 @@ description: >
   送网关前自动建种子表（task_table.py·特定步骤经 skill_route 指定特定 skill·行数无上限·模型首轮据实改表），
   落 <SMS_HOME>/tasks/<id>.json 供右栏任务表与顶栏进度条/剩余时间预测（latency 反应时间均值×未完成行预测）；
   模型每步完成经 task_plan 工具置行 done，中途发现表不合理同径 add/remove/skill 改表；
-  批18 主流程守卫：pending(conv) 供 gateway 检测未完成行·禁止收口并注入续推提示；无依赖子任务 task 工具并发（parallel=true·模型判定无冲突才并发·有依赖 parallel=false 依序）；
+  批18 主流程守卫：pending(conv) 供 gateway 检测未完成行·禁止收口并注入续推提示（批23 对等对话：收口＝形式停止非实质完成·每派发自开独立 conv·未完成行由调度方或监视到它的对话续推）；无依赖子任务 task 工具并发（parallel=true·模型判定无冲突才并发·有依赖 parallel=false 依序）；
   批22 模型裁量：脚本判简单时仍注入〔任务表·脚本未建〕——复杂与否由模型定，判多步即 task_plan op=plan（或 task_table.py new <步骤逗号分隔>）自建表·用户无须写「制表」；开关 task.auto_table 与 task.auto_continue（F4）。
 license: MIT
 metadata:

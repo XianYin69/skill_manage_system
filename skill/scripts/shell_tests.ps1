@@ -31,6 +31,7 @@ T '未知元指令报错不崩' @(':nosuch') @('未知元指令')
 T ':agents 治理原生' @(':agents') @('检出', 'gateway')
 T ':sh list＝系统 shell 检出' @(':sh', 'list') @('可检出系统 shell')
 T ':session current＝会话层' @(':session', 'current') @('sess-')
+T ':session overview＝会话拓扑（批23 先后＋冲突监视）' @(':session', 'overview') @('〔会话拓扑〕', '创建')
 T ':debug off 治理' @(':debug', 'off') @('关')
 T ':mode status 界面模式查询' @(':mode', 'status') @('模式')
 if (-not $SkipEngine) { T '托管引擎透传 :cmds' @(':cmds') @('shell') }
