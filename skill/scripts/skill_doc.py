@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""skill_doc.py — SKILL.md 解释器（SMS 内置·免为读 skill.md 再写专用 python·2026-09-26 用户需求）：frontmatter(doc) 解析顶层 k:v；refs(base,doc,entry) 从正文抽取明示引用的 *.md/*.py/*.ps1/*.sh/*.cmd/*.json 相对路径（markdown 链接/行内代码/裸路径 token 通用正则），只收真实存在且位于技能目录内文件（绝不列举/遍历目录，红线 17）；invokers() 产「脚本调用清单」（python -B 绝对路径·ps1/cmd/sh 直通），随 SKILL.md 全文＋被引子文档（≤8 篇·单篇 ≤12k 字·总预算默认 90k）打包成 package() 注入子会话——模型免再 exec 回读子文件，修复旧 run_skill 只喂 SKILL.md 单文件导致子会话到处摸文件空转烧轮次；(mtime,size) 内存缓存。用法：python -B skill_doc.py "<技能安装路径>" [budget]"""
+"""skill_doc.py — SKILL.md 解释器（SMS 内置·免为读 skill.md 再写专用 python·2026-09-26 用户需求）：frontmatter(doc) 解析顶层 k:v；refs(base,doc,entry) 从正文抽取明示引用的 *.md/*.py/*.ps1/*.sh/*.cmd/*.json 相对路径（markdown 链接/行内代码/裸路径 token 通用正则），只收真实存在且位于技能目录内文件（绝不列举/遍历目录，红线 17）；invokers() 产「脚本调用清单」（python -B 绝对路径·ps1/cmd/sh 直通），随 SKILL.md 全文＋被引子文档（≤8 篇·单篇 ≤12k 字·总预算默认 90k）打包成 package() 注入派发对话——模型免再 exec 回读子文件，修复旧 run_skill 只喂 SKILL.md 单文件导致派发对话到处摸文件空转烧轮次；(mtime,size) 内存缓存。用法：python -B skill_doc.py "<技能安装路径>" [budget]"""
 import os, re, json, sys
 _REL = re.compile(r"(?<![\w/\\.])([\w\-\.\u4e00-\u9fff/\\ ]+?\.(?:md|py|ps1|sh|cmd|json))(?![\w])")
 _C = {}

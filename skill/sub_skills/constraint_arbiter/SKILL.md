@@ -33,7 +33,7 @@ python -B skill/sub_skills/constraint_arbiter/scripts/arbiter.py constraints <�
 
 ## 联动
 
-- 路由注入见 [skill_route.py](../../scripts/skill_route.py) 与 [gateway.py](../../scripts/gateway.py) SYS 治理句；派发经 [agent_tools.py](../../scripts/agent_tools.py) skill 工具子会话。
+- 路由注入见 [skill_route.py](../../scripts/skill_route.py) 与 [gateway.py](../../scripts/gateway.py) SYS 治理句；派发经 [agent_tools.py](../../scripts/agent_tools.py) skill 工具对等对话（批23 每派发自开独立 conv）。
 - 输出 order/conflicts 供 [agent_task.py](../../scripts/agent_task.py) 拆任务时附入子任务提示词。
 
 ## 红线
