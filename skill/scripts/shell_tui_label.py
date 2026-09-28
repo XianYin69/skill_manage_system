@@ -9,7 +9,8 @@ ALI = {"llm_gateway": "网关", "model_meta": "元数据", "chains": "链", "dre
        "max_chars": "字数限", "max_page_chars": "页字限", "max_download_mb": "下载限M", "download_dir": "下载目录", "headless": "无头", "defaults": "默认", "context_length": "上下文",
        "max_output_tokens": "输出限", "rpm": "RPM", "default": "默认", "merge_thr": "合并阈", "prune_days": "修剪天", "min_freq": "最小频", "comment": "注释", "sms_home": "数据根", "agent_cli": "CLI", "sms_skill": "回源", "repo": "仓库", "install_syntax": "装法",
          "debug": "调试", "path": "输出路径", "ui": "界面", "mode": "模式", "sms_workspace": "工作区", "workspaces": "工作区清单", "next_run": "下次做梦", "tmp": "临时", "tasks": "任务",
-         "caps": "上限", "gateway_rounds": "工具轮", "skill_rounds": "派技轮", "ask_rounds": "子问答轮"}
+          "caps": "上限", "gateway_rounds": "工具轮", "skill_rounds": "派技轮", "ask_rounds": "子问答轮",
+          "task": "任务表", "auto_table": "自动建表", "auto_continue": "主流程守卫", "max_continue": "续推上限", "max_parallel": "并发上限"}
 def _walk_comment(p):
     node = settings.DEFAULTS; c = ""
     for k in p.split("."):

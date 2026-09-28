@@ -22,7 +22,7 @@
     "comment": "上游模型元数据自动抓取（model_meta.py）：GET /models 扩展字段＋探测响应头 x-ratelimit；缓存 <SMS_HOME>/config/models.json；defaults＝上游未提供时的兜底标注"
   },
   "caps": { "gateway_rounds": 0, "skill_rounds": 0, "ask_rounds": 0, "comment": "agent 循环轮次上限（熔断保险丝）：0＝无限（默认——设上限会令长任务中途断裂强制收口）；>0＝达上限强制收口（子技能收不了口卡死时可设）。gateway_rounds＝gateway.py 对话/工具主循环；skill_rounds＝skill 工具子会话派发；ask_rounds＝ask 子问答循环；F4 图形配置或 :config caps.<键> 可调" },
-  "task": { "auto_table": true, "max_parallel": 3, "comment": "任务表（task_table.py 制表器·批12·批14①门控）：auto_table＝仅复杂任务（拆步≥2且至少一步命中执行性技能）送网关前自动拆步建表（右栏任务表＋顶栏进度/剩余时间·模型经 task_plan 工具按步推进与中途改表）；单步/纯问答/无技能命中多步一律免表直送；max_parallel＝task 工具并行子任务上限" },
+  "task": { "auto_table": true, "auto_continue": true, "max_continue": 5, "max_parallel": 3, "comment": "任务表（task_table.py 制表器·批12·批14①门控·批18 主流程守卫）：auto_table＝仅复杂任务（拆步≥2且至少一步命中执行性技能）送网关前自动拆步建表（粗分种子·行数无上限·模型首轮据实改表并按步 task_plan 推进）；单步/纯问答/无技能命中多步一律免表直送；auto_continue＝主流程守卫（批18·相信大模型）——话语带任务表且仍有未完成行时禁止收口，注入续推提示让模型继续派发/改表（仅对话主流程生效·子会话不触发）；max_continue＝守卫连续续推上限（0＝无限·防模型反复宣告完成不推进时熔断转人工）；max_parallel＝task 工具并发子任务上限（parallel=false 时改依序串行）" },
   "shell": { "exec_timeout": 600, "comment": "系统 shell 与子脚本单条超时（秒·sys_shells.run 与 shell_core.run_script 共用·到点强杀防卡死）" },
   "chains": {
     "default": { "enabled": true, "merge_thr": 0.92, "prune_days": 14, "min_freq": 1 },
