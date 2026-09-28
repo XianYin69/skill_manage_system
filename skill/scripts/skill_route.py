@@ -33,7 +33,7 @@ def match(text, sms=None):
 def catalog(sms=None):
     return ("技能全表：" + "；".join("%s（%s）" % (s.get("id"), re.sub(r"\s+", "", str(s.get("description") or ""))[:26]) for s in skills(sms)))[:620]
 def listtext(sms=None):
-    ss = skills(sms); return ("技能注册表为空：先运行 register.py 扫描安装根（config.scan_roots），或经 Skill_Generator 创建后重装。" if not ss else "可调用托管技能 %d 个（说法即打分给〔参考〕·采纳与否由模型定，Ctrl+K 可显式选填）：" % len(ss) + "；".join("%s（%s）" % (s.get("id"), re.sub(r"\s+", "", str(s.get("description") or ""))[:26]) for s in ss) + "。执行类诉求经 skill 工具开子会话真派发执行（skill 工具），结果整合作答；需本机真跑脚本/调设备时以 :use 切 agent CLI 承接。")[:1400]
+    ss = skills(sms); return ("技能注册表为空：先运行 register.py 扫描安装根（config.scan_roots），或经 Skill_Generator 创建后重装。" if not ss else "可调用托管技能 %d 个（说法即打分给〔参考〕·采纳与否由模型定，Ctrl+K 可显式选填）：" % len(ss) + "；".join("%s（%s）" % (s.get("id"), re.sub(r"\s+", "", str(s.get("description") or ""))[:26]) for s in ss) + "。执行类诉求经 skill 工具派发对等对话真派发执行（批23 每派发自开独立 conv），结果整合作答；需本机真跑脚本/调设备时以 :use 切 agent CLI 承接。")[:1400]
 def route(text, sms=None):
     t0 = time.perf_counter(); sms = sms or resolve_home.ensure(); ss, terms = _reg(sms); u = text.lower()
     ranked = sorted(((_score(s, u, terms), i) for i, s in enumerate(ss)), key=lambda x: -x[0]); hs = [ss[i] for sc, i in ranked[:2] if sc >= 4]
@@ -41,7 +41,7 @@ def route(text, sms=None):
     latency.rec("route", ",".join(str(s.get("id")) for s in hs) or "-", (time.perf_counter() - t0) * 1000)
     if hs:
         g = "；".join("%s→%s" % (s.get("id"), os.path.join(str(s.get("install_path", "")), str(s.get("entry", "SKILL.md")))) for s in hs)
-        return ",".join(str(s.get("id")) for s in hs), "[SMS 路由·参考] 关键词打分命中（" + g + "·产物目标＝工作区 tmp：" + resolve_home.wtmp() + "）——本行仅供参考，是否派 skill 工具开子会话真执行（按其 SKILL.md）由你结合话语自主决定；纯问答/解释可直接作答不必派发；确不采纳时简要说明理由即可。"
+        return ",".join(str(s.get("id")) for s in hs), "[SMS 路由·参考] 关键词打分命中（" + g + "·产物目标＝工作区 tmp：" + resolve_home.wtmp() + "）——本行仅供参考，是否派 skill 工具开对等对话真执行（按其 SKILL.md）由你结合话语自主决定；纯问答/解释可直接作答不必派发；确不采纳时简要说明理由即可。"
     return None, "[SMS 路由·参考] 关键词未命中。你可直答（简短·简体中文）或对照下表/索引择最相关技能用 skill 工具真执行。**判复杂且无现成技能可做的动手诉求（要读写/调设备/跑脚本）：先经 skill 工具派发 Skill_Generator（create 路径）按需新建技能，再回来派发执行——不要因「没找到技能」就空口声称已做或拒绝。** 下表为已装技能，命中与否、直答还是派发或新建，均由你结合意图自主决定，禁止空口声称已执行。" + catalog(sms)
 if __name__ == "__main__":
     a = sys.argv[1:] or ["list"]

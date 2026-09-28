@@ -28,7 +28,7 @@ class Index:
         for s in getattr(self, "steps", []):
             if not s.startswith("路由参考：打分命中"): continue
             sids = [x.strip() for x in s.split("命中", 1)[1].split("·")[0].split(",") if x.strip()]
-            t = Text("⧉ 路由参考命中 " + "、".join(sids) + "：是否派发由模型自主决定（⧉技能▸ 行＝真子会话输出）　可显式重派：", style="bold #f9e2af")
+            t = Text("⧉ 路由参考命中 " + "、".join(sids) + "：是否派发由模型自主决定（⧉技能▸ 行＝真对等派发对话输出·批23 各派发自开 conv）　可显式重派：", style="bold #f9e2af")
             t.append("[:dispatch " + (sids[0] if sids else "<技能id>") + " <诉求>]", style="bold #89b4fa underline"); self.log_line(t); break
     def open_subconv(self, sid, only_empty=False):
         try: import chains; chains.log("sub", sid)

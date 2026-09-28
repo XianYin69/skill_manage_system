@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""shell_tui_paint.py — sms-shell 输出区着色渲染（批6·用户「代码高亮式区分 工具/skill/输出」）：把 on_line 文本按类型上色——⧉技能▸ 子会话正文＝紫色技能徽章＋正文（路径暗青·`code` 橙）·〔技能:x〕/〔工具:x〕徽章着色·$ 命令行（工具）橙·✎ 编辑黄·✗ 错误红·▸ 步骤暗青（不进主输出·F9 收）·纯正文默认色＋路径/反引号/方括号高亮。与 shell_tui_detail.split 配合：split 决定该行进主输出还是 F9，paint 给进主输出的行上色。"""
+"""shell_tui_paint.py — sms-shell 输出区着色渲染（批6·用户「代码高亮式区分 工具/skill/输出」）：把 on_line 文本按类型上色——⧉技能▸ 派发对话正文＝紫色技能徽章＋正文（路径暗青·`code` 橙）·〔技能:x〕/〔工具:x〕徽章着色·$ 命令行（工具）橙·✎ 编辑黄·✗ 错误红·▸ 步骤暗青（不进主输出·F9 收）·纯正文默认色＋路径/反引号/方括号高亮。与 shell_tui_detail.split 配合：split 决定该行进主输出还是 F9，paint 给进主输出的行上色。"""
 import re
 from rich.text import Text
 PATH = re.compile(r"[A-Za-z]:[\\/][^\s，。！？；：]*|[\w\-\./\\]+\.(?:py|md|ps1|cmd|json|txt|html|csv|sh|js|ts)\b")

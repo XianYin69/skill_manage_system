@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""dream.py — 做梦机制（时间戳调度·红线17 审计·批17 后台化）：间隔＝用户设置（settings `dream.interval_min`·默认 360 分·程序钳 5–720），next_run_ts 运行时间戳由程序按间隔自动计算写 chains/（到点触发·非配置键不可手动设）——合并近义/修剪低频/钉选记忆/审计未收口对话与子会话/记忆沉淀（dream_mem：高频有用碎片→memory 链·私人信息经 privacy 变换入 privacy/ 供个性化）/错误自修（dream_fix：skill_errors≥3 open→直调 Skill_Generator self_update report 登记修复）/网络漫游（dream_roam：话题→ff_lite 搜索→蒸馏入 knowledge/logic 链·须 grant network）；执行＝分离子进程后台跑（dream_bg·stdout→logs/dream.log），对话前台零占用；CLI `run` 默认同步跑完并回 JSON（--async 才后台拉起）。用法：python -B dream.py status|run [--async]|schedule|maybe。"""
+"""dream.py — 做梦机制（时间戳调度·红线17 审计·批17 后台化）：间隔＝用户设置（settings `dream.interval_min`·默认 360 分·程序钳 5–720），next_run_ts 运行时间戳由程序按间隔自动计算写 chains/（到点触发·非配置键不可手动设）——合并近义/修剪低频/钉选记忆/审计未收口对话与派发对话（批23 对等：每 conv 均应有 open:/close: 配对）/记忆沉淀（dream_mem：高频有用碎片→memory 链·私人信息经 privacy 变换入 privacy/ 供个性化）/错误自修（dream_fix：skill_errors≥3 open→直调 Skill_Generator self_update report 登记修复）/网络漫游（dream_roam：话题→ff_lite 搜索→蒸馏入 knowledge/logic 链·须 grant network）；执行＝分离子进程后台跑（dream_bg·stdout→logs/dream.log），对话前台零占用；CLI `run` 默认同步跑完并回 JSON（--async 才后台拉起）。用法：python -B dream.py status|run [--async]|schedule|maybe。"""
 import os, sys, json, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import resolve_home, chain_store as cs, chains, dream_fix, dream_mem, dream_bg

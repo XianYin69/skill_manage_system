@@ -26,7 +26,7 @@ metadata:
 1. 壳选择：`:sh list` 看检出结果，`:sh <kind>` 选定（持久 `<SMS_HOME>/shell/shell_kind`）；`pwsh|powershell|cmd|bash|zsh` 五类。
 2. 单发：`!dir` / `:sh ls -la`——unix 风格命令仅当真 bash 在场才改道，否则 PowerShell 直跑（`ls/cat/grep/git/python` PS 原生可用）。
 3. 查手册：`python -B skill/scripts/sys_shells.py manual [kind]` 打印当前壳对应手册绝对路径；`manual all` 打印四篇清单。
-4. 登记检索：`python -B skill/scripts/sys_shells.py register-manual` 把四篇绝对路径写 `<SMS_HOME>/shell/manual.json`（供 `:cmds`/F2 索引与子会话读取，数据不落 skill 目录）。
+4. 登记检索：`python -B skill/scripts/sys_shells.py register-manual` 把四篇绝对路径写 `<SMS_HOME>/shell/manual.json`（供 `:cmds`/F2 索引与派发对话读取，数据不落 skill 目录）。
 5. 门禁不变：git 写操作恒须 `grant danger`（红线 2）；cwd＝`SMS_WORKSPACE`，产物只入 `SMS_TMP`；超时 `shell.exec_timeout`；输出行内出现 `stop/停止` 即协作收口（stop_channel）。
 
 ## 红线

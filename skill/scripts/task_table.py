@@ -18,7 +18,7 @@ def plan(intent, steps=None):
     subs = _rows(steps) if steps is not None else _rows(tsk.decompose(str(intent)))
     if steps is None and (len(subs) < 2 or not any(x["skill"] and x["skill"] not in GEN for x in subs)): return None
     return _mkdoc(intent, subs) if subs else None
-def block(doc): return "\n〔任务表 " + doc["id"] + "（预测" + msg_flow.fmt(eta(doc)) + "）〕\n" + "\n".join("%s %s%s" % (x["id"], str(x["goal"])[:70], ("〔技能:" + str(x["skill"]) + "〕" if x.get("skill") else "〔工具自办〕")) for x in doc["subtasks"]) + "\n〔执行规则〕这是脚本粗分种子或你自建的表——复杂与否由你判、按真实步骤推进（task_plan add/remove/skill 随时改表），行数无上限、不得只跑一两行就停；按行推进：〔技能:x〕调 skill 派发、〔工具自办〕用 exec/read/write/glob/grep 自办；子任务无依赖可用 task 工具并发派发（你判断无冲突才并发·有依赖 parallel=false 或依序逐 skill）；每步完成立刻 task_plan status <表id> <行id> done（顶栏进度据此刷新）；全部行 done 才输出整合结果收口——子会话收口＝返回主流程继续未完成行，禁止把单个子技能完成当作整段对话结束。\n"
+def block(doc): return "\n〔任务表 " + doc["id"] + "（预测" + msg_flow.fmt(eta(doc)) + "）〕\n" + "\n".join("%s %s%s" % (x["id"], str(x["goal"])[:70], ("〔技能:" + str(x["skill"]) + "〕" if x.get("skill") else "〔工具自办〕")) for x in doc["subtasks"]) + "\n〔执行规则〕这是脚本粗分种子或你自建的表——复杂与否由你判、按真实步骤推进（task_plan add/remove/skill 随时改表），行数无上限、不得只跑一两行就停；按行推进：〔技能:x〕调 skill 派发、〔工具自办〕用 exec/read/write/glob/grep 自办；子任务无依赖可用 task 工具并发派发（你判断无冲突才并发·有依赖 parallel=false 或依序逐 skill）；每步完成立刻 task_plan status <表id> <行id> done（顶栏进度据此刷新）；全部行 done 才输出整合结果收口——派发对话收口＝形式停止·调度方继续未完成行（批23 对等对话），禁止把单个派发完成当作整段任务结束。\n"
 def attach(intent): return "" if not settings.get("task.auto_table", True) else (block(d) if (d := plan(intent)) else "\n〔任务表·脚本未建〕标点粗分判非复杂或无执行技能命中——复杂与否由你定：判定需≥2步动手执行时，先 task_plan op=plan value=你拆的各步骤（逗号分隔）自建表并按表推进；单步/问答直接办，勿为表而表。\n")
 def pending(conv=""):
     c = conv or chains.ACTIVE.get("conv") or ""; out = []
