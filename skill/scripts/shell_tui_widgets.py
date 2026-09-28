@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
-"""shell_tui_widgets.py — sms-shell Textual TUI 组件（配 shell_tui_textual）：Input（回车/ctrl+enter 提交·Tab 补全·Shift+Tab agent 菜单·「/」空行时打开 SKILL.md 技能索引（F5 为文件索引）·上下历史）、StatusBar（步进器＋每步名称轮询＋本对话用时计时，RichLog 之外的实时状态行）、TopBar（顶栏：左＝壳身份·数据流·界面模式徽标（对话/直通/查看）·中＝task_detail 任务进度优先，否则当前步骤滚动简述·右＝用户地区实时日期＋星期＋时间（本机时区），0.5s 自刷新）、Menu（ModalScreen 快捷菜单：F1/Alt+M/Ctrl+K 打开，Enter 选择→命令串回 app.pick）。"""
+"""shell_tui_widgets.py — sms-shell Textual TUI 组件（配 shell_tui_textual）：Input（回车/ctrl+enter 提交·Tab 补全·Shift+Tab agent 菜单·「/」空行时打开 SKILL.md 技能索引（F5 为文件索引）·上下历史）、StatusBar（步进器＋每步名称轮询＋本对话用时计时，RichLog 之外的实时状态行）、TopBar（顶栏：左＝壳身份·数据流·界面模式徽标（对话/直通/查看）·中＝task_detail 任务进度优先，否则当前步骤滚动简述·右＝用户地区实时日期＋星期＋实时时间 HH:MM:SS（本机时区），0.5s 自刷新永不静止）；快捷菜单浮层（F1/Ctrl+K·分组嵌套·返回上一级）见 shell_tui_menu。"""
 import time, debug, shell_mode
 from rich.text import Text
-from textual.containers import Container, Vertical
-from textual.screen import ModalScreen
-from textual.widgets import Label, ListView, ListItem, Static, TextArea
+from textual.widgets import Static, TextArea
 SP = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 class Input(TextArea):
     async def _on_key(self, event):
@@ -36,11 +34,3 @@ class TopBar(Static):
         else:
             pad = cur + " · "; self.off = (self.off + 1) % len(pad); core = (pad * (mid // len(pad) + 2))[self.off:self.off + mid]
         self.update(Text("%s │ %s │ %s" % (left, core.ljust(mid), right), style="bold #89b4fa"))
-class Menu(ModalScreen[str]):
-    CSS = "Menu{align:center middle} Menu>Vertical{width:76;height:24;padding:1 2;background:#181825;border:round #89b4fa} #mt{color:#f9e2af} ListView{background:#181825}"
-    BINDINGS = [("escape", "close", "关闭")]
-    def __init__(self, title, items): self._t = title; self._i = items; super().__init__()
-    def compose(self): yield Vertical(Static(Text(self._t), id="mt"), ListView(*[ListItem(Label(Text(l)), id="mi%d" % n) for n, (c, l) in enumerate(self._i)]))
-    def action_close(self): self.dismiss(None)
-    def on_list_view_selected(self, m):
-        self.dismiss(self._i[m.index][0])

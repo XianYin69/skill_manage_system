@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """shell_core.py — sms-shell 共享路由（与 bin ps1 同套确定性路由）：quit·`sms/sms-shell` 前缀剥离·裸内置词零模型直达·`:dispatch` 真派发·`:sh`/`!命令` 系统 shell 联动·`:edit/:view` 返回编辑器令牌（TUI F8）·`:session new|list|use|current` 会话层链隔离·`:debug` 同步配置。其余话语经 shell_mode.utter（含 F7 三态 gate）→ data flow；agent_stream 批16 LLM 主导：路由打分仅作〔参考〕注入，直答/派发由模型在 gateway 工具循环内自主决定。st 上报步骤、ev 收 msg_flow 信封供顶栏进度。"""
 import os, sys, subprocess, re; S = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, S)
-import agent_stream as ag, settings, user_commands, skill_route, user_index, debug, chains, resolve_home, sys_shells, shell_resume as sr, stop_channel as stop; from shell_help import HELP, SHORT; SMS = ag.SMS; IMG = []; BUILD = "b87"; os.environ["SMS_TMP"] = resolve_home.wtmp()
+import agent_stream as ag, settings, user_commands, skill_route, user_index, debug, chains, resolve_home, sys_shells, shell_resume as sr, stop_channel as stop; from shell_help import HELP, SHORT; SMS = ag.SMS; IMG = []; BUILD = "b88"; os.environ["SMS_TMP"] = resolve_home.wtmp()
 def banner(): return "sms-shell·build=" + BUILD + " · SMS_HOME=" + SMS + " · 会话=" + chains.cur_sess() + " · 数据流：" + (ag.current() or "未检出（:agents 查看）") + " · 技能前缀：" + ("on" if ag.prefix_on() else "off") + " · 接续前对话：" + ("on" if sr.flag() else "off（:resume on 开启）") + " · 帮助 :help（含 :dispatch/:sh/!命令/:resume/:edit/F8 编辑器/F4 debug 开关）"
 def startup_block(): n = sr.note(); return ("── 接续上次关闭前的对话 ──\n" + n) if n else ""
 def run_script(name, args):
