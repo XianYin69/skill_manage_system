@@ -22,7 +22,7 @@ def skill(on): _put("skill_prefix", "on" if on else "off"); return "skill_manage
 def compose(text, sms=None): return prompt_builder.init(sms or SMS) + "\n\n" + prompt_builder.build(text, sms or SMS)
 def _edge(conv): return [[conv, "ref", 1], [chains.cur_sess(), "member", 1]]
 def ask(text, on_line, st=lambda n: None, ev=None):
-    on_line = tts.hook(on_line); stop.clear(); dream.maybe(SMS); model_meta.maybe(); ag = current(); st("检测执行器：" + (ag or "无"))
+    on_line = tts.hook(on_line); tts.preempt(); stop.clear(); dream.maybe(SMS); model_meta.maybe(); ag = current(); st("检测执行器：" + (ag or "无"))
     if not ag: on_line("拒绝：未检出 agent CLI 且原生网关未启用（config llm_gateway.enabled=true）——sms-shell 只经数据流执行，请先 :config 启用网关或装 agent CLI"); return None
     spec = adapters()[ag]; ct.flush(); conv = chains.session_id(); chains.set_active(conv); chains.record("session", "open:" + conv, _edge(conv)); st("开新对话：" + conv)
     wsp, virt = ws.begin(conv); st("工作区：" + wsp + ("〔虚拟·收口即删〕" if virt else "")); at.bind(on_line=on_line, ev=ev if ev is not None else False)
