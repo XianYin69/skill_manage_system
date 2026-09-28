@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""register.py — 扫描技能安装位置与所用工具，生成 registry/register.json；默认扫描根读 skills_config（<SMS_HOME>/config/skills.json 的 scan_roots），--add-root <path> 登记本地目录/文件为扫描根。"""
+"""register.py — 扫描技能安装位置与所用工具，生成 registry/register.json；默认扫描根读 skills_config（<SMS_HOME>/config/skills.json 的 scan_roots），--add-root <path> 登记本地目录/文件为扫描根；根自身含 SKILL.md（或 skill/SKILL.md）时该根即作为一个技能登记（按路径加入单个 skill），父子根重复命中自动去重。"""
 import os, sys, time, glob
 
 TOOLS = ["read", "write", "edit", "glob", "grep", "bash", "task", "skill", "websearch", "webfetch"]
 DEFAULT_ROOTS = [os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sub_skills"), os.path.expanduser("~/.kilocode/skills")]
 
 def find_skills(roots):
-    out = []
+    out = []; seen = set()
     for root in roots:
-        for d in sorted(glob.glob(os.path.join(root, "*"))):
+        for d in [root] + sorted(glob.glob(os.path.join(root, "*"))):  # root 自身含 SKILL.md 也登记（按路径加入 skill 可直接指技能夹）
             for rel in ("SKILL.md", "skill/SKILL.md"):
-                if os.path.isfile(os.path.join(d, rel)):
-                    out.append((os.path.basename(d), d, os.path.join(d, rel), rel)); break
+                if os.path.isfile(os.path.join(d, rel)) and d not in seen:
+                    seen.add(d); out.append((os.path.basename(d), d, os.path.join(d, rel), rel)); break
     return out
 
 def meta(sk):
