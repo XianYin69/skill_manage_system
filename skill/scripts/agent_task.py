@@ -8,7 +8,7 @@ def _save(doc): os.makedirs(os.path.join(SMS, "tasks"), exist_ok=True); atomic_i
 def task(intent, parallel=True):
     from concurrent.futures import ThreadPoolExecutor
     subs = tsk.decompose(str(intent)); tid = "task-" + time.strftime("%Y%m%d-%H%M%S") + "-" + "%03d" % (time.time() * 1000 % 1000)  # 毫秒后缀：同秒连发两任务不再互相覆盖 tasks/<id>.json（实测 task2 撞名 IndexOverwrite）
-    doc = {"id": tid, "intent": str(intent), "conv": chains.ACTIVE["conv"], "sess": chains.cur_sess(), "created": time.strftime("%Y-%m-%d %H:%M:%S"), "subtasks": subs}; _save(doc)
+    doc = {"id": tid, "intent": str(intent), "conv": chains.ACTIVE["conv"], "sess": chains.cur_sess(), "created": time.strftime("%Y-%m-%d %H:%M:%S"), "src": __import__("qq_stall").src(chains.ACTIVE["conv"]), "subtasks": subs}; _save(doc)
     at.emit("task", "任务 " + tid + "：拆出 " + str(len(subs)) + " 子任务·" + ("并行派发" if parallel is not False else "依序串行") + "（剩余时间预测见顶栏）", tool="task", meta={"id": tid, "done": 0, "total": len(subs), "eta_s": tt.eta(doc)})
     lk = threading.Lock(); cnt = {}; parent = ac.cur()
     def one(st):

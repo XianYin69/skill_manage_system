@@ -11,6 +11,7 @@ def run(sms=None):
     c = qp.conf(sms)
     if not qp.ready(c): W.log("拒绝启动：未绑定或未启用（:qq bind / :qq on）", sms); return "未绑定或未启用 QQ——监听器不启动"
     _w("listen.pid", "%d|%d" % (os.getpid(), time.time()), sms); W.log("启动 pid=%d" % os.getpid(), sms)
+    import qq_stall; qq_stall.start(sms); W.log("卡住看门狗已启（stall_after=%ss·repeat=%ss·tick=%ss）" % (c.get("stall_after", 180), c.get("stall_repeat", 600), c.get("stall_tick", 30)), sms)
     for it, last in ((S.I_MSG | S.I_INT, False), (S.I_MSG, True)):
         st = {"bad": 0}
         def on_state(s, x="", st=st):
