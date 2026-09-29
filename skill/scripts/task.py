@@ -40,6 +40,8 @@ def build(intent):
 
 if __name__ == "__main__":
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    try: __import__("session_reg").bind("bg", "task", "任务拆分")
+    except Exception: pass
     import resolve_home, emit
     sms = resolve_home.ensure()
     intent = sys.argv[1] if len(sys.argv) > 1 else "（未填写意图）"

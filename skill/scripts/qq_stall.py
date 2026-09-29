@@ -8,9 +8,48 @@ KIND = {"network": "网络", "model": "模型", "process": "进程", "busy": "�
 def _td(sms=None): return os.path.join(sms or resolve_home.ensure(), "tasks")
 def _tf(tid, sms=None): return os.path.join(_td(sms), tid + ".json")
 def src(conv="", sms=None):
-    """建表侧来源标记：qq/active.json 的 ts 距今 <1800s＝qq 否则 shell（读不到回 shell 保守不误报；ask 内才新建 conv、与派发时 conv 不同，故按时间窗判不按 conv 匹配）。"""
+    """建表侧来源标记：优先 session_reg.fresh("qq")（qq 通道 session 30min 内活跃＝qq 发起），拿不到再退回 qq/active.json 的 ts 距今 <1800s 兜底（保守不误报；ask 内才新建 conv、与派发时 conv 不同，故按时间窗判不按 conv 匹配）。"""
+    try:
+        import session_reg as R
+        if R.fresh("qq", 1800, sms): return "qq"
+    except Exception: pass
     try: return "qq" if time.time() - float((qp._ld(qp._f(sms or resolve_home.ensure(), "active.json"), {}) or {}).get("ts") or 0) < 1800 else "shell"
     except Exception: return "shell"
+def _sid(doc, sms=None):
+    """该任务表所属 session＝doc["sess"]，缺失按 conv 反查（异常回空·绝不抛）。"""
+    try:
+        import session_reg as R; m = R.list_(sms)
+        sid = str(doc.get("sess") or "")
+        if sid in m: return sid
+        cv = str(doc.get("conv") or "")
+        return next((k for k, v in m.items() if cv and v.get("conv") == cv), "")
+    except Exception: return ""
+def _state(doc, s, sms=None):
+    """告警触发＝该 conv 所属 session 置 stalled；恢复进展＝回 active（session_reg.set_state·异常全吞）。"""
+    try:
+        import session_reg as R; sid = _sid(doc, sms); return sid and R.set_state(sid, s, sms)
+    except Exception: return ""
+def _busy_sids(sms=None, c=None):
+    """仍在盯的 session＝卡住候选表 ∪ 已 paused（重试用尽）表——这些不算恢复进展。"""
+    out = set()
+    try: out |= {str(d.get("sess") or "") for d, _, _ in stalled(sms, c)}
+    except Exception: pass
+    try:
+        d = _td(sms)
+        for fn in (os.listdir(d) if os.path.isdir(d) else []):
+            if fn.endswith(".json"):
+                doc = qp._ld(os.path.join(d, fn), {}) or {}
+                if doc.get("paused"): out.add(str(doc.get("sess") or ""))
+    except Exception: pass
+    return out
+def _sync(c):
+    """恢复进展回 active：被置 stalled 的 qq session 若其表已不在卡住/暂停清单 → state=active。"""
+    try:
+        import session_reg as R
+        ids = {k for k, v in R.list_(c["sms"]).items() if v.get("kind") == "qq" and v.get("state") == "stalled"}
+        for sid in ids - _busy_sids(c["sms"], c): R.set_state(sid, "active", c["sms"])
+    except Exception: pass
+
 def _i(v, d=0):
     try: return int(v)
     except Exception: return d
@@ -82,9 +121,9 @@ def check(sms=None, c=None):
                 t = _pause(doc, "重试用尽·%s" % KIND.get(kind, kind), c)
             else:
                 t = _text(doc, stat, age, kind, detail, rt); qp.push(t, "QQ·卡住", c); nudge(doc, c, st)
-            if t: hits.append(t)
+            if t: hits.append(t); _state(doc, "stalled", c["sms"])
             st[tid] = {"sig": sig, "last": time.time(), "nudged": float((st.get(tid) or {}).get("nudged") or 0)}
-        qp._wj(qp._f(c["sms"], "stall.json"), st); return hits
+        qp._wj(qp._f(c["sms"], "stall.json"), st); _sync(c); return hits
     except Exception: return []
 def tick(sms=None):
     """节流入口（stall_tick 默认 30s）：监听线程每轮调一次，未到窗口回「节流」。"""

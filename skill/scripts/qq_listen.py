@@ -7,6 +7,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 def _w(n, v, sms=None):
     os.makedirs(W._d(sms), exist_ok=True); open(W._f(n, sms), "w", encoding="utf-8").write(v)
 def run(sms=None):
+    try: __import__("session_reg").bind("bg", "qq_listen", "QQ监听器")
+    except Exception: pass
+
     import qq_session as S, qq_dispatch as D
     c = qp.conf(sms)
     if not qp.ready(c): W.log("拒绝启动：未绑定或未启用（:qq bind / :qq on）", sms); return "未绑定或未启用 QQ——监听器不启动"

@@ -7,6 +7,7 @@ for s in (sys.stdout, sys.stderr):
 os.environ["PYTHONUTF8"] = "1"; os.environ["PYTHONIOENCODING"] = "utf-8"
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import shell_core as core
+import session_reg as _sreg; SELF_SESS = _sreg.bind("client", os.getpid(), "Textual壳")
 try:
     from textual.app import App, ComposeResult, Binding
     from textual.containers import Horizontal, VerticalScroll

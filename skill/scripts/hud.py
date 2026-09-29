@@ -38,6 +38,8 @@ def _stop():
     except Exception: pass
     return _hide()
 if __name__ == "__main__":
+    try: __import__("session_reg").bind("bg", "hud", "HUD")
+    except Exception: pass
     a = sys.argv[1:]; cmd = a[0] if a else "status"
     num = lambda i, d: float(a[i]) if len(a) > i and a[i].replace(".", "", 1).isdigit() else d
     if cmd in ("session", "step", "alert"): r = _set(cmd, a[1], num(2, 120 if cmd == "step" else 1800)) if len(a) > 1 else {"usage": "hud " + cmd + " <文本> [ttl秒]（清除用 :hud hide）"}

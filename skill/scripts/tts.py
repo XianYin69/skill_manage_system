@@ -33,6 +33,8 @@ def status():
     return json.dumps({"profile": NAME() + "（alina）", "engine": "SAPI5", "on": on(),
                        "voice": settings.get("tts.voice", ""), "rate_pct": tts_say._params()["r"], "pitch": settings.get("tts.pitch", "+0st"), "volume_pct": int(settings.get("tts.volume", 100)), "max_chars": CAP(), "turn": _T[0], "gender": "female-mechanical", "platform": "windows"}, ensure_ascii=False)
 if __name__ == "__main__":
+    try: __import__("session_reg").bind("bg", "tts", "朗读")
+    except Exception: pass
     a = sys.argv[1:] or ["status"]; c = a[0]
     if c == "say" and len(a) > 1: print(speak(" ".join(a[1:]), True))
     elif c == "test": print(speak("你好，我是" + NAME() + "，很高兴为你朗读。", True))
