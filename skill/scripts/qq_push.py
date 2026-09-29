@@ -3,8 +3,8 @@
 import os, sys, json, time, hashlib, base64, urllib.request as U
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import resolve_home, msg_flow
-import retry_io as rio
-API = "https://api.bot.qq.com"; DEF = {"enabled": True, "max_day": 400, "min_gap": 2.0, "max_len": 500, "dedup": 60, "task_push": True, "task_gap": 8.0, "ack": True, "brief": True, "brief_len": 260, "push_retries": 3, "listen_retries": 8, "img_max_kb": 2048, "stall": True, "stall_after": 180, "stall_repeat": 600, "stall_tick": 30}
+import retry_io as rio, runtime_rec as rr
+API = "https://api.bot.qq.com"; DEF = {"enabled": True, "max_day": 400, "min_gap": 2.0, "max_len": 500, "dedup": 60, "task_push": True, "task_gap": 8.0, "ack": True, "brief": True, "brief_len": 260, "push_retries": 3, "listen_retries": 8, "img_max_kb": 2048, "stall": True, "stall_after": 180, "stall_repeat": 600, "stall_tick": 30, "nudge": 1, "busy_grace": 120, "rt_trust": 3600, "shell_alive_ttl": 180}
 _f = lambda sms, n: os.path.join(sms, "qq", n); _ld = lambda p, d=None: json.load(open(p, encoding="utf-8")) if os.path.isfile(p) else d
 def conf(sms=None):
     sms = sms or resolve_home.ensure(); c = _ld(os.path.join(sms, "config", "qq.json"), {}) or {}
@@ -19,7 +19,13 @@ def _http(req):
 def _post(url, body, tok="", c=None):
     """QQ 开放平台 POST：网络层失败（超时/断连/5xx/429）自动重试 push_retries 次（默认 3·指数退避 1s 起封顶 8s·HTTP 4xx 不重试）；耗尽抛 retry_io.Retryable 交调用方。"""
     req = U.Request(url, data=json.dumps(body).encode(), headers={"Content-Type": "application/json", **({"Authorization": "QQBot " + tok} if tok else {})})
-    return rio.call(_http, int((c or DEF).get("push_retries", 3)), base=1.0, cap=8.0, args=(req,))
+    nr = int((c or DEF).get("push_retries", 3)); bx = {"i": 0}
+    def _ot(i, k, e, d): bx["i"] = i; rr.rec("qq_push", attempt=i, retries=max(0, k - i), err=e)
+    try:
+        r = rio.call(_http, nr, base=1.0, cap=8.0, on_try=_ot, args=(req,))
+        rr.rec("qq_push", attempt=bx["i"], retries=max(0, nr - bx["i"]), err=""); return r
+    except Exception as e:
+        rr.rec("qq_push", attempt=bx["i"], retries=0, err=e); raise
 def token(c):
     p, now = _f(c["sms"], "token.json"), time.time(); t = _ld(p, {}) or {}
     if t.get("token") and int(t.get("exp", 0)) - 60 > now: return t["token"]
