@@ -2,7 +2,7 @@
 """agent_stream.py — sms-shell 数据流引擎（批16 LLM 主导）：默认直达系统原生网关（config llm_gateway.enabled→gateway），网关未启用才回退已装 agent CLI；每次输入＝开新对话（红线 17），会话层 chains.set_active(conv/sess)＋session/dialogue 碎片打 member→sess 边；工作区＝gateway exec 与 agent CLI 的 cwd；技能路由不再脚本裁决——skill_route 打分命中仅作〔参考〕注入（记 skill_call 链供审计），直答还是派发由模型在 gateway 工具循环内自主决定（批15 前「命中即自动开子会话扇出」已废除）；未命中→chains.conversation 压缩记忆＋对话规则（批23 对等对话·互任监视/指导/训诫）＋〔会话拓扑〕（他 session 未完成/冲突监视提示）＋SKILL.md 索引＋治理注入送网关；话语/工具/技能/任务输出全程 msg_flow 信封（on_line 人读行＋ev 回调供 TUI 顶栏进度）；各阶段步骤名经 st 回调上报；尾行 [图:<路径>] 为网关视觉附图；状态存 <SMS_HOME>/shell/；皆无执行器则拒绝并引导配置（未检出执行器时不得空口作答）。"""
 import os, sys, shutil, subprocess
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import resolve_home, chains, dream, qq_flow, gateway, model_meta, tts, skill_route, prompt_builder, workspace as ws, agent_tools as at, shell_resume as sr, stop_channel as stop, agent_task as atk, task_table as tt, chain_timing as ct
+import resolve_home, chains, dream, qq_flow, qq_boot, gateway, model_meta, tts, skill_route, prompt_builder, workspace as ws, agent_tools as at, shell_resume as sr, stop_channel as stop, agent_task as atk, task_table as tt, chain_timing as ct
 SMS = resolve_home.ensure(); STATE = os.path.join(SMS, "shell")
 ADAPTERS = {"claude": {"bin": "claude", "args": ["-p"]}, "codex": {"bin": "codex", "args": ["exec"]}, "cursor": {"bin": "cursor-agent", "args": []}, "kilocode": {"bin": "kilocode", "args": ["run"]}, "kilo": {"bin": "kilo", "args": ["run"]}, "aider": {"bin": "aider", "args": ["--message"]}}
 def adapters():
@@ -22,7 +22,7 @@ def skill(on): _put("skill_prefix", "on" if on else "off"); return "skill_manage
 def compose(text, sms=None): return prompt_builder.init(sms or SMS) + "\n\n" + prompt_builder.build(text, sms or SMS)
 def _edge(conv): return [[conv, "ref", 1], [chains.cur_sess(), "member", 1]]
 def ask(text, on_line, st=lambda n: None, ev=None):
-    on_line = qq_flow.wrap(tts.hook(on_line)); tts.preempt(); stop.clear(); dream.maybe(SMS); model_meta.maybe(); ag = current(); st("检测执行器：" + (ag or "无"))
+    on_line = qq_flow.wrap(tts.hook(on_line)); tts.preempt(); stop.clear(); dream.maybe(SMS); qq_boot.autostart(SMS); model_meta.maybe(); ag = current(); st("检测执行器：" + (ag or "无"))
     if not ag: on_line("拒绝：未检出 agent CLI 且原生网关未启用（config llm_gateway.enabled=true）——sms-shell 只经数据流执行，请先 :config 启用网关或装 agent CLI"); return None
     spec = adapters()[ag]; ct.flush(); conv = chains.session_id(); chains.set_active(conv); chains.record("session", "open:" + conv, _edge(conv)); qq_flow._wb([]); st("开新对话：" + conv)
     wsp, virt = ws.begin(conv); st("工作区：" + wsp + ("〔虚拟·收口即删〕" if virt else "")); at.bind(on_line=on_line, ev=ev if ev is not None else False)
