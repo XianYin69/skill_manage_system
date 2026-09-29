@@ -21,9 +21,11 @@ def deliver(e, c=None):
     finally:
         qq_reply.clear()
 def ack(e, c):
-    """即时回执：走 qp.send：先试被动回复（handle 已 set_reply→显示在原会话），被动失败自动回落主动推送；不经 push 的间隔/配额簿记，免得回执占掉 min_gap 把紧随的正文挤进 outbox；qq.json ack=false 可关；异常一律吞掉，绝不影响后续派发。"""
+    """即时回执（t1）：走 qq_chunk.send 直发**主动**端点——绝不消耗该 msg_id 的被动窗（被动位留给正文），也不经 push 的间隔/配额簿记（不占 min_gap）；≤20字；qq.json ack=false 可关；异常一律吞掉，绝不影响后续派发。"""
     if not c.get("ack"): return None
-    try: return qp.send(c, "收到 ✓ " + str(e.get("text") or "").replace("\n", " ")[:16], "QQ·回执")
+    try:
+        import qq_chunk as KC
+        return KC.send(c, "收到·正在处理 " + time.strftime("%H:%M:%S"), "QQ·回执", qp.API + "/v2/users/%s/messages" % c["openid"])
     except Exception: return None
 def handle(m, c=None):
     try:
