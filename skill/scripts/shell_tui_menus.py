@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""shell_tui_menus.py — sms-shell TUI 菜单/补全/历史 mixin（被 shell_tui_textual.ShellApp 混入·与 shell_tui_index.Index/shell_tui_ws.Ws 组合）：META 元指令表（含 :index/:skills/:workspace）·Tab 补全（元指令＋个性化指令＋「/」索引令牌）·上下历史·F1/Alt+M 主菜单·Ctrl+K 托管技能菜单（skill_route 活跃技能）·Shift+Tab agent 菜单·pick 派发（":" 直接执行·"call:" 填调用语句·"#" 转 action·"tok:" 以 /名称 插入输入行·"ws:" 切工作区·"path:" 弹路径输入经 :index 按路径加入 skill·其余填输入框待确认）·帮助/清屏/退出 action；F1 主菜单＝分组浮层（MAIN·技能派发/文件工作区/配置权限/会话数据流/系统·进入子组后「← 返回上一级」）；组件 Menu/Path 见 shell_tui_menu；SKILL.md 技能索引/文件索引/工作区菜单见 shell_tui_index/shell_tui_ws。"""
+"""shell_tui_menus.py — sms-shell TUI 菜单/补全/历史 mixin（被 shell_tui_textual.ShellApp 混入·与 shell_tui_index.Index/shell_tui_ws.Ws 组合）：META 元指令表（含 :index/:skills/:workspace/:qq——:qq 子命令 bind|status|test|on|off|conf|flush|open 由 qq_cli.py 承接）·Tab 补全（元指令＋个性化指令＋「/」索引令牌）·上下历史·F1/Alt+M 主菜单·Ctrl+K 托管技能菜单（skill_route 活跃技能）·Shift+Tab agent 菜单·pick 派发（":" 直接执行·"call:" 填调用语句·"#" 转 action·"tok:" 以 /名称 插入输入行·"ws:" 切工作区·"path:" 弹路径输入经 :index 按路径加入 skill·其余填输入框待确认·「fill:」＝原文填入输入框待补参数（:qq 手工录入用）·帮助/清屏/退出 action；F1 主菜单＝分组浮层（MAIN·技能派发/文件工作区/配置权限/会话数据流/系统/QQ 推送 六组·进入子组后「← 返回上一级」）；组件 Menu/Path 见 shell_tui_menu；SKILL.md 技能索引/文件索引/工作区菜单见 shell_tui_index/shell_tui_ws。"""
 import os
 import shell_core as core, skill_route, user_index
 from rich.text import Text
@@ -29,6 +29,7 @@ class Menus:
         elif sel.startswith("grantp:"): self.grant_perm(sel[7:])
         elif sel.startswith("tool:"): self.tool_toggle(sel[5:])
         elif sel.startswith("path:"): self.ask_path()
+        elif sel.startswith("fill:"): ta.text = sel[5:]; ta.focus()
         elif sel.startswith("#"): getattr(self, "action_" + sel[1:])()
         elif sel.startswith(":"): self.submit(sel)
         else: ta.text = sel + " "; ta.focus()
