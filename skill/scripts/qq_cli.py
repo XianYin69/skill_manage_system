@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""qq_cli.py — QQ 推送的命令行入口与绑定编排（2026-09-29）：bind [source]＝调 qq_bind 协议发起扫码（回执自带 user_openid），成功后写 <SMS_HOME>/config/qq.json（旧值 .bak·chmod 600）；手工录入 --appid/--secret/--openid（开放平台管理端可见，绕过扫码）；status＝配置/凭据/今日已推/outbox 积压一览（密钥打码）；test "<文本>"＝真发一条；on/off＝开关；conf k=v＝改阈值（max_day/min_gap/max_len/dedup）；flush＝补发 outbox（对话收口自动调，也可手跑）。用法：python -B qq_cli.py bind|status|test|on|off|flush|conf [参数]"""
+"""qq_cli.py — QQ 推送的命令行入口与绑定编排（2026-09-29）：bind [source]＝调 qq_bind 协议发起扫码（回执自带 user_openid），成功后写 <SMS_HOME>/config/qq.json（旧值 .bak·chmod 600）；手工录入 --appid/--secret/--openid（开放平台管理端可见，绕过扫码）；status＝配置/凭据/今日已推/outbox 积压一览（密钥打码）；test "<文本>"＝真发一条；on/off＝开关；conf k=v＝改阈值（max_day/min_gap/max_len/dedup）；flush＝补发 outbox（对话收口自动调，也可手跑）；open [create]＝webbrowser 打开开放平台机器人列表/快捷创建登录页（零新依赖，登录后管理端可见 appId/clientSecret，配合手工录入）。用法：python -B qq_cli.py bind|status|test|on|off|conf|flush|open [参数]"""
 import os, sys, json, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import resolve_home, qq_bind as qb, qq_push as qp
@@ -32,8 +32,7 @@ def status():
             "今日已推": s.get("n", 0), "日上限": c["max_day"], "outbox积压": len(ob), "阈值": {k: c[k] for k in ("min_gap", "max_len", "dedup")}}
 def toggle(on):
     p = os.path.join(resolve_home.ensure(), "config", "qq.json"); d = qp._ld(p, {}) or {}
-    d["enabled"] = bool(on); json.dump(d, open(p, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
-    return "QQ 推送：" + ("开" if on else "关")
+    d["enabled"] = bool(on); json.dump(d, open(p, "w", encoding="utf-8"), ensure_ascii=False, indent=1); return "QQ 推送：" + ("开" if on else "关")
 def conf_set(kv):
     p = os.path.join(resolve_home.ensure(), "config", "qq.json"); d = qp._ld(p, {}) or {}
     k, _, v = str(kv).partition("="); v = v.strip().strip('"')
@@ -46,5 +45,6 @@ if __name__ == "__main__":
     elif a[0] == "flush": print(qp.flush() or "outbox 无积压或未绑定")
     elif a[0] == "conf" and len(a) > 1: print(json.dumps(conf_set(a[1]), ensure_ascii=False))
     elif a[0] in ("on", "off"): print(toggle(a[0] == "on"))
+    elif a[0] == "open": import webbrowser; u = {"create": "https://q.qq.com/qqbot/openclaw/login.html"}.get(a[1] if len(a) > 1 else "", "https://q.qq.com/qqbot/openclaw/index.html"); webbrowser.open(u); print("已调用系统浏览器打开：" + u + ("（登录后到「机器人管理」复制 AppID/AppSecret 回填 :qq --appid/--secret/--openid）" if u.endswith("login.html") else ""))
     elif opt("--appid"): print("已手工录入：" + save(opt("--appid"), opt("--secret"), opt("--openid")))
     else: print(json.dumps(status(), ensure_ascii=False, indent=1))

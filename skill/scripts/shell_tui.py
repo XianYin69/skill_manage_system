@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""shell_tui.py — sms-shell TUI 前端（免图形服务器，pwsh/bash/zsh 式·系统终端原生中文）：带参数＝单发模式（把参数拼为一轮话语或 `:` 元指令，执行完即退——系统原生 shell 即界面）；默认直达系统网关即时流式回显；个性化指令自动展开；`:` 元指令治理；readline 历史 + Tab 补全（元指令与个性化指令名）。"""
+"""shell_tui.py — sms-shell TUI 前端（免图形服务器，pwsh/bash/zsh 式·系统终端原生中文）：带参数＝单发模式（把参数拼为一轮话语或 `:` 元指令，执行完即退——系统原生 shell 即界面）；默认直达系统网关即时流式回显；个性化指令自动展开；`:` 元指令治理（:qq 子命令 bind|status|test|on|off|conf|flush|open 透传 qq_cli.py）；readline 历史 + Tab 补全（元指令与个性化指令名）。"""
 import os, sys
 for s in (sys.stdout, sys.stderr):
     try: s.reconfigure(encoding="utf-8", errors="replace", line_buffering=True)
