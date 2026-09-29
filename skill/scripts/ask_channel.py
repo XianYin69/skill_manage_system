@@ -7,7 +7,7 @@ def arm(): UI["armed"] = True
 def disarm(): UI["armed"] = False
 def ask(question, timeout=1800):
     if not UI["armed"]: return "无交互应答通道（原生壳/单发 CLI 不阻塞等用户）：请用 user_send 告知你的假设并继续，不要把问题悬置"
-    UI["asked"] += 1; ASK_Q.put(str(question)[:2000])
+    UI["asked"] += 1; ASK_Q.put(str(question)[:2000]); __import__("qq_flow").fire("ask", question)
     try: ans = ANS_Q.get(timeout=timeout); UI["answered"] += 1; return "用户答复：" + str(ans)
     except queue.Empty: return "用户未在时限内答复——请按最佳判断继续执行，并在结果中说明所用假设"
 def poll():
