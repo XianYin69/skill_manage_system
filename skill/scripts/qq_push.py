@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """qq_push.py — QQ 主动推送（2026-09-29 用户「QQ 第三方 Agent 接入 SMS·只发送主要信息到我的 QQ」）：凭据 <SMS_HOME>/config/qq.json＝{appId,clientSecret,openid,enabled}（qq_bind.py 扫码写入）；发送＝POST https://api.bot.qq.com/v2/users/{openid}/messages {msg_type:0,content}＋Authorization: QQBot <token>（token 走 /app/getAppAccessToken，缓存 <SMS_HOME>/qq/token.json，提前 60s 重取）；口径＝只推 msg_flow CLASS∈{body,alert}（llm_out 模型正文/notice user_send/err 告警）＋模型提问＋做梦待批，思考 reasoning/工具 tool/代码 sh·edit/步骤 step·task/技能过程 skill 一律不推；护栏＝同文 60s 去重、最小间隔、日配额（官方 5qps·30qpm·单好友 1000/天），超限写 <SMS_HOME>/qq/outbox.json 不阻塞前台，对话收口 flush() 补发；异常一律静默并记 error 链，推送失败绝不影响数据流。函数：conf/ready/push/hook/flush/token/send；CLI 见 qq_cli.py。"""
-import os, sys, json, time, urllib.request as U
+import os, sys, json, time, hashlib, urllib.request as U
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import resolve_home, msg_flow
-API = "https://api.bot.qq.com"; DEF = {"enabled": True, "max_day": 400, "min_gap": 2.0, "max_len": 500, "dedup": 60}
+API = "https://api.bot.qq.com"; DEF = {"enabled": True, "max_day": 400, "min_gap": 2.0, "max_len": 500, "dedup": 60, "task_push": True, "task_gap": 8.0}
 _f = lambda sms, n: os.path.join(sms, "qq", n); _ld = lambda p, d=None: json.load(open(p, encoding="utf-8")) if os.path.isfile(p) else d
 def conf(sms=None):
     sms = sms or resolve_home.ensure(); c = _ld(os.path.join(sms, "config", "qq.json"), {}) or {}
@@ -34,8 +34,8 @@ def push(text, tag="SMS", c=None):
         if not text or not ready(c): return None
         s, now, day = _st(c), time.time(), time.strftime("%Y%m%d")
         s = {"day": day, "n": 0, "last": 0.0, "seen": {}} if s.get("day") != day else s
-        if now - float(s["seen"].get(text[:120]) or 0) < float(c["dedup"]): return "去重跳过"
-        s["seen"] = {a: b for a, b in s["seen"].items() if now - float(b) < 600}; s["seen"][text[:120]] = now
+        if now - float(s["seen"].get(_k := hashlib.md5(text.encode()).hexdigest()[:16]) or 0) < float(c["dedup"]): return "去重跳过"
+        s["seen"] = {a: b for a, b in s["seen"].items() if now - float(b) < 600}; s["seen"][_k] = now
         if int(s["n"]) >= int(c["max_day"]) or now - float(s.get("last") or 0) < float(c["min_gap"]): _ob(c, text, "配额/间隔"); return "已入outbox待补发"
         send(c, ("〔%s〕%s" % (tag, text))[:int(c["max_len"])]); s["last"], s["n"] = now, int(s["n"]) + 1; _wj(_f(c["sms"], "state.json"), s); return "已推送QQ"
     except Exception as e:

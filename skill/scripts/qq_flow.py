@@ -21,9 +21,9 @@ def feed(line, c=None):
     except Exception: return None
 def close(tag="收口", c=None):
     try:
-        c = c or qp.conf(); rows = buf(); _wb([])
+        c = c or qp.conf(); rows = buf(); _wb([]); import qq_report; s = qq_report.snapshot(); rows = (rows + [s]) if s else rows
         out = [qp.push("\n".join(ch), "QQ·" + tag, c) for ch in _chunks(rows, int(c["max_len"]))]
-        qp.flush(); return ("推送 %d 段" % len(out)) if rows else None
+        qq_report.flush(c); qp.flush(); return ("推送 %d 段" % len(out)) if rows else None
     except Exception: return None
 def _chunks(rows, cap):
     ch, n = [], 0

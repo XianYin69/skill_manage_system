@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """task_table.py — 任务表制表器（SMS 子技能 task_table·批12②·批14①复杂门控·批18 行数无上限＋主流程守卫·批22 模型裁量）：脚本标点粗分（task.decompose）只作「自动种子」——拆步≥2 且至少一步命中执行性技能时 attach() 先建种子表；批22：判简单时不再沉默，注入〔任务表·脚本未建〕一行把复杂判定权交还模型——模型判复杂即 task_plan op=plan（new_table·免用户写「制表」字样）自建表；〔任务表〕块命令模型据实改表（行数无上限·不得只跑一两行就停）按行推进·每步 task_plan status done·中途 add/remove/skill 改表；pending(conv)＝本对话未完成行清单供 gateway 主流程守卫续推（未完成不得收口·无依赖 task 工具并发·有依赖依序）。落 <SMS_HOME>/tasks/<id>.json＋msg_flow task 信封（顶栏进度/剩余·eta＝未完成行×latency 均值）。用法：python -B task_table.py plan <诉求>|new <步骤逗号分隔>|show <tid>|next <tid>|eta <tid>|status <tid> <t#> <状态>|add <tid> <目标> [技能id]|remove <tid> <t#>|skill <tid> <t#> <技能id>|pending [conv]"""
 import os, sys, json, time, re
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import resolve_home, chains, task as tsk, skill_route, settings, atomic_io, latency, msg_flow
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import resolve_home, chains, task as tsk, skill_route, settings, atomic_io, latency, msg_flow, qq_report
 SMS = resolve_home.ensure(); GEN = ("general_answer", "constraint_arbiter"); TD = os.path.join(SMS, "tasks")
 def _tf(tid): return os.path.join(TD, tid + ".json")
 def _save(doc): os.makedirs(TD, exist_ok=True); atomic_io.wjson(_tf(doc["id"]), doc)
@@ -10,7 +10,7 @@ def _load(tid):
     except Exception: return None  # noqa
 def eta(doc): llm = latency.avg("llm|" + str(settings.get("llm_gateway.model", "auto"))) or 45000; return round(sum(((latency.avg("skill|" + str(x.get("skill"))) or llm) if x.get("skill") else llm) for x in (doc.get("subtasks") or []) if x.get("status") in ("pending", "running")) / 1000)
 def emit(doc, note="任务表"):
-    import agent_tools as at; subs = doc.get("subtasks") or []; dn = sum(1 for x in subs if x.get("status") == "done"); at.emit("task", note + " " + str(doc["id"])[-14:] + "：" + str(dn) + "/" + str(len(subs)) + " " + msg_flow.fmt(eta(doc)), tool="task", meta={"id": doc["id"], "done": dn, "total": len(subs), "eta_s": eta(doc)})  # emit
+    import agent_tools as at; subs = doc.get("subtasks") or []; dn = sum(1 for x in subs if x.get("status") == "done"); at.emit("task", note + " " + str(doc["id"])[-14:] + "：" + str(dn) + "/" + str(len(subs)) + " " + msg_flow.fmt(eta(doc)), tool="task", meta={"id": doc["id"], "done": dn, "total": len(subs), "eta_s": eta(doc)}); qq_report.progress(doc, note)  # emit
 def _rows(subs): return [{"id": "t%d" % (i + 1), "goal": (g := x["goal"] if isinstance(x, dict) else str(x)), "skill": (h := (skill_route.route(g)[0] or "").split(",")[0] or None), "inst": h or ("t%d" % (i + 1)), "status": "pending"} for i, x in enumerate(subs)]
 def _mkdoc(intent, subs): tid = "task-" + time.strftime("%Y%m%d-%H%M%S") + "-" + "%03d" % (time.time() * 1000 % 1000); doc = {"id": tid, "intent": str(intent), "conv": chains.ACTIVE["conv"], "sess": chains.cur_sess(), "created": time.strftime("%Y-%m-%d %H:%M:%S"), "table": "task_table", "subtasks": subs}; _save(doc); emit(doc, "任务表（粗分种子·首轮据实改表）"); return doc
 CUT = "，,。;；、 \n\"'“”‘’「」[]()（）"
