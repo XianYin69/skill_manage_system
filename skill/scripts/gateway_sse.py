@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """gateway_sse.py — 原生网关 SSE 流式（2026-09-26 治「运行慢」观感·ps1 壳已流式而 python 壳整轮等待）：stream(msgs, on_line) 以 stream:true 请求 /chat/completions，按 index 合并 delta.tool_calls 分片（id/name/arguments 拼接），返回与 gateway.chat 同构的 (message, note)。批7 返工②（用户 2026-09-27 截图：思考混在 delta.content 里直刷主屏——上游 auto 不总用 reasoning_content 字段）：流式期间 content 与 reasoning 段一律经「◌ 」reasoning 信封只进 F9 过程流；轮末由 gateway.run 判定——无 tool_calls 才把整段正文送主输出，有 tool_calls 则该轮正文＝过程话永不上主屏（printed=True 防重复吐显·纯思考模型兜底 content=思考）。「残缺」根治（批4）：v2 全程另存 acc 完整正文，返回 content=acc 全文；上游不支持 event-stream 时读整包按非流式同构返回·思考走 ◌ 信封正文由 run 整段上屏；异常回 (None, err)。llm_gateway.stream=false 即回退整轮 chat()。用法：经 gateway.chat 调用；python -B gateway_sse.py "<文本>" 直连验证流式。"""
 import os, sys, json, time, urllib.request, msg_flow, stop_channel as stop, settings
+import retry_io as rio
+class _NoRetry(Exception): pass
 SENT = "。！？；!?…"
 def _req(msgs):
     import agent_dispatch as ad
@@ -17,7 +19,7 @@ def _emit(buf, on_line):
 def _msg(d):
     m = (d.get("choices") or [{}])[0].get("message") or {}; m["content"] = (m.get("content") or "").replace("\x00", "").replace("\r", "\n"); return m, str((d.get("choices") or [{}])[0].get("finish_reason"))
 def _rline(s): return msg_flow.brief(msg_flow.make("reasoning", s))
-def stream(msgs, on_line):
+def _once(msgs, on_line):
     req, tout = _req(msgs); buf = ""; rbuf = ""; acc = ""; racc = ""; tcs = {}; fr = ""; maxch = max(1000, int(settings.get("llm_gateway.stream_max_chunks", 20000) or 20000)); pl = lambda s: s.strip() and on_line(_rline(s))
     try:
         with urllib.request.urlopen(req, timeout=tout) as r:
@@ -41,10 +43,25 @@ def stream(msgs, on_line):
         detail = ""
         try: detail = e.read().decode("utf-8", "replace")[:200]
         except Exception: pass
-        return None, str(e)[:150] + " " + detail
+        msg = str(e)[:150] + " " + detail
+        raise rio.Retryable(msg) if rio.transient(e) else _NoRetry(msg)
     pl(buf); pl(rbuf)
     if not acc.strip() and racc.strip(): acc = racc.strip()
     return {"role": "assistant", "content": acc.replace("\x00", "").replace("\r", "\n"), "tool_calls": list(tcs.values()) if tcs else None, "reasoning_content": "", "printed": True}, "finish=" + (fr or "stop")
+def stream(msgs, on_line):
+    """提供商流式访问失败＝有限次重试（settings llm_gateway.retries·默认 3·指数退避 1.2s 起封顶 10s）：只在尚未吐字时重试（已吐过正文重试会重复上屏），HTTP 4xx 与 stop 不重试；耗尽回 (None, "重试耗尽(N次) ...")，gateway.run 见标记不再整轮重发。"""
+    n = max(0, int(settings.get("llm_gateway.retries", 3))); box = {"out": 0}
+    def _w(x): box["out"] += 1; on_line(x)
+    def _go():
+        m, err = _once(msgs, _w)
+        if m is None and box["out"]: raise _NoRetry(str(err)[:150])
+        return m, err
+    try:
+        return rio.call(_go, n, base=1.2, cap=10.0, retry_on=lambda e: not isinstance(e, _NoRetry) and rio.transient(e),
+                        on_try=lambda i, k, e, d: on_line(msg_flow.brief(msg_flow.make("reasoning", "提供商访问失败自动重试 %d/%d：%s" % (i, k, str(e)[:80])))))
+    except _NoRetry as e: return None, str(e)[:150]
+    except rio.Retryable as e: return None, str(e)[:200]
+
 if __name__ == "__main__":
     t = " ".join(sys.argv[1:]) or "你好，用一句话介绍 SMS"; m, err = stream([{"role": "user", "content": t}], lambda s: print(s, flush=True))
     print(json.dumps({"ok": bool(m), "err": err, "chars": len((m or {}).get("content") or ""), "tool_calls": bool((m or {}).get("tool_calls"))}, ensure_ascii=False) if m else "ERR " + err)

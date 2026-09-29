@@ -12,7 +12,7 @@ def eta(doc): llm = latency.avg("llm|" + str(settings.get("llm_gateway.model", "
 def emit(doc, note="任务表"):
     import agent_tools as at; subs = doc.get("subtasks") or []; dn = sum(1 for x in subs if x.get("status") == "done"); at.emit("task", note + " " + str(doc["id"])[-14:] + "：" + str(dn) + "/" + str(len(subs)) + " " + msg_flow.fmt(eta(doc)), tool="task", meta={"id": doc["id"], "done": dn, "total": len(subs), "eta_s": eta(doc)}); qq_report.progress(doc, note)  # emit
 def _rows(subs): return [{"id": "t%d" % (i + 1), "goal": (g := x["goal"] if isinstance(x, dict) else str(x)), "skill": (h := (skill_route.route(g)[0] or "").split(",")[0] or None), "inst": h or ("t%d" % (i + 1)), "status": "pending"} for i, x in enumerate(subs)]
-def _mkdoc(intent, subs): tid = "task-" + time.strftime("%Y%m%d-%H%M%S") + "-" + "%03d" % (time.time() * 1000 % 1000); doc = {"id": tid, "intent": str(intent), "conv": chains.ACTIVE["conv"], "sess": chains.cur_sess(), "created": time.strftime("%Y-%m-%d %H:%M:%S"), "table": "task_table", "subtasks": subs}; _save(doc); emit(doc, "任务表（粗分种子·首轮据实改表）"); return doc
+def _mkdoc(intent, subs): tid = "task-" + time.strftime("%Y%m%d-%H%M%S") + "-" + "%03d" % (time.time() * 1000 % 1000); doc = {"id": tid, "intent": str(intent), "conv": chains.ACTIVE["conv"], "sess": chains.cur_sess(), "created": time.strftime("%Y-%m-%d %H:%M:%S"), "table": "task_table", "src": __import__("qq_stall").src(chains.ACTIVE["conv"]), "subtasks": subs}; _save(doc); emit(doc, "任务表（粗分种子·首轮据实改表）"); return doc
 CUT = "，,。;；、 \n\"'“”‘’「」[]()（）"
 def _steps(value): return [x.strip(CUT) for x in re.split(r"[\n,，;；、]", str(value)) if x.strip(CUT)]
 def plan(intent, steps=None):

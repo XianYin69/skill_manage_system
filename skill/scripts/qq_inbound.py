@@ -14,6 +14,8 @@ def deliver(e, c=None):
         if txt[:1] in (":", "：", "!"):
             import shell_core; shell_core.handle(txt, _col(L))
             s = qq_report.snapshot(); return qp.push(("\n".join(L) or "（无输出）") + ("\n" + s if s else ""), "QQ·指令", c)
+        try: qp._wj(qp._f(c["sms"], "active.json"), {"conv": str(__import__("chains").ACTIVE.get("conv") or ""), "ts": time.time()})
+        except Exception: pass
         import agent_stream, qq_brief; qq_brief.on(bool(c.get("brief")))
         try: agent_stream.ask(txt, _col(L))
         finally: qq_brief.on(False)
