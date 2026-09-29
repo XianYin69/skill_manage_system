@@ -3,16 +3,16 @@
 import os, sys, json, math, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import chain_store as cs, chain_edges as ce, chain_space3d as sp, resolve_home
-BR, TTL = 8, 30.0; IDX = {"t": 0.0, "byid": {}, "rev": {}, "pos": {}, "grid": {}}
+BR, TTL = 8, 30.0; IDX = {"t": 0.0, "w": -1, "byid": {}, "rev": {}, "pos": {}, "grid": {}}
 def _cell(p): return (int(p[0]), int(p[1]), int(p[2])) if p and len(p) == 3 else None
 def _cells(c):
     x, y, z = c; return [(x, y + a, z + b) for a in (0, 1, -1) for b in (0, 1, -1)]
 def index(sms=None, force=False):
-    if force or time.time() - IDX["t"] > TTL:
+    if force or cs.WRITES[0] != IDX["w"] or time.time() - IDX["t"] > TTL:
         frags = [f for f in cs.Store(sms or resolve_home.ensure()).all_frags() if not f.get("dead")]
         pos = sp.load(sms); g = {}
         for f in frags: g.setdefault(_cell(pos.get(f["id"])), []).append(f["id"])
-        IDX.update(t=time.time(), byid={f["id"]: f for f in frags}, rev=ce.rev_index(frags), pos=pos, grid=g)
+        IDX.update(t=time.time(), w=cs.WRITES[0], byid={f["id"]: f for f in frags}, rev=ce.rev_index(frags), pos=pos, grid=g)
     return IDX
 def nbrs(fid, ix):
     f = ix["byid"][fid]
