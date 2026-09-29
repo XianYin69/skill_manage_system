@@ -19,6 +19,8 @@ def due(sms): nxt = _read_ts(sms, "next_run_ts"); None if nxt else schedule(sms)
 def schedule(sms): open(os.path.join(sms, "chains", "next_run_ts"), "w").write(str(time.time() + interval_min(sms) * 60)); return _now()
 def maybe(sms): return due(sms) and dream_bg.spawn(sms)
 def run(sms):
+    try: __import__("session_reg").bind("cron", "dream", "做梦")
+    except Exception: pass
     dream_watch.beat("起首"); st = cs.Store(sms); r = dream_steps.core(sms); top = dream_steps.top(sms)
     os.makedirs(os.path.join(sms, "chains"), exist_ok=True); open(os.path.join(sms, "chains", "retrieval.md"), "w", encoding="utf-8").write("\n".join("[%s·f%d] %s" % (f["id"], f["freq"], f["text"]) for f in top) or "（暂无）\n")
     r["pinned"] = _mem(sms, top); dream_mem.absorb(sms, top, r); _audit(sms, r); dream_fix.fix(sms, r); dream_steps.repair(sms, r)

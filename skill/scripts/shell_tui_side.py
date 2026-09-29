@@ -12,10 +12,22 @@ def _files(app):
         if s.startswith("config:"): out.append("config.json ← " + s[7:]); continue
         out += FILE.findall(s)
     return out
+def _sess():
+    """session 三组简列（数据源＝session_reg.list_()·零模型纯脚本）：state=active→运行中、stalled（qq_stall 告警/重试用尽）→卡住已暂停、finished→已完成；每组按活跃时刻倒序取前 4 条防刷屏。"""
+    try:
+        import session_reg as R
+        g = {"active": [], "stalled": [], "finished": []}
+        for sid, v in R.list_().items():
+            st = str(v.get("state") or "active")
+            k = st if st in g else "active"
+            g[k].append((str(v.get("last_active") or v.get("created") or ""), "%s·%s·%s·%s" % (
+                str(v.get("kind") or "shell")[:4], str(v.get("name") or "")[:14], sid[-6:], str(v.get("last_active") or "")[-8:])))
+        return {k: [x[1] for x in sorted(v, reverse=True)[:4]] for k, v in g.items()}
+    except Exception: return {}
 class Side(Static):
-    def on_mount(self): self._ov = []; self._nw = 0; self._ot = 0.0; self._tp = ""; self.set_interval(0.5, self._tick)
+    def on_mount(self): self._ov = []; self._sg = {}; self._nw = 0; self._ot = 0.0; self._tp = ""; self.set_interval(0.5, self._tick)
     def _heavy(self, force=False):
-        if force or time.time() - self._ot > 5: self._ot = time.time(); self._ov = shell_tui_sessions.overview(); self._nw = len(workspace.list_ws()); self._tp = __import__("sessions_view").overview(core.chains.cur_sess())
+        if force or time.time() - self._ot > 5: self._ot = time.time(); self._ov = shell_tui_sessions.overview(); self._nw = len(workspace.list_ws()); self._tp = __import__("sessions_view").overview(core.chains.cur_sess()); self._sg = _sess()
     def _tick(self):
         self._heavy()
         a = self.app; steps = list(getattr(a, "steps", [])); cur = steps[-1] if steps else "就绪"
@@ -33,6 +45,13 @@ class Side(Static):
         t.append(("\n".join(list(dict.fromkeys(files))[-7:]) + "\n") if files else "（无写文件记录）\n")
         t.append("\n■ 所在链与会话\n", "bold yellow")
         t.append(conv + "\n" + chains + "\nsess " + core.chains.cur_sess() + "（新建会话＝:session new·conv 每输入/派发自动开）\n" + "\n".join(self._tp.splitlines()[-8:]) + "\n\n", "#89b4fa")
+        t.append("\n■ 会话 session（运行中/卡住已暂停/已完成·每组末4）\n", "bold yellow")
+        sg = self._sg or {}
+        for lab, key, sty in (("运行中", "active", "#a6e3a1"), ("卡住已暂停", "stalled", "#f9e2af"), ("已完成", "finished", "dim")):
+            rows = sg.get(key) or []
+            t.append(lab + "（%d）\n" % len(rows), "bold " + sty)
+            for r in rows: t.append("  " + r + "\n", sty)
+            if not rows: t.append("  （无）\n", "dim")
         t.append("■ 当前步骤·类型\n", "bold yellow")
         t.append(cur + "\n", "bold cyan"); t.append(tag, "italic #cdd6f4")
         (tp := getattr(a, "task_prog", "")) and t.append("\n≡ " + tp + "（task_detail 实时进度）", "bold #cba6f7")

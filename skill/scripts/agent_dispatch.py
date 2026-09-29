@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """agent_dispatch.py — agent 工具 schema 与派发（gateway 工具循环与 CLI 共用·单一真源）：SCHEMA＝OpenAI function 清单 exec·read·write·skill·ask·task·task_detail·user_send·thinking_chain·chain·debate·glob·grep·ls·webfetch（read 一族与联网取文 2026-09-26 集成见 agent_tools2.py；批17 链直读写 chain 与双链辩论 debate 见 agent_tools3.py）；execute(name, raw_args)→agent_tools/agent_task 对应实现，参数按形参名过滤、异常回错误文本给模型（不中断工具循环）。工具权限——settings agent_tools.<name>（默认 true）门控：tools_schema() 供 gateway 只暴露启用工具、execute() 拒调禁用工具，菜单 F1→大模型工具权限 或 `:tools`/`:config set agent_tools.read false` 增删。用法：python -B agent_dispatch.py call <工具> '<json>' | skill <id> <诉求> | task <诉求> | detail [task-id] | tools [enable|disable <name>]"""
 import os, sys, json
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import agent_tools as at, agent_tools2 as a2, agent_tools3 as a3, agent_task as atk, task_table as tt, settings, chain_error
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import runtime_rec as rr, agent_tools as at, agent_tools2 as a2, agent_tools3 as a3, agent_task as atk, task_table as tt, settings, chain_error
 P = lambda t, d: {"type": t, "description": d}; F = lambda n, d, p, r: {"type": "function", "function": {"name": n, "description": d, "parameters": {"type": "object", "properties": p, "required": r}}}
 SCHEMA = [F("exec", "执行 shell 命令（cwd＝工作区·生成文件入 tmp）", {"cmd": P("string", "命令")}, ["cmd"]),
  F("read", "读文本文件", {"path": P("string", "路径"), "max_lines": P("integer", "最多行数")}, ["path"]),
@@ -32,8 +32,14 @@ def execute(name, raw):
     if tname in NAMES and not tool_on(tname): return "工具已禁用：" + tname + "（菜单 F1→大模型工具权限 或 :tools enable " + tname + "）"
     try: a = json.loads(raw or "{}")
     except Exception: a = {"cmd": str(raw)}
-    if name in ("exec", "command"): return at.command(a.get("cmd", ""))
-    if name == "skill": return chain_error.fail("skill", a.get("name", ""), at.run_skill(a.get("name", ""), a.get("input") or a.get("inp") or ""))
+    if name in ("exec", "command"):
+        rr.rec("exec"); 
+        try: return at.command(a.get("cmd", ""))
+        finally: rr.rec("idle")
+    if name == "skill":
+        rr.rec("exec"); 
+        try: return chain_error.fail("skill", a.get("name", ""), at.run_skill(a.get("name", ""), a.get("input") or a.get("inp") or ""))
+        finally: rr.rec("idle")
     fn = REG.get(name)
     if not fn: return "未知工具：" + name
     kw = {k: v for k, v in a.items() if k in fn.__code__.co_varnames[:fn.__code__.co_argcount]}

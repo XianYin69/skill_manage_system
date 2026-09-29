@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """gateway.py — SMS 原生大模型网关（OpenAI 兼容·TUI 默认直连）：config llm_gateway{enabled,base_url,api_key,api_key_env,model}；对话/工具/视觉不依赖 agent CLI——run() 工具循环经 agent_dispatch 执行 exec·read·write·skill·ask·task·task_detail·user_send·thinking_chain 并回填（子进程 UTF-8 中文·附图 base64（>800KB 经可选 Pillow 缩为 JPEG）），首条恒为 SYS 系统提示词（批16 起 LLM 主导治理：简单问答可直答、动手才用工具·执行类经 skill 对等对话真跑（批23：每次派发独立 conv 独立链归属·对话间无主次·互任监视者·指导者·训诫者）＋查证红线·批18 主流程守卫：话语带〔任务表〕且仍有未完成行时禁止收口，注入续推提示让模型继续派发/改表，depth==0 才生效（派发对话内由收口返回后续推）；批20 空口守卫 flow_guard：免表单步任务以「现在开始写/Let me check」类纯文本收口且本轮无 write/skill/task 调用时同样注入续推（共用 task.max_continue 熔断），finish=length 截断致工具参数不完整即不执行并回分段 append 指引；批21 token 预算：发送前经 fg.budget 估算消息 tokens、大于 max_tokens 即在首条用户消息追加〔Token 预算〕块——脚本只测量、超限拆分由模型自决，finish=length 截断正文亦注入续推让模型分段续写；批22 模型裁量：〔任务表·脚本未建〕时建不建表由模型判（task_plan op=plan 自建）、动手诉求无相近技能→SYS 令先派 Skill_Generator 创建再执行；批23 会话拓扑：chains.conversation 注入〔会话拓扑〕块供各对话查看他 session 未完成/冲突并负监视训诫之责；批24 处理协议：SYS 尾令内部英语处理·输出译回用户语言，配合 prompt_builder 引导增强分段与精简语境语句）；输出区治理（批7②）：只有末轮（无 tool_calls）正文经 on_line 上主输出，工具轮 content/reasoning 与非流式思考全走 ◌ reasoning 信封进 F9/detail.json——思考混进 content 的上游同样不漏进主屏；工具输出与进度经 msg_flow 信封（on_line 人读行＋ev 结构化回调供顶栏 task 进度）；每次调用记 tool_call 链（挂当前 conv/sess 边）。用法：python -B gateway.py ask|models|doctor "<文本>" [图片路径…]。"""
 import os, sys, json, base64, urllib.request, time
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import resolve_home, chains, settings, msg_flow, agent_dispatch as ad, agent_ctx as ac, task_table as tt, latency, stop_channel as stop, flow_guard as fg
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import resolve_home, chains, settings, msg_flow, agent_dispatch as ad, agent_ctx as ac, task_table as tt, latency, stop_channel as stop, flow_guard as fg, runtime_rec as rr
 import retry_io as rio
 def _b64img(p):
     if os.path.getsize(p) > 800_000:
@@ -19,8 +19,14 @@ def _send(req):
     n = max(0, int(settings.get("llm_gateway.retries", 3)))
     def _t(e):
         chains.log("tool", "提供商访问失败重试：" + str(e)[:100]); return rio.transient(e)
-    try: return rio.call(_http, n, base=1.2, cap=10.0, retry_on=_t, args=(req,)), ""
+    bx = {"i": 0}
+    def _ot(i, k, e, d): bx["i"] = i; rr.rec("llm", attempt=i, retries=max(0, k - i), err=e)
+    rr.rec("llm", attempt=0, retries=n)
+    try:
+        r = rio.call(_http, n, base=1.2, cap=10.0, retry_on=_t, on_try=_ot, args=(req,))
+        rr.rec("llm", attempt=bx["i"], retries=max(0, n - bx["i"]), err=""); return r, ""
     except Exception as e:
+        rr.rec("llm", attempt=max(1, bx["i"]), retries=0, err=e)
         try: d = e.read().decode("utf-8", "replace")[:300]
         except Exception: d = str(e)[:150]
         return None, str(e)[:150] + " " + d
