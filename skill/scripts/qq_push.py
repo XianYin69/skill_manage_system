@@ -4,8 +4,7 @@ import os, sys, json, time, urllib.request as U
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import resolve_home, msg_flow
 API = "https://api.bot.qq.com"; DEF = {"enabled": True, "max_day": 400, "min_gap": 2.0, "max_len": 500, "dedup": 60}
-def _f(sms, n): return os.path.join(sms, "qq", n)
-_ld = lambda p, d=None: json.load(open(p, encoding="utf-8")) if os.path.isfile(p) else d
+_f = lambda sms, n: os.path.join(sms, "qq", n); _ld = lambda p, d=None: json.load(open(p, encoding="utf-8")) if os.path.isfile(p) else d
 def conf(sms=None):
     sms = sms or resolve_home.ensure(); c = _ld(os.path.join(sms, "config", "qq.json"), {}) or {}
     return dict(DEF, **{k: v for k, v in c.items() if not k.startswith("_")}, sms=sms)
@@ -25,7 +24,10 @@ def token(c):
     tk = d.get("access_token") or (d.get("data") or {}).get("access_token")
     if not tk: raise RuntimeError("token: " + json.dumps(d, ensure_ascii=False)[:160])
     _wj(p, {"token": tk, "exp": now + int(d.get("expires_in") or 3600)}); return tk
-def send(c, text): return _post(API + "/v2/users/%s/messages" % c["openid"], {"msg_type": 0, "content": str(text)[:int(c["max_len"])]}, token(c))
+def _rp(c, t):
+    try: import qq_reply; return qq_reply.try_send(c, t)
+    except Exception: return None
+def send(c, text): return _rp(c, text) or _post(API + "/v2/users/%s/messages" % c["openid"], {"msg_type": 0, "content": str(text)[:int(c["max_len"])]}, token(c))
 def push(text, tag="SMS", c=None):
     try:
         c = c or conf(); text = " ".join(str(text or "").split())
