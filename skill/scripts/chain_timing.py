@@ -3,7 +3,7 @@
 import os, sys, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import resolve_home, atomic_io
-LIVE = ("user", "logic", "dialogue", "session", "skill_call", "tool_call", "subsession")
+LIVE = ("user", "logic", "dialogue", "session", "skill_call", "tool_call", "subsession", "error")
 CLOSING = ("memory", "knowledge", "time", "event")
 Q = []
 def _sp(): return os.path.join(resolve_home.ensure(), "shell", "deferred.json")

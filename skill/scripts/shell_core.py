@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """shell_core.py — sms-shell 共享路由（与 bin ps1 同套确定性路由）：quit·`sms/sms-shell` 前缀剥离·裸内置词零模型直达（批22 收窄＝仅整行显式命令，自然语言一律走数据流交模型裁决意图）·`:dispatch` 真派发（批23 对等对话）·`:sh`/`!命令` 系统 shell 联动·`:edit/:view` 返回编辑器令牌（TUI F8）·`:session new|list|use|current|overview|conflicts` 会话层（新建会话＝新 session·conv 每输入/派发自动开收·拓扑与跨会话冲突经 sessions_view）。其余话语经 shell_mode.utter（含 F7 三态 gate）→ data flow；agent_stream 批16 LLM 主导：路由打分仅作〔参考〕注入，直答/派发由模型在 gateway 工具循环内自主决定。st 上报步骤、ev 收 msg_flow 信封供顶栏进度。"""
 import os, sys, subprocess, re; S = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, S)
-import agent_stream as ag, settings, user_commands, skill_route, user_index, debug, chains, resolve_home, sys_shells, shell_resume as sr, stop_channel as stop; from shell_help import HELP, SHORT; SMS = ag.SMS; IMG = []; BUILD = "b95"; os.environ["SMS_TMP"] = resolve_home.wtmp()
+import agent_stream as ag, settings, user_commands, skill_route, user_index, debug, chains, resolve_home, sys_shells, shell_resume as sr, stop_channel as stop, chain_error; from shell_help import HELP, SHORT; SMS = ag.SMS; IMG = []; BUILD = "b95"; os.environ["SMS_TMP"] = resolve_home.wtmp()
 def banner(): return "sms-shell·build=" + BUILD + " · SMS_HOME=" + SMS + " · session=" + chains.cur_sess() + " · conv 每输入自动开（:session overview 看拓扑） · 数据流：" + (ag.current() or "未检出（:agents 查看）") + " · 技能前缀：" + ("on" if ag.prefix_on() else "off") + " · 接续前对话：" + ("on" if sr.flag() else "off（:resume on 开启）") + " · 帮助 :help（含 :dispatch/:sh/!命令/:resume/:edit/F8 编辑器/F4 debug 开关）"
 def startup_block(): n = sr.note(); return ("── 接续上次关闭前的对话 ──\n" + n) if n else ""
 def run_script(name, args):
     try: p = subprocess.run([sys.executable, "-B", os.path.join(S, name) if os.path.isfile(os.path.join(S, name)) else os.path.join(S, "..", "sub_skills", name.replace("/", os.sep))] + list(args), capture_output=True, text=True, encoding="utf-8", errors="replace", stdin=subprocess.DEVNULL, timeout=max(10, int(settings.get("shell.exec_timeout", 600))))
-    except subprocess.TimeoutExpired: return "子脚本超时（" + name + "·>" + str(max(10, int(settings.get("shell.exec_timeout", 600)))) + "s）已中止——:config set shell.exec_timeout <秒> 可调"
-    return (lambda p: (debug.enabled() and debug.log("exec " + name + " rc=" + str(p.returncode) + ("" if p.returncode == 0 and not p.stderr else " STDERR:" + (p.stderr or p.stdout or "")[:500])) or (p.stdout or p.stderr).strip() or "(无输出)"))(p)
+    except subprocess.TimeoutExpired: chain_error.hook("script", name, "timeout"); return "子脚本超时（" + name + "·>" + str(max(10, int(settings.get("shell.exec_timeout", 600)))) + "s）已中止——:config set shell.exec_timeout <秒> 可调"
+    return (lambda p: (p.returncode and chain_error.hook("script", name, "rc=" + str(p.returncode) + " " + (p.stderr or p.stdout or "")[:200])) or (debug.enabled() and debug.log("exec " + name + " rc=" + str(p.returncode) + ("" if p.returncode == 0 and not p.stderr else " STDERR:" + (p.stderr or p.stdout or "")[:500])) or (p.stdout or p.stderr).strip() or "(无输出)"))(p)
 def _meta(m, a, on_line, st):
     if m == "dispatch":
-        import agent_tools as at; st("技能派发：" + a[0]) if len(a) > 1 else None
-        r = stop.guard(lambda: at.run_skill(a[0], " ".join(a[1:]))) if len(a) > 1 else "用法 :dispatch <技能id> <诉求>（技能对等对话派发·批23 各派发独立 conv·:skills 查清单）"; on_line("派发对话 " + a[0] + " 已形式收口·控制权回本对话（正文如上·⧉ 前缀·任务表未完行请继续推进或 :dispatch 重派）" if r.startswith(at.WRAP) else r); return None
+        import agent_tools as at; st("技能派发：" + a[0]) if len(a) > 1 else None; r = stop.guard(lambda: at.run_skill(a[0], " ".join(a[1:]))) if len(a) > 1 else "用法 :dispatch <技能id> <诉求>（技能对等对话派发·批23 各派发独立 conv·:skills 查清单）"; on_line("派发对话 " + a[0] + " 已形式收口·控制权回本对话（正文如上·⧉ 前缀·任务表未完行请继续推进或 :dispatch 重派）" if r.startswith(at.WRAP) else r); return None
     if m == "sh": st("系统 shell"); on_line(stop.guard(lambda: sys_shells.run(" ".join(a), on_line=on_line)) if a and a[0] not in ("list", "select", "export") else (sys_shells.select(a[1]) if a and a[0] == "select" and len(a) > 1 else sys_shells.export() if a and a[0] == "export" else sys_shells.listtext())); return None
+    if m in ("restart", "shutdown"): return __import__("shell_lifecycle").cmd(m, SMS, on_line)
     if m in ("edit", "view"): return (on_line("用法 :" + m + " <路径>（TUI F8 或主菜单·查看器 :view）") and None) if not a else m + ":" + os.path.abspath(os.path.expanduser(" ".join(a)))
     if m == "session": c = a[0] if a else "current"; import sessions_view as sv; on_line(chains.new_sess(" ".join(a[1:])) if c == "new" else chains.list_sess() if c == "list" else sv.overview(chains.cur_sess()) if c == "overview" else sv.conflicts(chains.cur_sess()) or "（无跨会话未完成·各会话任务表均已收口）" if c == "conflicts" else chains.use_sess(a[1]) if c == "use" and len(a) > 1 else ("当前会话（session）" + chains.cur_sess() + "·新建会话＝新 session 非 conv·conv 每输入/派发自动开收" if c == "current" else run_script("chains.py", ["session"] + a))); return None
     if m == "agents": on_line("检出：" + ("、".join(ag.detected()) or "无") + " · 当前：" + (ag.current() or "-") + " · 技能前缀：" + ("on" if ag.prefix_on() else "off") + "\n可用适配器（含未装）：" + "、".join(ag.adapters()))
@@ -24,7 +24,7 @@ def _meta(m, a, on_line, st):
     elif m in ("net", "tts", "learn", "file", "path", "detail"): on_line(run_script({"net": "ff_lite", "file": "file_ops/scripts/file_ops.py", "path": "file_ops/scripts/path_ops.py", "detail": "shell_console"}.get(m, m) + (".py" if m not in ("file", "path") else ""), (["tail"] + a) if m == "detail" else (a or (["status"] if m in ("tts", "net") else []))))
     elif m == "api": on_line(run_script("api.py", a or ["formats"]))
     elif m == "grant": on_line(run_script("permissions.py", ["grant"] + a + ["--write"]))
-    elif m == "dream": on_line(run_script("dream.py", a or ["status"]))
+    elif m in ("dream", "repair"): on_line(run_script("dream.py" if m == "dream" else "dream_pending.py", a or ["status" if m == "dream" else "list"]))
     elif m in ("cmds", "intent"): on_line(run_script("commands.py", ["help"] if (m == "cmds" and not a) else (["show"] + a if m == "cmds" else ["intent"] + a)))
     elif m in ("tools", "task", "manual"): on_line(run_script("agent_dispatch.py", ["tools"] + a) if m == "tools" else run_script("task_table.py", a or ["show"]) if m == "task" else run_script("sys_shells.py", ["manual"] + a))
     elif m == "perms": on_line(run_script("permissions.py", ["status"] + a))

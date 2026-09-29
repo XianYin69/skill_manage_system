@@ -2,7 +2,7 @@
 """prompt_pack.py — 提示词四操作：split 拆分（按句碎片化）/ simplify 简化（打分取要）/ merge 合并（近义去重并频）/ pack 压缩检索（向量余弦＋频次＋一跳语义邻域，语句化输出 ≤max_chars 的发送大模型记忆块）。pack() 供 agent_stream 每次输入前置注入；命中碎片自动加频次。"""
 import os, sys, re
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import chain_store as cs, resolve_home
+import chain_store as cs, resolve_home, chain_dfs
 STOP = re.compile(r"[。！？；;.\n]")
 KEY = re.compile(r"\d|意图|决定|结论|红线|钉选|偏好|待办")
 def split(text): return [s.strip() for s in STOP.split(text) if len(s.strip()) > 4]
@@ -22,6 +22,11 @@ def _hits(store, qv, sess=None):
             if e[1] in ("semantic", "causal") and byid.get(e[0]): sc.append([q[0] * 0.6, e[0], byid[e[0]]["freq"], byid[e[0]]["text"]])
     return sc
 def pack(text, max_chars=1200, sms=None, sess=None):
+    try:
+        r = chain_dfs.expand(text, max_chars, 3, sms, sess)
+        if r and r != "（暂无压缩记忆）": return r
+    except Exception as e:
+        import debug; debug.error("prompt_pack DFS fallback: " + str(e)[:200], sms)
     store = cs.Store(sms or resolve_home.ensure())
     out, used, seen = [], 0, set()
     for sc, fid, fr, t in sorted(_hits(store, cs.vec(text), sess), reverse=True):
