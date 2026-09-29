@@ -35,10 +35,12 @@ def _mem(sms, top):
         if f["text"] not in have: nid += 1; doc["entries"].append({"id": nid, "date": f["ts"][:10], "path": "chains/knowledge/" + f["id"], "note": f["text"]}); n += 1
     if n: doc["updated"] = _now(); _wj(p, doc); return n
     return 0
+def _ack(sms):
+    p = os.path.join(sms, "chains", "violations_ack.md"); return {l.strip() for l in open(p, encoding="utf-8")} if os.path.exists(p) else set()
 def _audit(sms, r):
-    fs = cs.Store(sms).all_frags("session"); opens = {f["text"].split(":", 1)[1] for f in fs if f["text"].startswith("open")}; closes = {f["text"].split(":", 1)[1] for f in fs if f["text"].startswith("close")}
+    fs = cs.Store(sms).all_frags("session"); ack = _ack(sms); keep = lambda c: c not in ack and "-test" not in c; opens = {f["text"].split(":", 1)[1] for f in fs if f["text"].startswith("open")}; closes = {f["text"].split(":", 1)[1] for f in fs if f["text"].startswith("close")}
     subs = {f["text"].rsplit("@", 1)[-1] for f in cs.Store(sms).all_frags("subsession")}
-    r["violations"] = sorted(opens - closes) + sorted(subs - closes)
+    r["violations"] = sorted(c for c in list(opens - closes) + list(subs - closes) if keep(c))
     open(os.path.join(sms, "chains", "violations.md"), "w", encoding="utf-8").write("\n".join(r["violations"]))
 if __name__ == "__main__":
     sms = resolve_home.ensure(); cmd = sys.argv[1] if len(sys.argv) > 1 else "status"; import settings
