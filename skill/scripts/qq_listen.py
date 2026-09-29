@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""qq_listen.py — QQ 入站常驻监听器（2026-09-29 用户「我要发消息给你」；「该机器人未连接灵魂」＝本机没有常驻消费进程，本模块就是那个「灵魂」）：仿 dream_bg 后台范式——spawn 起分离子进程 `python -B qq_listen.py run`（DETACHED·stdout/stderr→<SMS_HOME>/qq/listen.log·不随壳退出而亡·防重复拉起），run 内写 pid 文件后跑 qq_session.Session(on_event=qq_inbound.handle).loop()，每次状态变化经 qq_watch.beat 续心跳＋qq_watch.log 记流水（identified/live/down），断线指数退避自动重连；stop 读 pid 用 taskkill 终止并清 pid/心跳文件；status/badge 转调 qq_watch（判活与顶栏徽标同口径）。启动前置校验＝qq_push.ready（未绑定/未启用直接拒绝并提示 :qq bind / :qq on），intents 无权限（4013/4014）时自动降级只订 1<<25 重试一次，仍失败则记 error 链并提示去开放平台补权限。用法：python -B qq_listen.py spawn|run|stop|status|badge|tail [n]。"""
+"""qq_listen.py — QQ 入站常驻监听器（2026-09-29 用户「我要发消息给你」；「该机器人未连接灵魂」＝本机没有常驻消费进程，本模块就是那个「灵魂」）：仿 dream_bg 后台范式——spawn 起分离子进程 `python -B qq_listen.py run`（DETACHED·stdout/stderr→<SMS_HOME>/qq/listen.log·不随壳退出而亡·防重复拉起），run 内写 pid 文件后跑 qq_session.Session(on_event=qq_dispatch.submit).loop()——入站事件只进 qq_dispatch 队列（非阻塞），agent_stream.ask 在派发线程里跑，WS 循环与心跳永不被阻塞，每次状态变化经 qq_watch.beat 续心跳（qq_session.loop 每轮回循环顶都发 live→徽标不再停在旧时间戳），流水只在状态变化或带详情时记（identified/live/down），断线指数退避自动重连；stop 读 pid 用 taskkill 终止并清 pid/心跳文件；status/badge 转调 qq_watch（判活与顶栏徽标同口径）。启动前置校验＝qq_push.ready（未绑定/未启用直接拒绝并提示 :qq bind / :qq on），intents 无权限（4013/4014）时自动降级只订 1<<25 重试一次，仍失败则记 error 链并提示去开放平台补权限。用法：python -B qq_listen.py spawn|run|stop|status|badge|tail [n]。"""
 import os, sys, time, json, subprocess
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import resolve_home, qq_push as qp, qq_watch as W
@@ -7,17 +7,18 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 def _w(n, v, sms=None):
     os.makedirs(W._d(sms), exist_ok=True); open(W._f(n, sms), "w", encoding="utf-8").write(v)
 def run(sms=None):
-    import qq_session as S, qq_inbound as I
+    import qq_session as S, qq_dispatch as D
     c = qp.conf(sms)
     if not qp.ready(c): W.log("拒绝启动：未绑定或未启用（:qq bind / :qq on）", sms); return "未绑定或未启用 QQ——监听器不启动"
     _w("listen.pid", "%d|%d" % (os.getpid(), time.time()), sms); W.log("启动 pid=%d" % os.getpid(), sms)
     for it, last in ((S.I_MSG | S.I_INT, False), (S.I_MSG, True)):
         st = {"bad": 0}
         def on_state(s, x="", st=st):
-            W.beat(s, sms); W.log(s + ((" " + x) if x else ""), sms)
+            W.beat(s, sms)
+            if s != st.get("p") or x: W.log(s + ((" " + x) if x else ""), sms); st["p"] = s
             if s == "down" and any(k in x for k in ("Invalid Session", "4013", "4014", "intent")): st["bad"] += 1
             elif s == "identified": st["bad"] = 0
-        S.Session(lambda m: I.handle(m), c, intents=it).loop(alive=lambda: last or st["bad"] < 3, on_state=on_state)
+        S.Session(lambda m: D.submit(m), c, intents=it).loop(alive=lambda: last or st["bad"] < 3, on_state=on_state)
         if last: break
         W.log("intents=%d 连续被拒，降级只订 1<<25 重试" % it, sms)
     return "监听循环退出"

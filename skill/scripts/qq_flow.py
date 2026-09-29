@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""qq_flow.py — 数据流→QQ 的口径适配（2026-09-29 用户「只发送主要信息：除大模型思考、工具调用、代码运行、shell 初始化提示之外，所有由大模型输出的信息」）：feed(line)＝按 msg_flow.kindof 分类——llm_out（模型正文）累积进 <SMS_HOME>/qq/buf.json 不逐行发（防 30qpm 限频刷屏），notice（user_send 正文）与 err（告警）即时发，tool/skill/edit/sh/step/task/reasoning（思考·工具·代码·过程）一律丢弃；close(tag)＝对话收口把缓冲正文合并成一条推送（超 max_len 自动分段），顺带补发 outbox；ask(q)＝模型向用户提问即时推送；pending(row)＝做梦修复待批即时推送。全部 best-effort：任何异常吞掉返回 None，绝不影响数据流与收口。用法：python -B qq_flow.py feed "<行>"|close|ask "<问题>"|pending "<项>"|buf"""
+"""qq_flow.py — 数据流→QQ 的口径适配（2026-09-29 用户「只发送主要信息：除大模型思考、工具调用、代码运行、shell 初始化提示之外，所有由大模型输出的信息」）：feed(line)＝按 msg_flow.kindof 分类——llm_out（模型正文）累积进 <SMS_HOME>/qq/buf.json 不逐行发（防 30qpm 限频刷屏），notice（user_send 正文）与 err（告警）即时发，tool/skill/edit/sh/step/task/reasoning（思考·工具·代码·过程）一律丢弃；close(tag)＝对话收口把缓冲正文合并成一条推送（超 max_len 由 qq_chunk 按行装箱分段·不丢字；QQ 简洁模式生效时先经 qq_brief.cap 限长 brief_len、超出以「…（余下见 SMS 壳）」收尾），顺带补发 outbox；ask(q)＝模型向用户提问即时推送；pending(row)＝做梦修复待批即时推送。全部 best-effort：任何异常吞掉返回 None，绝不影响数据流与收口。用法：python -B qq_flow.py feed "<行>"|close|ask "<问题>"|pending "<项>"|buf"""
 import os, sys, json, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import msg_flow, qq_push as qp
@@ -21,16 +21,10 @@ def feed(line, c=None):
     except Exception: return None
 def close(tag="收口", c=None):
     try:
-        c = c or qp.conf(); rows = buf(); _wb([]); import qq_report; s = qq_report.snapshot(); rows = (rows + [s]) if s else rows
-        out = [qp.push("\n".join(ch), "QQ·" + tag, c) for ch in _chunks(rows, int(c["max_len"]))]
-        qq_report.flush(c); qp.flush(); return ("推送 %d 段" % len(out)) if rows else None
+        c = c or qp.conf(); rows = buf(); _wb([]); import qq_report, qq_brief; s = qq_report.snapshot(); rows = (rows + [s]) if s else rows
+        if not rows: return None
+        r = qp.push(qq_brief.cap("\n".join(rows), c), "QQ·" + tag, c); qq_report.flush(c); qp.flush(); return r
     except Exception: return None
-def _chunks(rows, cap):
-    ch, n = [], 0
-    for t in rows:
-        if n + len(t) + 1 > cap and ch: yield ch; ch, n = [], 0
-        ch.append(t); n += len(t) + 1
-    if ch: yield ch
 def wrap(fn):
     return lambda *a, **k: (feed(a[0]) if a else None, fn(*a, **k))[1]
 def fire(tag, arg=""):
