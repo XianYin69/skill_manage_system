@@ -12,6 +12,13 @@ def _sg_script(sms):
     d = bootstrap.in_folders() or (bootstrap.in_config(sms) or {}).get("path") or ""
     su = os.path.join(d, "scripts", "self_update.py")
     return su if d and os.path.isfile(su) else None
+def report(sms, skill, err, repro=""):
+    su = _sg_script(sms)
+    if not su: return False, "未检出 Skill_Generator（先 bootstrap.py 拉取后重试）"
+    cwd = os.path.join(sms, "tmp", "dream_fix"); os.makedirs(cwd, exist_ok=True)
+    p = subprocess.run([sys.executable, "-B", su, "report", "--skill", str(skill), "--error", str(err)[:400], "--repro", str(repro)[:300]],
+                       cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    return p.returncode == 0, (p.stdout or p.stderr or "").strip()[:200]
 def fix(sms, r=None):
     r = {} if r is None else r; doc = _doc(sms); es = _pend(doc); r["escalated"] = 0; r["reported"] = 0
     if not es: return r

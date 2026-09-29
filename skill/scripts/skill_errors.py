@@ -21,6 +21,7 @@ def record(sms, skill, where, msg, write):
     e = next((x for x in doc["entries"] if x["skill"] == skill and x["where"] == where and x["status"] == "open"), None)
     if e: e["count"] += 1; e["last"] = DATE
     else: doc["entries"].append({"skill": skill, "where": where, "msg": msg, "count": 1, "first": DATE, "last": DATE, "status": "open"})
+    import chain_error; chain_error.hook("skill", skill + "@" + where, msg)
     import debug; debug.error("skill_error %s@%s ×%d %s" % (skill, where, (e or doc["entries"][-1])["count"], msg), sms)
     return _save(sms, doc, write)
 

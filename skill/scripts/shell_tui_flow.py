@@ -43,7 +43,7 @@ class Flow:
             import ask_channel; ask_channel.flush()
         self.call_from_thread(self._done, done)
     def _done(self, done):
-        self.busy = False; self.awaiting = None; self.task_prog = ""; self.query_one("#prog", ProgressBar).display = False; self.query_one("#status", StatusBar).end(); self.subconv_hint()
+        self.busy = False; self.awaiting = None; self.task_prog = ""; self.query_one("#prog", ProgressBar).display = False; self.query_one("#status", StatusBar).end(); self.subconv_hint(); (b := __import__("dream_pending").badge()) and self.log_line(Text("⚑ 做梦有 " + b + "（后台缺权限/高危不可自动修）—— :repair list 看详情 · :repair go <id> 你同意后当场续跑"))
         if isinstance(done, str) and done.startswith(("edit:", "view:")): self._open_editor(done.split(":", 1)[1], done.startswith("view:")); return
         if done == "exit": self.exit(); return
         if done == "config": self.action_config()

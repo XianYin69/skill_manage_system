@@ -7,7 +7,8 @@ STALE = 45 * 60
 def _lk(sms): return os.path.join(sms, "chains", "dream.lock")
 def stamp(sms):
     try: os.makedirs(os.path.dirname(_lk(sms)), exist_ok=True); open(_lk(sms), "w").write("%d|%d" % (os.getpid(), time.time())); return True
-    except Exception: return False
+    except Exception as e:
+        import chain_error; chain_error.hook("dream", "dream_bg.spawn", str(e)); return False
 def running(sms):
     try: return time.time() - float(open(_lk(sms)).read().split("|")[1]) < STALE
     except Exception: return False
@@ -26,4 +27,4 @@ def unlock(sms):
     except Exception: pass
 if __name__ == "__main__":
     sms = resolve_home.ensure(); c = sys.argv[1] if len(sys.argv) > 1 else "spawn"
-    print({"spawn": str(spawn(sms)), "running": str(running(sms)), "unlock": (unlock(sms), "unlocked")[1]}.get(c, "用法：spawn|running|unlock"))
+    print(str(spawn(sms)) if c == "spawn" else str(running(sms)) if c == "running" else (unlock(sms), "unlocked")[1] if c == "unlock" else "用法：spawn|running|unlock")
