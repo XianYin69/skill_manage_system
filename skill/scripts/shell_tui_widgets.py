@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """shell_tui_widgets.py — sms-shell Textual TUI 组件（配 shell_tui_textual）：Input（回车/ctrl+enter 提交·Tab 补全·Shift+Tab agent 菜单·「/」空行时打开 SKILL.md 技能索引（F5 为文件索引）·上下历史）、StatusBar（步进器＋每步名称轮询＋本对话用时计时，RichLog 之外的实时状态行）、TopBar（顶栏：左＝壳身份·数据流·界面模式徽标（对话/直通/查看）·中＝task_detail 任务进度优先，否则当前步骤滚动简述·右＝用户地区实时日期＋星期＋实时时间 HH:MM:SS（本机时区），0.5s 自刷新永不静止）；快捷菜单浮层（F1/Ctrl+K·分组嵌套·返回上一级）见 shell_tui_menu。"""
-import time, debug, shell_mode, dream_watch, dream_pending
+import time, debug, shell_mode, dream_watch, dream_pending, qq_watch
 from rich.text import Text
 from textual.widgets import Static, TextArea
 SP = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
@@ -28,7 +28,7 @@ class TopBar(Static):
     def on_mount(self): self.off = 0; self.set_interval(0.5, self._tick)
     def _tick(self):
         a = self.app; steps = list(getattr(a, "steps", [])); cur = getattr(a, "task_prog", "") or (steps[-1] if steps else "") or "sms 托管技能数据流 · 就绪"
-        b = dream_watch.badge() or dream_pending.badge()
+        b = " · ".join(x for x in (dream_watch.badge(), dream_pending.badge(), qq_watch.badge()) if x)
         left = (getattr(a, "title", "") or "sms-shell") + ("·DEB" if debug.enabled() else "") + "·" + shell_mode.badge() + ((" " + b) if b else "") + " ▸ " + (getattr(a, "sub_title", "") or "")
         right = time.strftime("%Y-%m-%d") + " 周" + "一二三四五六日"[time.localtime().tm_wday] + time.strftime(" %H:%M:%S"); mid = max((self.size.width or 80) - len(left) - len(right) - 6, 8)
         if len(cur) <= mid: core = cur
