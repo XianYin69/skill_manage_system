@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """shell_core.py — sms-shell 共享路由（与 bin ps1 同套确定性路由）：quit·`sms/sms-shell` 前缀剥离·裸内置词零模型直达（批22 收窄＝仅整行显式命令，自然语言一律走数据流交模型裁决意图）·`:dispatch` 真派发（批23 对等对话）·`:sh`/`!命令` 系统 shell 联动·`:edit/:view` 返回编辑器令牌（TUI F8）·`:session new|list|use|current|overview|conflicts` 会话层（新建会话＝新 session·conv 每输入/派发自动开收·拓扑与跨会话冲突经 sessions_view）。其余话语经 shell_mode.utter（含 F7 三态 gate）→ data flow；agent_stream 批16 LLM 主导：路由打分仅作〔参考〕注入，直答/派发由模型在 gateway 工具循环内自主决定。st 上报步骤、ev 收 msg_flow 信封供顶栏进度。"""
 import os, sys, subprocess, re; S = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, S)
-import agent_stream as ag, settings, user_commands, skill_route, user_index, debug, chains, resolve_home, sys_shells, shell_resume as sr, stop_channel as stop, chain_error; from shell_help import HELP, SHORT; SMS = ag.SMS; IMG = []; BUILD = "b95"; os.environ["SMS_TMP"] = resolve_home.wtmp(); os.environ.setdefault("SMS_SESSION", __import__("session_reg").current())
+import agent_stream as ag, settings, user_commands, skill_route, user_index, debug, chains, resolve_home, sys_shells, shell_resume as sr, stop_channel as stop, chain_error; from shell_help import HELP, SHORT; SMS = ag.SMS; IMG = []; BUILD = "b96"; os.environ["SMS_TMP"] = resolve_home.wtmp(); os.environ.setdefault("SMS_SESSION", __import__("session_reg").current())
 def banner(): return "sms-shell·build=" + BUILD + " · SMS_HOME=" + SMS + " · session=" + chains.cur_sess() + " · conv 每输入自动开（:session overview 看拓扑） · 数据流：" + (ag.current() or "未检出（:agents 查看）") + " · 技能前缀：" + ("on" if ag.prefix_on() else "off") + " · 接续前对话：" + ("on" if sr.flag() else "off（:resume on 开启）") + " · 帮助 :help（含 :dispatch/:sh/!命令/:resume/:edit/F8 编辑器/F4 debug 开关）"
 def startup_block(): n = sr.note(); return ("── 接续上次关闭前的对话 ──\n" + n) if n else ""
 def run_script(name, args):
@@ -19,7 +19,7 @@ def _meta(m, a, on_line, st):
     elif m == "image" and a: p = " ".join(a); IMG[:] = [p] if os.path.isfile(p) else []; on_line(("已附图（下一句生效）：" if IMG else "图片不存在：") + p)
     elif m == "use" and a: on_line(ag.use(a[0]))
     elif m == "skill": on_line(ag.skill(not (a and a[0] == "off")))
-    elif m in ("hud", "deploy", "workspace", "resume", "qq"): on_line(run_script({"resume": "shell_resume", "qq": "qq_cli"}.get(m, m) + ".py", a))
+    elif m in ("hud", "deploy", "workspace", "resume", "qq", "plan", "dep"): on_line(run_script({"resume": "shell_resume", "qq": "qq_cli", "plan": "planned_tasks", "dep": "dep_fetch"}.get(m, m) + ".py", a))
     elif m in ("config", "web", "ext", "debug", "mode"): m == "debug" and a and a[0] in ("on", "off") and settings.set("debug.enabled", a[0] == "on"); on_line(run_script({"config": "settings", "web": "web_shell", "ext": "external", "mode": "shell_mode"}.get(m, m) + ".py", a or ["status"]))
     elif m in ("net", "tts", "learn", "file", "path", "detail"): on_line(run_script({"net": "ff_lite", "file": "file_ops/scripts/file_ops.py", "path": "file_ops/scripts/path_ops.py", "detail": "shell_console"}.get(m, m) + (".py" if m not in ("file", "path") else ""), (["tail"] + a) if m == "detail" else (a or (["status"] if m in ("tts", "net") else []))))
     elif m == "api": on_line(run_script("api.py", a or ["formats"]))
