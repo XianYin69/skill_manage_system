@@ -45,4 +45,10 @@ class Menus:
     def action_agents_menu(self): self.agents_menu()
     def action_help_cmd(self): self.log_line(Text(core.HELP))
     def action_clear_log(self): r = self.query_one("#log"); r.clear(); self.log_line(Text(core.banner(), style="bold cyan"))
-    def action_exit_app(self): self.exit()
+    def action_exit_app(self):
+        """退出改二段确认（2026-09-29 用户「底栏按钮点了会闪退」＝一键即 exit 无确认，被当成崩溃）：首按提示，5s 内再按才真退。"""
+        import time as _t
+        if getattr(self, "_exit_at", 0) and _t.time() - self._exit_at < 5:
+            self._exit_at = 0; self.exit(); return
+        self._exit_at = _t.time()
+        self.log_line(Text("再按一次 Ctrl+Q／点「退出」确认退出（5 秒内）·任务进行中可先按「⏸ 停止」收口", style="bold yellow"))

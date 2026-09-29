@@ -5,10 +5,14 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import resolve_h
 SMS = resolve_home.ensure()
 def _tf(tid): return os.path.join(SMS, "tasks", tid + ".json")
 def _save(doc): os.makedirs(os.path.join(SMS, "tasks"), exist_ok=True); atomic_io.wjson(_tf(doc["id"]), doc)
-def task(intent, parallel=True):
+def task(intent, parallel=True, lane="fg"):
+    """批26 前台/后台双车道：lane=bg＝本表由后台线程跑完（调用方用 bg() 立即拿句柄），表内行与前台共用同一套 status/进度/顶栏（地位相同）；
+    唯一差别＝主流程守卫不被后台行卡住（task_table.pending 排除 lane=bg），前台可继续收口。"""
+    if str(lane or "fg") == "bg" and threading.current_thread().name != "bg-task": return bg(intent, parallel)
     from concurrent.futures import ThreadPoolExecutor
     subs = tsk.decompose(str(intent)); tid = "task-" + time.strftime("%Y%m%d-%H%M%S") + "-" + "%03d" % (time.time() * 1000 % 1000)  # 毫秒后缀：同秒连发两任务不再互相覆盖 tasks/<id>.json（实测 task2 撞名 IndexOverwrite）
-    doc = {"id": tid, "intent": str(intent), "conv": chains.ACTIVE["conv"], "sess": chains.cur_sess(), "created": time.strftime("%Y-%m-%d %H:%M:%S"), "src": __import__("qq_stall").src(chains.ACTIVE["conv"]), "subtasks": subs}; _save(doc)
+    doc = {"id": tid, "intent": str(intent), "conv": chains.ACTIVE["conv"], "sess": chains.cur_sess(), "created": time.strftime("%Y-%m-%d %H:%M:%S"), "src": __import__("qq_stall").src(chains.ACTIVE["conv"]), "lane": str(lane or "fg"),
+      "subtasks": [(dict(x, lane=str(lane or "fg")) if isinstance(x, dict) else {"id": "t%d" % (i + 1), "goal": str(x), "status": "pending", "lane": str(lane or "fg")}) for i, x in enumerate(subs)]}; _save(doc)
     at.emit("task", "任务 " + tid + "：拆出 " + str(len(subs)) + " 子任务·" + ("并行派发" if parallel is not False else "依序串行") + "（剩余时间预测见顶栏）", tool="task", meta={"id": tid, "done": 0, "total": len(subs), "eta_s": tt.eta(doc)})
     lk = threading.Lock(); cnt = {}; parent = ac.cur()
     def one(st):
@@ -28,9 +32,36 @@ def task(intent, parallel=True):
     merged = "任务 " + tid + " 完成（" + str(len(subs)) + " 子任务 · " + stat + " · 成功 " + str(sum(1 for r in res if r["status"] == "done")) + "/" + str(len(res)) + "）：\n" + "\n".join("[" + r["status"] + "] " + r["inst"] + " · " + r["goal"][:40] + " → " + r["result"] for r in res)
     chains.record("event", "task " + tid + " 收口 " + str(len(subs)) + " 子任务（" + stat + "）", [[chains.ACTIVE["conv"] or "", "ref", 1], [chains.cur_sess(), "member", 1]])
     _save(doc); return merged[:6000]
+def bg(intent, parallel=True):
+    """后台车道（并行处理）：另起线程跑 task(lane=bg)，本对话立刻拿句柄继续干别的；进度照常落 tasks/<id>.json＋顶栏。"""
+    def _run():
+        try: task(intent, parallel, lane="bg")
+        except stop.Stopped:
+            try:
+                d = os.path.join(SMS, "tasks")
+                for f in sorted([x for x in os.listdir(d) if os.path.isfile(os.path.join(d, x)) and x.endswith(".json")])[-1:]:
+                    doc = atomic_io.rjson(os.path.join(d, f))
+                    for x in doc.get("subtasks") or []:
+                        x["status"] = x.get("status") if x.get("status") == "done" else "stopped"
+                    atomic_io.wjson(os.path.join(d, f), doc)
+            except Exception: pass
+        except Exception as e:
+            __import__("chain_error").hook("bg-task", str(intent)[:40], repr(e)[:200])
+    th = threading.Thread(target=_run, daemon=True, name="bg-task")
+    th.start()
+    try:
+        import session_reg as sreg; sreg.bind("bg", "task", "后台任务")
+    except Exception: pass
+    return "已转后台执行（lane=bg·与前台任务表同一地位·不阻塞本对话）：新建表稍后可用 task_detail 查（清单里 lane=bg 者即后台表）；前台可继续收口，守卫不受后台行阻挡"
+
 def task_detail(tid=""):
-    d = os.path.join(SMS, "tasks"); ids = sorted(x[:-5] for x in (os.listdir(d) if os.path.isdir(d) else []))
-    if not tid: return "任务清单：" + ("、".join(ids[-5:]) or "（无）")
+    d = os.path.join(SMS, "tasks"); ids = sorted(x[:-5] for x in (os.listdir(d) if os.path.isdir(d) else []) if x.endswith(".json") and os.path.isfile(os.path.join(d, x)))
+    if not tid:
+        mark = []
+        for i in ids[-5:]:
+            d = atomic_io.rjson(_tf(i)) or {}
+            mark.append(i + ("〔后台〕" if d.get("lane") == "bg" else "〔前台〕"))
+        return "任务清单：" + ("、".join(mark) or "（无）")
     try: doc = atomic_io.rjson(_tf(tid))
     except Exception: return "无任务：" + tid
     dn = sum(1 for x in doc["subtasks"] if x.get("status") == "done")

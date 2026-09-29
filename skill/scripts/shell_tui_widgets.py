@@ -2,7 +2,8 @@
 """shell_tui_widgets.py — sms-shell Textual TUI 组件（配 shell_tui_textual）：Input（回车/ctrl+enter 提交·Tab 补全·Shift+Tab agent 菜单·「/」空行时打开 SKILL.md 技能索引（F5 为文件索引）·上下历史）、StatusBar（步进器＋每步名称轮询＋本对话用时计时，RichLog 之外的实时状态行）、TopBar（顶栏：左＝壳身份·数据流·界面模式徽标（对话/直通/查看）·中＝task_detail 任务进度优先，否则当前步骤滚动简述·右＝用户地区实时日期＋星期＋实时时间 HH:MM:SS（本机时区），0.5s 自刷新永不静止）；快捷菜单浮层（F1/Ctrl+K·分组嵌套·返回上一级）见 shell_tui_menu。"""
 import time, debug, shell_mode, dream_watch, dream_pending, qq_watch
 from rich.text import Text
-from textual.widgets import Static, TextArea
+from textual.widgets import Static, TextArea, Button
+from textual.containers import Horizontal
 SP = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 class Input(TextArea):
     async def _on_key(self, event):
@@ -35,3 +36,11 @@ class TopBar(Static):
         else:
             pad = cur + " · "; self.off = (self.off + 1) % len(pad); core = (pad * (mid // len(pad) + 2))[self.off:self.off + mid]
         self.update(Text("%s │ %s │ %s" % (left, core.ljust(mid), right), style="bold #89b4fa"))
+
+class TaskBar(Horizontal):
+    """底栏「停止 / 继续」按钮条（2026-09-29 用户诉求）：仅当存在未完成计划表（仍有 pending/running 行＝尚未生成最终输出）时显示；按下转交 ShellApp.action_stop_task / action_continue_task，功能与名字一致。"""
+    def compose(self):
+        yield Button("⏸ 停止", id="btn_stop", variant="warning")
+        yield Button("▶ 继续", id="btn_go", variant="success")
+    def on_button_pressed(self, event):
+        (self.app.action_stop_task if event.button.id == "btn_stop" else self.app.action_continue_task)()

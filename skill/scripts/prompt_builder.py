@@ -20,12 +20,15 @@ def index(sms=None):
 def init(sms=None):
     sms = sms or resolve_home.ensure(); t = resolve_home.wtmp()
     return "[SMS 对话初始化·引导结构]\n① 技能名：" + SKILL + "\n② " + model_block(sms) + "\n③ 工作区：" + t[: -len(os.sep + "tmp")] + "（生成文件只入 tmp\\＝" + t + "·模型/技能配置直读 " + os.path.join(sms, "config") + "·待审产物可 ws_release diff/release 收编）\n④ " + index(sms)
-BRIEF = "\n⑤ QQ 简洁模式（用户此刻在 QQ 通道看消息）：回复≤200字·要点直给·勿刷屏。"
+PLAN = ("\n⑤ 计划任务（批26）：真源＝各技能目录 planned_tasks 文件夹内 *.json（Skill_Generator 初始化即建该文件夹）＋<SMS_HOME>\\planned_tasks；"
+  "用户提出定时/每天/到点/计划任务＝先 ask_user 问清细节（何时·做什么·产物·通知渠道），再 exec 跑 planned_tasks.py add 标题 时间 诉求 [技能] 登记"
+  "（时间＝ISO 时刻｜+分钟｜5 段 cron）；到点由壳内 plan_tick 自动触发：建任务表→挂该任务绑定的 session 链→执行；:plan ls 查看、:plan pause <id> 暂停。")
+BRIEF = "\n⑥ QQ 简洁模式（用户此刻在 QQ 通道看消息）：回复≤200字·要点直给·勿刷屏。"
 def brief_on(sms=None):
     try: return open(os.path.join(sms or resolve_home.ensure(), "shell", "qq_brief"), encoding="utf-8").read().strip() == "1"
     except Exception: return False
 def build(user_input, sms=None):
-    return "[SMS 逐轮构建·引导结构]\n① 处理协议：" + PROTOCOL + "\n② 治理红线：" + PROMPT + "\n③ " + index(sms) + "\n④ 用户输入（唯一指令）：\n" + user_input + (BRIEF if brief_on(sms) else "")
+    return "[SMS 逐轮构建·引导结构]\n① 处理协议：" + PROTOCOL + "\n② 治理红线：" + PROMPT + "\n③ " + index(sms) + "\n④ 用户输入（唯一指令）：\n" + user_input + PLAN + (BRIEF if brief_on(sms) else "")
 if __name__ == "__main__":
     a = sys.argv[1:] or ["init"]; cmd = a[0]
     if cmd == "init": print(init())
