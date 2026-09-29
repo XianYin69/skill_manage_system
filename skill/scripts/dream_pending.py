@@ -13,7 +13,7 @@ def add(kind, target, reason, how=None, sms=None):
     if r: r["last"] = now; r["count"] += 1
     else: rows.append({"id": "%s-%d" % (kind, int(time.time())), "kind": kind, "target": str(target)[:80], "reason": str(reason)[:160],
                        "how": how or {}, "first": now, "last": now, "count": 1, "status": "open"})
-    _save(sms, rows); chains.record("event", "做梦待批登记·%s·%s：%s" % (kind, str(target)[:40], str(reason)[:100])); return rows[-1]["id"]
+    _save(sms, rows); __import__("qq_flow").fire("pending", rows[-1]); chains.record("event", "做梦待批登记·%s·%s：%s" % (kind, str(target)[:40], str(reason)[:100])); return rows[-1]["id"]
 def open_rows(sms=None): return [x for x in _doc(sms or resolve_home.ensure()) if x.get("status") == "open"]
 def due(sms=None):
     sms = sms or resolve_home.ensure()
