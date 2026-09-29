@@ -11,7 +11,7 @@ sys.path.insert(0, S)
 import shell_core as core, shell_console, stop_channel
 try: import readline
 except ImportError: readline = None
-META = [":" + m for m in ("agents", "use", "skill", "cmds", "intent", "alias", "unalias", "hud", "deploy", "session", "workspace", "restart", "shutdown", "repair", "debug", "detail", "mode", "grant", "api", "config", "web", "ext", "net", "tts", "learn", "file", "path", "dream", "image", "help", "stop", "quit")]
+META = [":" + m for m in ("agents", "use", "skill", "cmds", "intent", "alias", "unalias", "hud", "deploy", "qq", "session", "workspace", "restart", "shutdown", "repair", "debug", "detail", "mode", "grant", "api", "config", "web", "ext", "net", "tts", "learn", "file", "path", "dream", "image", "help", "stop", "quit")]
 def _complete(text, state):
     try:
         import user_commands
