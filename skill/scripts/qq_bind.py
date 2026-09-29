@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""qq_bind.py — QQ 机器人扫码绑定（纯 Python 复刻 @tencent-connect/qqbot-connector 1.2.0 协议·无 Node 运行时）：POST https://q.qq.com/lite/create_bind_task {key:base64(32B)} → data.task_id；扫码页 https://q.qq.com/qqbot/openclaw/connect.html?task_id=..&source=..&_wv=2（手机 QQ 扫码或浏览器打开）；POST /lite/poll_bind_result {task_id} → data{status 0NONE/1PENDING/2COMPLETED/3EXPIRED, bot_appid, bot_encrypt_secret, user_openid}；appSecret＝AES-256-GCM(key=base64decode(key), iv=前12字节, tag=后16字节, ct=中间) 解 bot_encrypt_secret；关键红利＝绑定回执自带 user_openid，故无需用户先给机器人发消息即可主动推送。凭据落 <SMS_HOME>/config/qq.json（旧值备份 .bak）。二维码＝装 segno/qrcode 打印 ASCII，否则打印链接。用法：python -B qq_bind.py [source] [--timeout 300] [--appid A --secret S --openid O 手工录入]"""
+"""qq_bind.py — QQ 机器人扫码绑定（纯 Python 复刻 @tencent-connect/qqbot-connector 1.2.0 协议·无 Node 运行时）：POST https://q.qq.com/lite/create_bind_task {key:base64(32B)} → data.task_id；扫码页 https://q.qq.com/qqbot/openclaw/connect.html?task_id=..&source=..&_wv=2（手机 QQ 扫码或浏览器打开）；POST /lite/poll_bind_result {task_id} → data{status 0NONE/1PENDING/2COMPLETED/3EXPIRED, bot_appid, bot_encrypt_secret, user_openid}；appSecret＝AES-256-GCM(key=base64decode(key), iv=前12字节, tag=后16字节, ct=中间) 解 bot_encrypt_secret——Python 侧必须 decrypt(iv, ct‖tag 合并, None)：cryptography 的 data 参数须含尾随 tag，把 tag 当 aad 传必抛 InvalidTag（Node SDK createDecipheriv 分传 iv/ct/tag 的写法不可照抄）；关键红利＝绑定回执自带 user_openid，故无需用户先给机器人发消息即可主动推送。凭据落 <SMS_HOME>/config/qq.json（旧值备份 .bak）。二维码＝装 segno/qrcode 打印 ASCII，否则打印链接。用法：python -B qq_bind.py [source] [--timeout 300] [--appid A --secret S --openid O 手工录入]"""
 import os, sys, json, time, base64, secrets, urllib.request as U
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import resolve_home
@@ -20,7 +20,13 @@ def poll(tid):
 def decrypt(sec_b64, key_b64):
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
     n, k = base64.b64decode(sec_b64), base64.b64decode(key_b64)
-    return AESGCM(k).decrypt(n[:12], n[12:-16], n[-16:]).decode("utf-8")
+    return AESGCM(k).decrypt(n[:12], n[12:], None).decode("utf-8")
+def save_raw(tid, key, sec, appid, oid, err, sms=None):
+    """解密失败兜底：task_id/key/bot_encrypt_secret 原文落 <SMS_HOME>/qq/bind_raw.json 供事后重解（凭据不丢）。"""
+    sms = sms or resolve_home.ensure(); p = os.path.join(sms, "qq", "bind_raw.json"); os.makedirs(os.path.dirname(p), exist_ok=True)
+    json.dump({"task_id": tid, "key": key, "bot_encrypt_secret": sec, "appId": appid, "openid": oid,
+               "error": type(err).__name__ + ": " + str(err)[:200], "at": time.strftime("%Y-%m-%dT%H:%M:%S")}, open(p, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+    print("原始 bot_encrypt_secret 前缀=" + str(sec)[:48] + "…（完整原文已存 " + p + "·修好后可重解）"); return p
 def qurl(tid, source=""): return "%s/qqbot/openclaw/connect.html?task_id=%s&source=%s&_wv=2" % (HOST, tid, source)
 def show(u):
     for mod, fn in (("segno", lambda m: print(m.make(u, error="M").terminal())), ("qrcode", lambda m: m.make(u).print_ascii())):
