@@ -17,7 +17,7 @@ def send(c, text, tag, ep, mk=None):
     mk = mk or (lambda t: {"msg_type": 0, "content": t}); n = len(segs); res = None
     for i, sg in enumerate(segs, 1):
         if i > 1: time.sleep(float(c.get("min_gap") or 2.0))
-        res = qp._post(ep, mk(("〔%s·%d/%d〕%s" % (tag, i, n, sg)) if n > 1 else ("〔%s〕%s" % (tag, sg))), qp.token(c))
+        res = qp._post(ep, mk(("〔%s·%d/%d〕%s" % (tag, i, n, sg)) if n > 1 else ("〔%s〕%s" % (tag, sg))), qp.token(c), c)
         if isinstance(res, dict) and int(res.get("code") or 0): return None
     return res
 if __name__ == "__main__":
