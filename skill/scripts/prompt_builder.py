@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""prompt_builder.py — 引导增强型提示词构建器与对话初始化（批24：分段引导·语句精简·处理协议）：init＝①技能名＋②模型身份（配置参数）＋③工作区＋④SKILL.md 索引；build＝①处理协议＋②治理红线＋③SKILL.md 索引＋④用户输入（唯一指令）；PROTOCOL＝内部处理一律英语精简语句、最终输出译回用户语言；index＝register.json 活跃技能「id → SKILL.md 绝对路径」紧凑清单（供模型按需 exec 读全文，非全文注入）。用法：python -B prompt_builder.py init | build "<用户输入>" | index。"""
+"""prompt_builder.py — 引导增强型提示词构建器与对话初始化（批24：分段引导·语句精简·处理协议）：init＝①技能名＋②模型身份（配置参数）＋③工作区＋④SKILL.md 索引；build＝①处理协议＋②治理红线＋③SKILL.md 索引＋④用户输入（唯一指令）＋⑤QQ 简洁模式提示（qq_inbound 经 qq_brief 写 <SMS_HOME>/shell/qq_brief=1 时追加「回复≤200字·要点直给·勿刷屏」，直读状态文件不 import qq_brief/agent_stream 防回环）；PROTOCOL＝内部处理一律英语精简语句、最终输出译回用户语言；index＝register.json 活跃技能「id → SKILL.md 绝对路径」紧凑清单（供模型按需 exec 读全文，非全文注入）。用法：python -B prompt_builder.py init | build "<用户输入>" | index。"""
 import os, sys, json
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import resolve_home, settings
@@ -20,8 +20,12 @@ def index(sms=None):
 def init(sms=None):
     sms = sms or resolve_home.ensure(); t = resolve_home.wtmp()
     return "[SMS 对话初始化·引导结构]\n① 技能名：" + SKILL + "\n② " + model_block(sms) + "\n③ 工作区：" + t[: -len(os.sep + "tmp")] + "（生成文件只入 tmp\\＝" + t + "·模型/技能配置直读 " + os.path.join(sms, "config") + "·待审产物可 ws_release diff/release 收编）\n④ " + index(sms)
+BRIEF = "\n⑤ QQ 简洁模式（用户此刻在 QQ 通道看消息）：回复≤200字·要点直给·勿刷屏。"
+def brief_on(sms=None):
+    try: return open(os.path.join(sms or resolve_home.ensure(), "shell", "qq_brief"), encoding="utf-8").read().strip() == "1"
+    except Exception: return False
 def build(user_input, sms=None):
-    return "[SMS 逐轮构建·引导结构]\n① 处理协议：" + PROTOCOL + "\n② 治理红线：" + PROMPT + "\n③ " + index(sms) + "\n④ 用户输入（唯一指令）：\n" + user_input
+    return "[SMS 逐轮构建·引导结构]\n① 处理协议：" + PROTOCOL + "\n② 治理红线：" + PROMPT + "\n③ " + index(sms) + "\n④ 用户输入（唯一指令）：\n" + user_input + (BRIEF if brief_on(sms) else "")
 if __name__ == "__main__":
     a = sys.argv[1:] or ["init"]; cmd = a[0]
     if cmd == "init": print(init())
