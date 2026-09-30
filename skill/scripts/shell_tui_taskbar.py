@@ -79,6 +79,10 @@ class Taskbar:
             if show:
                 tid, dn, tot = un[-1]
                 bar.query_one("#btn_stop").label = "⏸ 停止（%d/%d）" % (dn, tot)
+                try:
+                    bar.query_one("#taskhint").update("≡ 计划表 %s 未完成 %d/%d ｜ ⏸停止(F11)保留未完成行 ｜ ▶继续(F12)续推" % (tid[-14:], dn, tot))
+                except Exception:
+                    pass
         except Exception:
             pass
 
