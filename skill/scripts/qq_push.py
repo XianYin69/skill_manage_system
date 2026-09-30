@@ -64,6 +64,9 @@ def send_image(c, path, tag="SMS"):
         if err: _ob(c, "[img]" + p, err); return None
         if not ready(c): return None
         ep, body = API + "/v2/users/%s/files" % c["openid"], {"file_type": 1, "file_data": b64, "srv_send_msg": True}
+        # 防回归 40093010「上传URL错误」：base64 只能放 file_data，url 字段只接收可访问链接——上传体绝不含 url
+        if "url" in body or "file_data" not in body or not body.get("file_data"):
+            _ob(c, "[img]" + p, "组包防回归：上传体须含非空 file_data 且不含 url（40093010）"); return None
         r = _post(ep, body, token(c), c)
         if isinstance(r, dict) and int(r.get("code") or 0) == 40001:
             try: os.remove(_f(c["sms"], "token.json"))
