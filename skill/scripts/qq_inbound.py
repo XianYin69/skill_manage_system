@@ -37,7 +37,7 @@ def handle(m, c=None):
         if not e or not e.get("text"): return None
         if not Q.allowed(e, c): Q.mark(e["msg_id"], e, c); return "拒·非白名单 " + e["openid"][:14]
         if Q.seen(e["msg_id"], c): return "重复忽略 " + e["msg_id"][:16]
-        ok, why = Q.gate(e["text"], c); Q.mark(e["msg_id"], e, c)
+        ok, why = Q.gate(e["text"], c, e.get("openid", "")); Q.mark(e["msg_id"], e, c)
         if not ok: return qp.push("⚠" + why, "QQ·准入", c)
         qq_reply.set_reply(e["msg_id"], e["openid"], e["kind"]); ack(e, c)
         return deliver(e, c)

@@ -23,7 +23,7 @@ def _meta(m, a, on_line, st):
     elif m in ("config", "web", "ext", "debug", "mode"): m == "debug" and a and a[0] in ("on", "off") and settings.set("debug.enabled", a[0] == "on"); on_line(run_script({"config": "settings", "web": "web_shell", "ext": "external", "mode": "shell_mode"}.get(m, m) + ".py", a or ["status"]))
     elif m in ("net", "tts", "learn", "file", "path", "detail"): on_line(run_script({"net": "ff_lite", "file": "file_ops/scripts/file_ops.py", "path": "file_ops/scripts/path_ops.py", "detail": "shell_console"}.get(m, m) + (".py" if m not in ("file", "path") else ""), (["tail"] + a) if m == "detail" else (a or (["status"] if m in ("tts", "net") else []))))
     elif m == "api": on_line(run_script("api.py", a or ["formats"]))
-    elif m == "grant": on_line(run_script("permissions.py", ["grant"] + a + ["--write"]))
+    elif m == "grant": on_line(run_script("permissions.py", (a + (["--write"] if a[0] in ("grant", "deny", "unbind", "revoke") else [])) if a and a[0] in ("ids", "status", "check", "unbind", "revoke", "resolve") else ["grant"] + a + ["--write"]))
     elif m in ("dream", "repair"): on_line(run_script("dream.py" if m == "dream" else "dream_pending.py", a or ["status" if m == "dream" else "list"]))
     elif m in ("cmds", "intent"): on_line(run_script("commands.py", ["help"] if (m == "cmds" and not a) else (["show"] + a if m == "cmds" else ["intent"] + a)))
     elif m in ("tools", "task", "manual"): on_line(run_script("agent_dispatch.py", ["tools"] + a) if m == "tools" else run_script("task_table.py", a or ["show"]) if m == "task" else run_script("sys_shells.py", ["manual"] + a))
