@@ -9,6 +9,10 @@ def _doc(sms): return atomic_io.rjson(_p(sms), default=[]) or []
 def _save(sms, rows): os.makedirs(_d(sms), exist_ok=True); atomic_io.wjson(_p(sms), rows)
 def add(kind, target, reason, how=None, sms=None):
     sms = sms or resolve_home.ensure(); rows = _doc(sms); now = time.strftime("%Y-%m-%dT%H:%M:%S")
+    try:
+        import chain_error
+        if chain_error.selffix(reason): return "selffix"
+    except Exception: pass
     r = next((x for x in rows if x["kind"] == kind and x["target"] == target and x["reason"] == reason and x["status"] == "open"), None)
     if r: r["last"] = now; r["count"] += 1
     else: rows.append({"id": "%s-%d" % (kind, int(time.time())), "kind": kind, "target": str(target)[:80], "reason": str(reason)[:160],

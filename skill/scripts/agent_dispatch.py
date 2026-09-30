@@ -23,7 +23,32 @@ SCHEMA = [F("exec", "执行 shell 命令（cwd＝工作区·生成文件入 tmp�
 REG = {"read": at.read, "write": at.write, "command": at.command, "skill": at.run_skill, "ask": at.ask, "task": atk.task, "task_detail": atk.task_detail, "task_plan": tt.revise, "user_send": at.user_send, "thinking_chain": at.thinking_chain, "chain": a3.chain, "debate": a3.debate, "glob": a2.glob, "grep": a2.grep, "ls": a2.ls, "webfetch": a2.webfetch, "ask_user": lambda question: __import__("ask_channel").ask(question)}
 NAMES = [f["function"]["name"] for f in SCHEMA]
 REQ = {f["function"]["name"]: f["function"]["parameters"].get("required") or [] for f in SCHEMA}
-def _bad(nm, msg): at.emit("tool", msg, tool=nm, ok=False); chain_error.hook("tool", nm, msg[:200]); return msg
+def _bad(nm, msg, sig=""): at.emit("tool", msg, tool=nm, ok=False); chain_error.hook("tool", nm, (sig or msg)[:200]); return msg
+TYPES = {f["function"]["name"]: {k: (v or {}).get("type", "") for k, v in (f["function"]["parameters"].get("properties") or {}).items()} for f in SCHEMA}
+_FILL = {"string": "...", "integer": 0, "number": 0, "boolean": True, "array": ["..."], "object": {}}
+def _tbad(t, v):
+    if not t: return False
+    if t == "string": return not isinstance(v, str)
+    if t == "integer": return isinstance(v, bool) or not isinstance(v, int)
+    if t == "number": return isinstance(v, bool) or not isinstance(v, (int, float))
+    if t == "boolean": return not isinstance(v, bool)
+    if t == "array": return not isinstance(v, (list, tuple))
+    if t == "object": return not isinstance(v, dict)
+    return False
+def _miss(n, a):
+    tp = TYPES.get(n, {}); out = []
+    for k in REQ.get(n, []):
+        v = a.get(k)
+        if v is None: out.append(k + "＝未传"); continue
+        if isinstance(v, str) and not v.strip(): out.append(k + "＝空白（strip 后为空）"); continue
+        if _tbad(tp.get(k, ""), v): out.append("%s＝类型不符（应 %s·实 %s）" % (k, tp.get(k), type(v).__name__))
+    for k, v in a.items():
+        if v is None or k in REQ.get(n, []) or k not in tp: continue
+        if _tbad(tp[k], v): out.append("%s＝类型不符（应 %s·实 %s）" % (k, tp[k], type(v).__name__))
+    return out
+def _ex(n): return json.dumps({k: _FILL.get(TYPES.get(n, {}).get(k, "string"), "...") for k in REQ.get(n, [])}, ensure_ascii=False)
+def _psig(n): return "参数缺失：" + n + " 需要 " + " 与 ".join(REQ.get(n, []))
+def _pmsg(n, m): return "参数缺失/类型不符：" + n + " 需要 " + " 与 ".join(REQ.get(n, [])) + "（本次 " + "、".join(m) + "）——请照此最小示例一次改对：" + n + " " + _ex(n)
 def tool_on(n): return bool(settings.get("agent_tools." + n, True))
 def tools_schema(): return [f for f in SCHEMA if tool_on(f["function"]["name"])]
 def tools_status(): return {n: tool_on(n) for n in NAMES}
@@ -36,19 +61,24 @@ def execute(name, raw):
     except Exception: a = {"cmd": str(raw)}
     if not isinstance(a, dict): a = {"cmd": str(a)}
     if name in ("exec", "command"):
+        if m := _miss("exec", a): return _bad(tname, _pmsg("exec", m), sig=_psig("exec"))
         rr.rec("exec"); 
         try: return at.command(a.get("cmd", ""))
         finally: rr.rec("idle")
     if name == "skill":
+        mm = []
+        if not str(a.get("name", "") or "").strip(): mm.append("name＝未传或空白")
+        if not (a.get("input") or a.get("inp")): mm.append("input＝未传或空白")
+        if mm: return _bad("skill", _pmsg("skill", mm), sig=_psig("skill"))
         rr.rec("exec"); 
         try: return chain_error.fail("skill", a.get("name", ""), at.run_skill(a.get("name", ""), a.get("input") or a.get("inp") or ""))
         finally: rr.rec("idle")
     fn = REG.get(name)
     if not fn: return "未知工具：" + name
-    if m := [k for k in REQ.get(tname, []) if a.get(k) in (None, "")]: return _bad(name, "参数缺失：" + name + " 需要 " + " 与 ".join(REQ[tname]) + "（本次缺 " + "、".join(m) + "）——请补齐参数后重发该工具调用")
-    kw = {k: v for k, v in a.items() if k in fn.__code__.co_varnames[:fn.__code__.co_argcount]}
+    if m := _miss(tname, a): return _bad(tname, _pmsg(tname, m), sig=_psig(tname))
+    kw = {k: v for k, v in a.items() if k in fn.__code__.co_varnames[:fn.__code__.co_argcount] and not (v is None and k not in REQ.get(tname, []))}
     try: return chain_error.fail("tool", name, fn(**kw))
-    except TypeError as e: return _bad(name, "参数不匹配：" + name + " 需要 " + " 与 ".join(REQ.get(tname, [])) + "（" + str(e)[:120] + "）——请补齐参数后重发")
+    except TypeError as e: return _bad(tname, "参数不匹配：" + tname + "（" + str(e)[:120] + "）——请照此最小示例改对：" + tname + " " + _ex(tname), sig=_psig(tname))
     except Exception as e: return _bad(name, "工具失败：" + str(e)[:200])
 if __name__ == "__main__":
     a = sys.argv[1:] or ["help"]

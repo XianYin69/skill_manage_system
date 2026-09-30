@@ -13,6 +13,7 @@ def plan(sms=None):
         if len(p) < 3: continue
         k = p[1]; src = p[2].split(" ", 1)[0].replace("_", "@", 1) if k == "skill" else p[2].split(" ", 1)[0]
         if f.get("freq", 1) < 2 and k not in ("skill", "script", "dream"): continue
+        if chain_error.selffix(f.get("text") or ""): continue
         out.append({"fid": f["id"], "kind": k, "target": src, "action": _act(k), "msg": (f.get("text") or "")[:200], "freq": f.get("freq", 1)})
     return out
 def blocked(sms, it, consent=False):
