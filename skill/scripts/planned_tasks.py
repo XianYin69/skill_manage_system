@@ -2,7 +2,7 @@
 """planned_tasks.py — 计划任务读取与调度（SMS 侧真源＝各技能目录 planned_tasks/*.json，由 Skill_Generator 初始化时写入）。
 职责：①scan 扫描全部技能 planned_tasks 文件夹并校验 schema；②next_run 按 at/cron/interval 算下次触发；③due 取到点条目；④fire 到点自动执行＝为该计划任务绑定/复用 session（kind=cron）→ 建任务表（task_table.plan）→ 把任务表与执行记录挂到该 session 关联链（chains.record）→ 交 runner（默认 shell_core.handle，模型会先向用户询问细节再执行）→ 回写 status/last_run/next_run/runs；⑤tick 节流扫描并触发；⑥CLI：ls/validate/add/show/pause/resume/run/tick/serve。
 约束（与 Skill_Generator README 一致）：一任务一文件、原子写、status 仅 pending/running/done/paused/failed、时间一律本地 ISO、技能自身不执行计划任务（只有本模块执行）。
-用法：python -B planned_tasks.py ls | validate | add "<标题>" "<时间>" "<诉求>" [技能id] | show <id> | pause <id> | resume <id> | run <id> | tick | serve"""
+用法：python -B planned_tasks.py ls | validate | add "<标题>" "<时间>" "<诉求>" [技能id] | show <id> | pause <id> | resume <id> | run <id> | tick | serve | selftest"""
 import os, sys, json, time, glob, re, datetime
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import resolve_home, atomic_io, settings, chains, session_reg, task_table as tt
@@ -36,15 +36,31 @@ def _field(spec, val, lo, hi):
         if val in rng and (val - rng.start) % step == 0: return True
     return False
 
+def _dow(spec, dow):
+    """星期字段（标准 cron）：0 与 7 同为周日、1..6＝周一..周六；* 照常。"""
+    return _field(spec, dow, 0, 7) or (dow == 0 and _field(spec, 7, 0, 7))
+
 def cron_hit(expr, dt):
     f = str(expr or "").split()
     if len(f) != 5: return False
     dow = 0 if dt.weekday() == 6 else dt.weekday() + 1
     return (_field(f[0], dt.minute, 0, 59) and _field(f[1], dt.hour, 0, 23)
             and _field(f[2], dt.day, 1, 31) and _field(f[3], dt.month, 1, 12)
-            and _field(f[4], dow, 1, 7))
+            and _dow(f[4], dow))
+
+def cron_never(expr):
+    """静态判「永不命中」并返回出错字段名（合法返回空串）——免跑全年逐分钟扫描。"""
+    f = str(expr or "").split()
+    if len(f) != 5: return "字段数≠5"
+    if not any(_field(f[0], v, 0, 59) for v in range(60)): return "分钟"
+    if not any(_field(f[1], v, 0, 23) for v in range(24)): return "小时"
+    if not any(_field(f[2], v, 1, 31) for v in range(1, 32)): return "日"
+    if not any(_field(f[3], v, 1, 12) for v in range(1, 13)): return "月"
+    if not any(_dow(f[4], v) for v in range(7)): return "星期"
+    return ""
 
 def cron_next(expr, frm=None):
+    if cron_never(expr): return None  # 判死即返，不再空跑一年
     t = (frm or NOW()).replace(second=0, microsecond=0) + datetime.timedelta(minutes=1)
     for _ in range(0, 366 * 24 * 60):
         if cron_hit(expr, t): return t
@@ -88,6 +104,9 @@ def bad(doc):
     if str(doc.get("status", "")) not in STATUS: e.append("status 非法：" + str(doc.get("status")))
     if not isinstance(doc.get("schedule"), dict): e.append("schedule 必须是对象")
     elif str(doc["schedule"].get("mode", "")) not in ("at", "cron", "interval"): e.append("schedule.mode 非法（须 at|cron|interval）")
+    elif str(doc["schedule"].get("mode", "")) == "cron":
+        nf = cron_never(doc["schedule"].get("cron", ""))
+        if nf: e.append("cron 永不命中（%s 字段无解），请检查星期字段：%s" % (nf, doc["schedule"].get("cron")))
     if not str(doc.get("input", "")).strip(): e.append("input 为空")
     return e
 
@@ -239,22 +258,54 @@ def add(title, when, text, skill="sms"):
     doc = {"id": pid, "title": title, "skill": skill, "input": text, "schedule": infer(when),
            "session": {"kind": "cron", "key": skill + ":" + pid}, "status": "pending",
            "created": ISO(), "next_run": "", "last_run": None, "runs": 0, "notify": "shell", "depends": []}
-    doc["next_run"] = ISO(next_run(doc)) or str(doc["schedule"].get("at") or "")
+    nr = next_run(doc)
+    doc["next_run"] = ISO(nr) if nr else ""  # 永不命中＝留空，绝不写「现在」防立即触发
     base = os.path.join(roots()[0], skill) if os.path.isdir(os.path.join(roots()[0], skill)) else SMS
     d = os.path.join(base, DIRNAME); os.makedirs(d, exist_ok=True)
     p = os.path.join(d, pid + ".json"); _save(p, doc)
-    return "已登记计划任务 %s → %s（下次 %s）" % (pid, p, doc["next_run"])
+    errs = bad(doc)
+    return "已登记计划任务 %s → %s（下次 %s）%s" % (pid, p, doc["next_run"] or "—",
+            ("" if not errs else "  ⚠校验：" + "；".join(errs)))
 
 def setstatus(tid, status):
     for e in scan():
         if str(e["doc"].get("id")) == str(tid) or str(e["path"]) == str(tid):
             e["doc"]["status"] = status
-            if status == "pending" and not e["doc"].get("next_run"): e["doc"]["next_run"] = ISO(next_run(e["doc"])) or ""
+            if status == "pending" and not e["doc"].get("next_run"):
+                _nr = next_run(e["doc"]); e["doc"]["next_run"] = ISO(_nr) if _nr else ""
             _save(e["path"], e["doc"]); return "已置 %s → %s" % (e["doc"].get("id"), status)
     return "未找到计划任务：" + str(tid)
 
 def find(tid):
     return next((e for e in scan() if str(e["doc"].get("id")) == str(tid)), None)
+
+def selftest():
+    """快测（不依赖外部状态）：星期 0/7 双写周日、6＝周六、永不命中不写 now。"""
+    import datetime as _d
+    ok = [True]
+    def chk(name, cond):
+        ok[0] = ok[0] and bool(cond)
+        print("  [%s] %s" % ("OK" if cond else "FAIL", name))
+    sat = _d.datetime(2026, 10, 3, 20, 0); sun = _d.datetime(2026, 10, 4, 10, 0)
+    chk("0 20 * * 6 命中周六20:00", cron_hit("0 20 * * 6", sat))
+    chk("0 10 * * 0 命中周日10:00", cron_hit("0 10 * * 0", sun))
+    chk("0 10 * * 7 命中周日10:00", cron_hit("0 10 * * 7", sun))
+    chk("0 10 * * 7 不误命中周六", not cron_hit("0 10 * * 7", sat))
+    chk("* * * * * 恒命中", cron_hit("* * * * *", sat))
+    frm = _d.datetime(2026, 9, 30, 0, 0)
+    chk("next(0 20 * * 6)=%s" % cron_next("0 20 * * 6", frm), cron_next("0 20 * * 6", frm) == sat)
+    chk("next(0 10 * * 0)=%s" % cron_next("0 10 * * 0", frm), cron_next("0 10 * * 0", frm) == sun)
+    chk("next(0 10 * * 7)=%s" % cron_next("0 10 * * 7", frm), cron_next("0 10 * * 7", frm) == sun)
+    chk("0 0 * * 8 判永不命中", cron_never("0 0 * * 8") == "星期")
+    doc = {"id": "x", "title": "t", "skill": "sms", "input": "i", "session": {},
+           "schedule": {"mode": "cron", "cron": "0 0 * * 8"}, "status": "pending",
+           "created": ISO(), "next_run": ""}
+    chk("永不命中→next_run=None（不写 now）", next_run(doc) is None)
+    chk("validate 报错含「永不命中」", any("永不命中" in x for x in bad(doc)))
+    good = dict(doc); good["schedule"] = {"mode": "cron", "cron": "0 10 * * 7"}
+    chk("合法周日无该报错", not any("永不命中" in x for x in bad(good)))
+    print("planned_tasks selftest: " + ("OK" if ok[0] else "FAIL"))
+    return 0 if ok[0] else 1
 
 if __name__ == "__main__":
     a = sys.argv[1:] or ["ls"]; c = a[0]
@@ -281,4 +332,5 @@ if __name__ == "__main__":
         except Exception: pass
         serve()
     elif c == "start": print(start())
+    elif c == "selftest": sys.exit(selftest())
     else: print(__doc__)
