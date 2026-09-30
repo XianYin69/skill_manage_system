@@ -27,6 +27,7 @@ class Menus:
         elif sel.startswith("ws:"): self.ws_switch(sel[3:])
         elif sel.startswith("mode:"): self.set_mode(sel[5:])
         elif sel.startswith("grantp:"): self.grant_perm(sel[7:])
+        elif sel.startswith("grantid:"): self.submit(":grant remote 30 --id " + sel[8:])
         elif sel.startswith("tool:"): self.tool_toggle(sel[5:])
         elif sel.startswith("path:"): self.ask_path()
         elif sel.startswith("fill:"): ta.text = sel[5:]; ta.focus()

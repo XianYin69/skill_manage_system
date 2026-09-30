@@ -38,9 +38,10 @@ class TopBar(Static):
         self.update(Text("%s │ %s │ %s" % (left, core.ljust(mid), right), style="bold #89b4fa"))
 
 class TaskBar(Horizontal):
-    """底栏「停止 / 继续」按钮条（2026-09-29 用户诉求）：仅当存在未完成计划表（仍有 pending/running 行＝尚未生成最终输出）时显示；按下转交 ShellApp.action_stop_task / action_continue_task，功能与名字一致。"""
+    """底栏「停止 / 继续」按钮条（2026-09-29 用户诉求）：仅当存在未完成计划表（仍有 pending/running 行＝尚未生成最终输出）时显示；按下转交 ShellApp.action_stop_task / action_continue_task，功能与名字一致；2026-09-30 迭代＝按钮 tooltip＋#taskhint 常驻说明。"""
     def compose(self):
-        yield Button("⏸ 停止", id="btn_stop", variant="warning")
-        yield Button("▶ 继续", id="btn_go", variant="success")
+        yield Button("⏸ 停止", id="btn_stop", variant="warning", tooltip="⏸ 停止（F11）：置停止旗标，在途输出于下一个检查点收口；计划表未完成行保留，可按「▶ 继续」续推")
+        yield Button("▶ 继续", id="btn_go", variant="success", tooltip="▶ 继续（F12）：清除停止旗标，把最后一张未完成计划表交回数据流续推")
+        yield Static("⏸停止＝在途输出下一检查点收口·未完成行保留(F11) ｜ ▶继续＝清旗标续推最后一张未完成表(F12) ｜ 悬停按钮看说明", id="taskhint")
     def on_button_pressed(self, event):
         (self.app.action_stop_task if event.button.id == "btn_stop" else self.app.action_continue_task)()
