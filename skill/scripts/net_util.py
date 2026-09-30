@@ -47,3 +47,11 @@ def chat(text):
     import shell_core
     lines = []; r = shell_core.handle(str(text or "")[:6000], lines.append)
     return {"lines": lines, "exit": r == "exit", "meta": None if r == "exit" else r}
+
+def qs(h):
+    """查询串 → dict（web_shell 只读端点取 ws/path/tid/reveal 等参数）。"""
+    try:
+        import urllib.parse as up
+        return {k: v[-1] for k, v in up.parse_qs((h.path or "").split("?", 1)[1]).items()}
+    except Exception:
+        return {}
