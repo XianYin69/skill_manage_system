@@ -22,6 +22,8 @@ SCHEMA = [F("exec", "执行 shell 命令（cwd＝工作区·生成文件入 tmp�
  F("ask_user", "任务进行中向用户提问并阻塞等待其屏幕应答（一次一问·简短；无交互壳会立即返回说明）", {"question": P("string", "要问用户的问题")}, ["question"])]
 REG = {"read": at.read, "write": at.write, "command": at.command, "skill": at.run_skill, "ask": at.ask, "task": atk.task, "task_detail": atk.task_detail, "task_plan": tt.revise, "user_send": at.user_send, "thinking_chain": at.thinking_chain, "chain": a3.chain, "debate": a3.debate, "glob": a2.glob, "grep": a2.grep, "ls": a2.ls, "webfetch": a2.webfetch, "ask_user": lambda question: __import__("ask_channel").ask(question)}
 NAMES = [f["function"]["name"] for f in SCHEMA]
+REQ = {f["function"]["name"]: f["function"]["parameters"].get("required") or [] for f in SCHEMA}
+def _bad(nm, msg): at.emit("tool", msg, tool=nm, ok=False); chain_error.hook("tool", nm, msg[:200]); return msg
 def tool_on(n): return bool(settings.get("agent_tools." + n, True))
 def tools_schema(): return [f for f in SCHEMA if tool_on(f["function"]["name"])]
 def tools_status(): return {n: tool_on(n) for n in NAMES}
@@ -32,6 +34,7 @@ def execute(name, raw):
     if tname in NAMES and not tool_on(tname): return "工具已禁用：" + tname + "（菜单 F1→大模型工具权限 或 :tools enable " + tname + "）"
     try: a = json.loads(raw or "{}")
     except Exception: a = {"cmd": str(raw)}
+    if not isinstance(a, dict): a = {"cmd": str(a)}
     if name in ("exec", "command"):
         rr.rec("exec"); 
         try: return at.command(a.get("cmd", ""))
@@ -42,9 +45,11 @@ def execute(name, raw):
         finally: rr.rec("idle")
     fn = REG.get(name)
     if not fn: return "未知工具：" + name
+    if m := [k for k in REQ.get(tname, []) if a.get(k) in (None, "")]: return _bad(name, "参数缺失：" + name + " 需要 " + " 与 ".join(REQ[tname]) + "（本次缺 " + "、".join(m) + "）——请补齐参数后重发该工具调用")
     kw = {k: v for k, v in a.items() if k in fn.__code__.co_varnames[:fn.__code__.co_argcount]}
     try: return chain_error.fail("tool", name, fn(**kw))
-    except Exception as e: chain_error.hook("tool", name, str(e)); return "工具失败：" + str(e)[:200]
+    except TypeError as e: return _bad(name, "参数不匹配：" + name + " 需要 " + " 与 ".join(REQ.get(tname, [])) + "（" + str(e)[:120] + "）——请补齐参数后重发")
+    except Exception as e: return _bad(name, "工具失败：" + str(e)[:200])
 if __name__ == "__main__":
     a = sys.argv[1:] or ["help"]
     if a[0] == "call" and len(a) > 1: print(execute(a[1], a[2] if len(a) > 2 else "{}"))
