@@ -26,9 +26,9 @@ min-height:calc(100vh - 28px)}
 .brand em{margin-left:auto;font-style:normal;font-size:11px;color:#4a5866}
 </style>
 <style>
-/* ---- 三区 ---- */
+/* ---- 三区：左＝出纸口(上)/进纸器(下) 上下分屏 · 右＝控制面板通高 ---- */
 #zones{display:grid;grid-template-columns:minmax(0,1fr) 330px;grid-template-rows:minmax(260px,1fr) auto;
-grid-template-areas:"tray tray" "feeder panel";
+grid-template-areas:"tray panel" "feeder panel";
 gap:14px;margin-top:12px;flex:1 1 auto;min-height:0}
 .z-tray{grid-area:tray;display:flex;flex-direction:column;min-height:0}
 .z-feeder{grid-area:feeder;min-width:0}

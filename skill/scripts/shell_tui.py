@@ -29,7 +29,11 @@ def main():
         core.handle(" ".join(pos), shell_console.wrap(emit)); return
     if readline:
         readline.set_completer(_complete); readline.parse_and_bind("tab: complete")
-    emit(core.banner())
+    _fm = ''
+    try:
+        import console_font; _fm = console_font.ensure_cjk()
+    except Exception: pass
+    emit(core.banner() + (('\n' + _fm) if _fm else ''))
     while True:
         try: line = input("\x1b[38;5;39msms>\x1b[0m " if sys.stdout.isatty() else "sms> ").strip()
         except (EOFError, KeyboardInterrupt): print(); break

@@ -37,6 +37,11 @@ class ShellApp(Menus, Index, Ws, Mode, Perms, Flow, Taskbar, Web, App):
         except Exception: pass
         self.run_worker(self.warm, thread=True)
         self.title = "sms-shell"; self.sub_title = "数据流：" + (core.ag.current() or "未检出 agent")
+        try:
+            import console_font
+            _fm = console_font.ensure_cjk()
+            if _fm: self.log_line(Text(_fm, style="yellow"))
+        except Exception: pass
         blk = core.startup_block(); self.log_line(Text(core.banner() + (("\n\n" + blk) if blk else ""), style="bold cyan")); self.query_one("#input", Input).focus()
     def log_line(self, t):
         try:
