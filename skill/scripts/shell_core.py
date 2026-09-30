@@ -12,14 +12,20 @@ def startup_block():
         w = settings.get("web_shell") or {}
         if w.get("enabled", True):
             host = w.get("host", "127.0.0.1"); port = w.get("port", 8737); pid = nu.running("web_shell")
-            parts.append("── 网页端 WEB SHELL ──\n地址 https://%s:%s/ · 密钥 %s\n状态：%s（开关 :config set web_shell.enabled true|false）" % (host, port, wb.token_mask(), ("运行中 pid=" + str(pid)) if pid else "未运行（:web start 开启）"))
+            parts.append("── 网页端 WEB SHELL ──\n地址 https://%s:%s/ · 密钥 %s\n状态：%s（开关 :config set web_shell.enabled true|false）" % (host, port, wb.token_display(), ("运行中 pid=" + str(pid)) if pid else "未运行（:web start 开启）"))
         else:
             parts.append("── 网页端已禁用（:config set web_shell.enabled true 开启）──")
     except Exception: pass
     return "\n\n".join(parts)
 def run_script(name, args):
     try: p = subprocess.run([sys.executable, "-B", os.path.join(S, name) if os.path.isfile(os.path.join(S, name)) else os.path.join(S, "..", "sub_skills", name.replace("/", os.sep))] + list(args), capture_output=True, text=True, encoding="utf-8", errors="replace", stdin=subprocess.DEVNULL, timeout=max(10, int(settings.get("shell.exec_timeout", 600))))
-    except subprocess.TimeoutExpired: chain_error.hook("script", name, "timeout"); return "子脚本超时（" + name + "·>" + str(max(10, int(settings.get("shell.exec_timeout", 600)))) + "s）已中止——:config set shell.exec_timeout <秒> 可调"
+    except subprocess.TimeoutExpired as te:
+        chain_error.hook("script", name, "timeout")
+        import run_watch as rw
+        lim = max(10, int(settings.get("shell.exec_timeout", 600)))
+        dec = lambda v: (v.decode("utf-8", "replace") if isinstance(v, bytes) else (v or ""))
+        lines = [x for x in (dec(te.stdout) + "\n" + dec(te.stderr)).splitlines() if x.strip()]
+        return rw.feedback(name, "子脚本超时被中止", lim, lim, lines)
     return (lambda p: (p.returncode and chain_error.hook("script", name, "rc=" + str(p.returncode) + " " + (p.stderr or p.stdout or "")[:200])) or (debug.enabled() and debug.log("exec " + name + " rc=" + str(p.returncode) + ("" if p.returncode == 0 and not p.stderr else " STDERR:" + (p.stderr or p.stdout or "")[:500])) or (p.stdout or p.stderr).strip() or "(无输出)"))(p)
 def _meta(m, a, on_line, st):
     if m == "dispatch":

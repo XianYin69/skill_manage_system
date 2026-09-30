@@ -50,6 +50,25 @@ class Menus:
         """退出改二段确认（2026-09-29 用户「底栏按钮点了会闪退」＝一键即 exit 无确认，被当成崩溃）：首按提示，5s 内再按才真退。"""
         import time as _t
         if getattr(self, "_exit_at", 0) and _t.time() - self._exit_at < 5:
-            self._exit_at = 0; self.exit(); return
+            self._exit_at = 0
+            self.log_line(Text("已确认退出——远端已通报「SMS 关闭中」·旧进程一并清掉", style="bold yellow"))
+            try:
+                import shell_lifecycle as lc
+                lc.shutdown(None, "用户 Ctrl+Q 确认退出")   # 通报＋清 HUD/后台＋os._exit
+            except Exception:
+                self.exit()
+            return
         self._exit_at = _t.time()
         self.log_line(Text("再按一次 Ctrl+Q／点「退出」确认退出（5 秒内）·任务进行中可先按「⏸ 停止」收口", style="bold yellow"))
+    def action_confirm_quit(self):
+        """Ctrl+C：有选区＝照常复制所选（不抢原生行为）；无选区＝按用户的「二次确认」要求走退出确认。"""
+        try:
+            sel = self.screen.get_selected_text()
+        except Exception:
+            sel = None
+        if sel:
+            try:
+                self.screen.action_copy_text(); self.log_line(Text("已复制所选 %d 字（Ctrl+C 有选区＝复制；无选区时才是退出确认）" % len(sel), style="dim"))
+            except Exception: pass
+            return
+        self.action_exit_app()

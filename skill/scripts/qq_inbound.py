@@ -7,6 +7,9 @@ def _col(L):
     def on_line(x):
         x = str(x).rstrip()
         if x: L.append(x)
+        try:
+            import run_watch as rw; rw.beat()  # 活动戳：有输出＝在推进，看门狗不杀（只杀静默卡死）
+        except Exception: pass
     return on_line
 def deliver(e, c=None):
     c = c or qp.conf(); txt = e.get("text") or ""; L = []
@@ -21,6 +24,9 @@ def deliver(e, c=None):
         import agent_stream, qq_brief; qq_brief.on(bool(c.get("brief")))
         try: agent_stream.ask(txt, _col(L))
         finally: qq_brief.on(False)
+        try:
+            import shell_lifecycle as lc; lc.run_pending(allow=True)
+        except Exception: pass
         return "数据流已跑·正文经 qq_flow 被动回复（行 %d）" % len(L)
     finally:
         qq_reply.clear()
