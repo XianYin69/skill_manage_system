@@ -8,6 +8,8 @@ def _bind(sid):
     try: import chains; chains.set_active(sess=sid)
     except Exception: pass
 def _ls():
+    try: R.prune(force=True)
+    except Exception: pass
     cur = R.current(); out = []
     for sid, v in sorted(R.list_().items(), key=lambda kv: str(kv[1].get("created", ""))):
         out.append("%s %s｜%-6s｜%s｜%s｜活 %s｜key=%s" % ("●" if sid == cur else "·", sid, v.get("kind", "shell"), str(v.get("name", ""))[:20], v.get("state", "?"), str(v.get("last_active") or v.get("created", ""))[5:16], str(v.get("key", ""))[:18]))

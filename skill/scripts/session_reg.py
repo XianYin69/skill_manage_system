@@ -47,6 +47,8 @@ def set_current(sid, sms=None):
     except Exception: return ""
 def current(sms=None):
     """当前 session＝env SMS_SESSION → shell/current_session → ensure("client",pid) 兜底（脚本可直达·不经大模型）。"""
+    try: prune(sms)
+    except Exception: pass
     sid = os.environ.get("SMS_SESSION") or _rd(_c(sms))
     return touch(sid, sms) if sid and sid in list_(sms) else ensure("client", os.getpid(), "壳" + str(os.getpid()), sms)
 def migrate(sms=None):
@@ -57,3 +59,29 @@ def migrate(sms=None):
             v["kind"] = "shell"; n += 1; v.setdefault("key", sid); v.setdefault("pid", 0); v.setdefault("conv", "")
             if not v.get("last_active"): v["last_active"] = v.get("created") or _n(); v["state"] = "finished"
     _w(m, sms); return n
+def _alive(pid):
+    """pid 是否还活着（nt＝OpenProcess 句柄探测·posix＝signal 0）；<=0/自身＝True 由调用方排除。"""
+    try: pid = int(pid or 0)
+    except Exception: return False
+    if pid <= 0: return False
+    if pid == os.getpid(): return True
+    try:
+        if os.name == "nt":
+            import ctypes
+            h = ctypes.windll.kernel32.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+            if not h: return False
+            ctypes.windll.kernel32.CloseHandle(h); return True
+        os.kill(pid, 0); return True
+    except Exception: return False
+_PR = [0.0]
+def prune(sms=None, force=False, every=60):
+    """死壳清理（2026-09-30 用户「重启完 SMS 会有两个进程，只保留重启之后的」残留面）：kind∈client/shell 且 pid 已不存在的 active 条目置 finished——重启/崩溃后 :session ls 与拓扑注入不再列出幽灵壳；60s 节流·force＝立即·绝不删数据，只改 state。"""
+    now = time.time()
+    if not force and now - _PR[0] < every: return 0
+    _PR[0] = now
+    m = _r(sms); n = 0
+    for sid, v in m.items():
+        if isinstance(v, dict) and v.get("state") == "active" and v.get("kind") in ("client", "shell") and not _alive(v.get("pid")):
+            v["state"] = "finished"; n += 1
+    if n: _w(m, sms)
+    return n
