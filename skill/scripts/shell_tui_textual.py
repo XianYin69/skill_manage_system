@@ -13,11 +13,11 @@ try:
     from textual.containers import Horizontal, VerticalScroll
     from textual.widgets import Footer, ProgressBar, RichLog; from rich.text import Text
     from shell_tui_widgets import Input, StatusBar, TopBar, TaskBar; from shell_tui_side import Side
-    from shell_tui_menus import Menus; from shell_tui_index import Index; from shell_tui_ws import Ws; from shell_tui_mode import Mode; from shell_tui_perms import Perms; from shell_tui_detail import Details; from shell_tui_flow import Flow
+    from shell_tui_menus import Menus; from shell_tui_index import Index; from shell_tui_ws import Ws; from shell_tui_mode import Mode; from shell_tui_perms import Perms; from shell_tui_detail import Details; from shell_tui_flow import Flow; from shell_tui_web import Web
     from shell_tui_taskbar import Taskbar
 except ImportError as ie:
     print("textual 未安装或前端模块缺失（回退旧 TUI）：%s；pip install textual 可启用" % ie); sys.exit(1)
-class ShellApp(Menus, Index, Ws, Mode, Perms, Flow, Taskbar, App):
+class ShellApp(Menus, Index, Ws, Mode, Perms, Flow, Taskbar, Web, App):
     ENABLE_COMMAND_PALETTE = False  # 底栏去重：Textual 自带 Ctrl+P 命令面板与 F1 主菜单功能重复，关掉免得多一个不明按钮
     CSS = "Screen{background:#1e1e2e} #top{height:1;background:#11111b;color:#89b4fa;padding:0 1} #log{width:1fr;color:#cdd6f4;border:round #313244} #side{width:1fr;background:#11111b;color:#cdd6f4;border:round #313244;padding:0 1} #taskbar{height:1;display:none;} #taskhint{width:1fr;color:#a6adc8;padding:0 1;text-overflow:ellipsis;} #taskbar Button{height:1;padding:0 1;} #input{background:#181825;color:#89b4fa;border:none;height:5} #status{background:#11111b}"
     # 底部栏重排（2026-09-26 用户报障「选项溢出」）：Footer 只显高频 8 键，其余仍生效但从底栏隐藏（F5/F6/F8/F10/Shift+Tab/Ctrl+L 全收进 F1 主菜单）
@@ -25,7 +25,12 @@ class ShellApp(Menus, Index, Ws, Mode, Perms, Flow, Taskbar, App):
     def __init__(self): super().__init__(); self.hist = []; self.logbuf = []; self.hi = 0; self.steps = []; self.touched = []; self.details = []; self.busy = False; self.task_prog = ""; self.pend = []; self.awaiting = None
     def compose(self): yield TopBar(id="top"); yield ProgressBar(total=None, id="prog"); yield Horizontal(RichLog(id="log", wrap=True), VerticalScroll(Side(id="side"))); yield TaskBar(id="taskbar"); yield Input(id="input"); yield StatusBar(id="status"); yield Footer()
     def on_mount(self):
-        import ask_channel; ask_channel.arm(); self._logw = self.query_one("#log", RichLog); self.set_interval(0.4, self.ask_poll); self.set_interval(2.0, self.taskbar_refresh); self.set_interval(30, self.plan_tick)
+        import ask_channel; ask_channel.arm()
+        try:
+            import net_util as nu
+            if (core.settings.get("web_shell") or {}).get("enabled", True) and not nu.running("web_shell"): nu.spawn("web_shell")
+        except Exception: pass
+        self._logw = self.query_one("#log", RichLog); self.set_interval(0.4, self.ask_poll); self.set_interval(2.0, self.taskbar_refresh); self.set_interval(30, self.plan_tick)
         try:
             import planned_tasks as pt
             self.run_worker(lambda: pt.start(), thread=True)  # 壳一起即拉起分离调度进程（pid 文件防重复）

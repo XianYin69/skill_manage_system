@@ -323,7 +323,7 @@ if __name__ == "__main__":
     if cmd == "status":
         pid = net_util.running(NAME); port = net_util.port_of(NAME) or settings.get(NAME + ".port", 8737)
         print(json.dumps({"running": pid, "port": port, "url": "https://127.0.0.1:%s/" % port, "fingerprint": web_certs.fpr()[:16]}, ensure_ascii=False))
-    elif cmd == "start": print("已在运行 pid=" + str(net_util.running(NAME)) if net_util.running(NAME) else net_util.spawn(NAME))
+    elif cmd == "start": print("网页端已禁用：先 :config set web_shell.enabled true" if not settings.get(NAME + ".enabled", True) else ("已在运行 pid=" + str(net_util.running(NAME)) if net_util.running(NAME) else net_util.spawn(NAME)))
     elif cmd == "serve": print(serve())
     elif cmd in ("stop", "token", "fingerprint"): print(net_util.stop(NAME) if cmd == "stop" else net_util.token("--rotate" in a) if cmd == "token" else web_certs.fpr())
     else: print(__doc__.strip().splitlines()[-1])

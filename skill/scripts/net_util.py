@@ -18,7 +18,15 @@ def portfile(name): return os.path.join(resolve_home.ensure(), "shell", name + "
 def write_run(name, port): open(pidfile(name), "w").write(str(os.getpid())); open(portfile(name), "w").write(str(port))
 def clear(name): [os.remove(p) for p in (pidfile(name), portfile(name)) if os.path.exists(p)]
 def running(name):
-    try: pid = int(open(pidfile(name)).read()); os.kill(pid, 0); return pid
+    try: pid = int(open(pidfile(name)).read())
+    except Exception: return None
+    try:
+        if os.name == "nt":
+            import ctypes
+            h = ctypes.windll.kernel32.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+            if not h: return None
+            ctypes.windll.kernel32.CloseHandle(h); return pid
+        os.kill(pid, 0); return pid
     except Exception: return None
 def port_of(name):
     try: return int(open(portfile(name)).read())

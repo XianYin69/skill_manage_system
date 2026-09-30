@@ -16,7 +16,8 @@ border:1px solid var(--edge);border-radius:14px;color:#1d252e;position:relative;
 box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 -3px 7px rgba(0,0,0,.2) inset,0 12px 26px rgba(0,0,0,.5)}
 .gloss{overflow:hidden}
 .screw{position:absolute;width:9px;height:9px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#93a1b1 60%,#4d5866);box-shadow:0 1px 2px rgba(0,0,0,.55) inset}
-#chassis{max-width:1420px;margin:0 auto;padding:14px 16px 16px}
+#chassis{max-width:1420px;margin:0 auto;padding:14px 16px 16px;display:flex;flex-direction:column;
+min-height:calc(100vh - 28px)}
 #chassis>.screw:nth-of-type(1){top:7px;left:8px}#chassis>.screw:nth-of-type(2){top:7px;right:8px}
 #chassis>.screw:nth-of-type(3){bottom:7px;left:8px}#chassis>.screw:nth-of-type(4){bottom:7px;right:8px}
 .brand{display:flex;align-items:baseline;gap:10px;padding:2px 8px 10px;border-bottom:1px solid rgba(0,0,0,.16)}
@@ -26,8 +27,13 @@ box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 -3px 7px rgba(0,0,0,.2) inset,0 
 </style>
 <style>
 /* ---- 三区 ---- */
-#zones{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr) 330px;gap:14px;margin-top:12px}
-.zone{padding:10px 12px 12px;border-radius:12px;background:linear-gradient(180deg,#e9eff6,#c3cedb 55%,#dfe7ef);
+#zones{display:grid;grid-template-columns:minmax(0,1fr) 330px;grid-template-rows:minmax(260px,1fr) auto;
+grid-template-areas:"tray tray" "feeder panel";
+gap:14px;margin-top:12px;flex:1 1 auto;min-height:0}
+.z-tray{grid-area:tray;display:flex;flex-direction:column;min-height:0}
+.z-feeder{grid-area:feeder;min-width:0}
+#panel{grid-area:panel;min-width:0}
+.zone{padding:10px 12px 12px;min-width:0;min-height:0;border-radius:12px;background:linear-gradient(180deg,#e9eff6,#c3cedb 55%,#dfe7ef);
 border:1px solid var(--edge);box-shadow:0 1px 0 #fff inset,0 -2px 5px rgba(0,0,0,.16) inset}
 .ztitle{font-size:11px;letter-spacing:2px;color:#3c4a58;text-transform:uppercase;margin:0 0 8px;
 display:flex;align-items:center;gap:8px}
@@ -82,9 +88,10 @@ background:#071016;border:1px solid #2c4a56;border-radius:8px;box-shadow:0 10px 
 </style>
 <style>
 /* ---- 纸卷出纸口 ---- */
-#tray{margin-top:10px;padding:10px 12px 12px;border-radius:10px;background:linear-gradient(180deg,#3a4553,#232c36 55%,#161d25);box-shadow:0 3px 10px rgba(0,0,0,.6) inset,0 1px 0 #fff}
+#tray{margin-top:0;padding:10px 12px 12px;border-radius:10px;flex:1 1 auto;min-height:0;
+display:flex;flex-direction:column;background:linear-gradient(180deg,#3a4553,#232c36 55%,#161d25);box-shadow:0 3px 10px rgba(0,0,0,.6) inset,0 1px 0 #fff}
 #mouth{height:12px;border-radius:6px;background:linear-gradient(180deg,#000,#39434f);box-shadow:0 2px 4px rgba(0,0,0,.8) inset,0 1px 0 rgba(255,255,255,.3);margin-bottom:6px}
-#roll{background:var(--paper);color:var(--ink);border-radius:3px;padding:10px 12px 14px;min-height:300px;max-height:58vh;overflow:auto;font:12.5px/1.5 Consolas,"Microsoft YaHei",monospace;box-shadow:0 2px 8px rgba(0,0,0,.45);background-image:repeating-linear-gradient(180deg,rgba(0,0,0,.03) 0 1px,transparent 1px 4px);scrollbar-width:thin}
+#roll{background:var(--paper);color:var(--ink);border-radius:3px;padding:10px 12px 14px;flex:1 1 auto;min-height:160px;max-height:none;overflow:auto;font:12.5px/1.5 Consolas,"Microsoft YaHei",monospace;box-shadow:0 2px 8px rgba(0,0,0,.45);background-image:repeating-linear-gradient(180deg,rgba(0,0,0,.03) 0 1px,transparent 1px 4px);scrollbar-width:thin}
 .ln{margin:0 0 7px;padding-bottom:6px;border-bottom:1px dashed rgba(0,0,0,.18);white-space:pre-wrap;word-break:break-word}
 .ln .who{display:inline-block;font-size:10px;letter-spacing:1px;color:#6b6152;border:1px solid #c9c0ae;border-radius:3px;padding:0 4px;margin-bottom:2px}
 .ln.me .who{color:#2b4a63;border-color:#9db8cd;background:#e3edf6}
@@ -136,8 +143,10 @@ textarea{width:100%;min-height:190px}
 #slot{display:flex;gap:8px;align-items:stretch;margin-top:12px}
 #tok{flex:1;min-width:0;padding:10px 12px;border-radius:7px;font:13px Consolas,monospace}
 #eye{min-width:44px}
-@media (max-width:1180px){#zones{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}#panel{grid-column:1/-1}}
-@media (max-width:760px){#zones{grid-template-columns:1fr}#pad{grid-template-columns:repeat(4,46px)}}
+@media (max-width:980px){#zones{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto auto;
+grid-template-areas:"tray" "feeder" "panel"}
+#chassis{min-height:0}#roll{min-height:240px;max-height:60vh}}
+@media (max-width:760px){#pad{grid-template-columns:repeat(4,46px)}}
 </style>
 </head>
 <body>
@@ -165,7 +174,7 @@ textarea{width:100%;min-height:190px}
 
   <div id="zones">
     <!-- ① 进纸器 -->
-    <section class="zone">
+    <section class="zone z-feeder">
       <h3 class="ztitle">① 进纸器 DOC FEEDER <i>话语 / :元指令</i></h3>
       <div id="feeder">
         <div class="lip"></div>
@@ -185,7 +194,7 @@ textarea{width:100%;min-height:190px}
     </section>
 
     <!-- ② 出纸口 -->
-    <section class="zone">
+    <section class="zone z-tray">
       <h3 class="ztitle">② 出纸口 PAPER TRAY <i>接收记录 · 逐行传真扫描</i></h3>
       <div id="tray"><div id="mouth"></div><div id="roll"></div><div id="tear"></div></div>
       <div class="bar">
@@ -432,6 +441,13 @@ DF.config=async b=>{b.innerHTML="";const i=INFO||await api("/api/info");const g=
   ["llm_gateway.api_key","api_key（写覆盖）",""]]);
  const h2=document.createElement("h3");h2.textContent="做梦机制";h2.style.marginTop="12px";b.appendChild(h2);
  kv(b,[["dream.enabled","启用",i.dream&&i.dream.enabled,"bool"],["dream.interval_min","间隔（分钟）",i.dream&&i.dream.interval_min]]);
+ const h4=document.createElement("h3");h4.textContent="网页端 web_shell";h4.style.marginTop="12px";b.appendChild(h4);
+ const w=i.web_shell||{};
+ kv(b,[["web_shell.enabled","启用网页端",(w.enabled===undefined?true:w.enabled),"bool"],["web_shell.port","端口",w.port]]);
+ const wb=document.createElement("div");wb.className="bar";
+ wb.innerHTML="<span class='hint'>入口 https://"+esc(w.host||"127.0.0.1")+":"+esc(w.port||8737)+"/ · "+esc(w.running?("运行中 pid "+w.running):"未运行")+"</span>"
+ +"<button class='key sm' data-c=':web start'>开启</button><button class='key sm warn' data-c=':web stop'>关闭</button><button class='key sm' data-c=':web token'>密钥</button>";
+ b.appendChild(wb);wb.querySelectorAll("[data-c]").forEach(e=>e.onclick=()=>setCmd(e.dataset.c));
  const bar=document.createElement("div");bar.className="bar";
  bar.innerHTML="<button class='key sm' data-c=':dream run'>做梦整理</button><button class='key sm' data-c=':dream status'>做梦状态</button><button class='key sm' data-c=':repair list'>修复待批</button>";
  b.appendChild(bar);bar.querySelectorAll("[data-c]").forEach(e=>e.onclick=()=>setCmd(e.dataset.c));
@@ -652,8 +668,10 @@ async function revealTok(){const r=await api("/api/token?reveal=1");
  TOKFULL=r.token||"";$("s_tok").textContent=TOKFULL.length>26?(TOKFULL.slice(0,14)+"…"+TOKFULL.slice(-8)):TOKFULL;
  $("s_tok").className="a";print("令牌","已显影全令牌（仅本机回环可见，审计已记）","sys")}
 /* ---------- 启动 ---------- */
+const HS=new URLSearchParams((location.hash||"").replace(/^#/,""));
+if(HS.get("tok")&&["127.0.0.1","localhost","::1"].includes(location.hostname)){T=String(HS.get("tok")).trim();sessionStorage.setItem("sms_tok",T);localStorage.setItem("sms_tok",T);history.replaceState(null,"",location.pathname)}
 (async()=>{keys();buildMeta();buildF1();buildPad();buildQuick();buildPanels();
- if(T&&localStorage.getItem("sms_tok")===T){try{const i=await api("/api/info");if(!i.err)boot(i)}catch(e){}}
+ if(T&&localStorage.getItem("sms_tok")===T){try{const i=await api("/api/info");if(!i.err){boot(i);const op=HS.get("open");if(op&&DF[op])openDrawer(op==="config"?"图形化配置":"网络",op)}}catch(e){}}
  $("tok").focus()})();
 </script>
 <footer style="text-align:center;color:#5c6a78;font-size:11px;padding:10px">
