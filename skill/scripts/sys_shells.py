@@ -35,11 +35,14 @@ def run(cmd, kind=None, on_line=lambda s: None):
     argv = [binp, "/d", "/c", str(cmd)] if k == "cmd" else ([binp, "-NoProfile", "-NonInteractive", "-Command", str(cmd)] if k in ("powershell", "pwsh") else [binp, "-c", str(cmd)])
     p = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace", stdin=subprocess.DEVNULL, env=dict(os.environ, PYTHONIOENCODING="utf-8", SMS_HOME=SMS, SMS_WORKSPACE=resolve_home.workspace(), SMS_TMP=resolve_home.wtmp()), cwd=resolve_home.workspace())  # stdin=DEVNULL：命令误读输入直接 EOF 而非挂住壳（批12 卡死根治）
     tl = rw.budget("shell"); sl = rw.stall("shell"); buf = []; t0 = time.time()
-    done = rw.watchdog(p, buf, tl, sl, str(cmd)[:40])
-    for ln in iter(p.stdout.readline, ""):
-        stop.kill_if(p)
-        if ln.strip(): buf.append(ln.rstrip()); on_line(("!" + k + "▸ ") + ln.rstrip())
-    rc = p.wait(); why = done(); chains.log("tool", "sh:" + k + ":" + str(cmd)[:60])
+    done = rw.watchdog(p, buf, tl, sl, str(cmd)[:40], on_warn=lambda n, m: on_line("!watch▸ ⚠ " + m))
+    ok, dwhy = rw.pump(p, buf, on_line, "!" + k + "▸ ", str(cmd)[:40])
+    stop.kill_if(p)
+    try:
+        rc = p.wait(timeout=10)
+    except Exception:
+        rc = -1
+    why = done() or ("" if ok else dwhy); chains.log("tool", "sh:" + k + ":" + str(cmd)[:60])
     if why: return rw.feedback(str(cmd)[:60], why, time.time() - t0, tl, buf)
     return "rc=" + str(rc)
 def export():

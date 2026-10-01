@@ -43,12 +43,30 @@ def _shell_dead(c):
         if not os.path.isfile(p): return False
         return time.time() - float(os.path.getmtime(p)) > float(c.get("shell_alive_ttl", 180))
     except Exception: return False
+def _proc_hung(c):
+    """在途子进程真阻塞＝proc_guard 点名：静默超自身阈且 CPU≈0／等交互输入／刷屏死循环。"""
+    try:
+        import proc_guard as pg
+        h = pg.hung(c.get("sms"))
+        if h:
+            e = h[0]
+            return "%s（命令「%s」·已跑 %.0fs·状态 %s）" % (e.get("detail"), str(e.get("name"))[:60],
+                                                     time.time() - float(e.get("started") or time.time()),
+                                                     e.get("kind"))
+    except Exception:
+        pass
+    return ""
+
+
 def classify(doc, age, cfg=None, rt=None):
     """主入口：回 (kind, detail)。busy/unknown 交上层静默；network/model/process 才告警。"""
     c = dict(cfg or {}); doc = doc or {}; rt = rt if rt is not None else rr.read(c.get("sms"))
     ph = str(rt.get("phase") or ""); ts = float(rt.get("ts") or 0) or 0.0
     pid = _i(rt.get("pid")); att = _i(rt.get("attempt")); ret = _i(rt.get("retries"))
     low = _sig(rt, doc).lower(); age = int(age or 0)
+    hg = _proc_hung(c)
+    if hg:
+        return "process", hg
     inwin = ph in BUSY and bool(pid) and rr.alive(pid) and (time.time() - ts) < window(ph, rt)
     ek = str(rt.get("err_kind") or "")
     if inwin and (not ek or (ek == "network" and ret > 0)):

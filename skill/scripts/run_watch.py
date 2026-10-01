@@ -68,32 +68,164 @@ def feedback(name, why, secs, limit, buf=None, n=30):
             "改成带超时与非交互参数的写法、或拆小步再执行。") % (
         why, name, float(secs), int(limit), min(n, len((buf or []))), t or "（无任何输出——多半卡在启动或等 stdin）")
 
-def watchdog(p, buf, limit=None, stall_s=None, name="命令", on_kill=None):
-    """计时器本体（守护线程）：每 0.5s 巡检——总预算到点／静默（无新输出行）到点／用户 stop 请求，
-    任一命中即 kill_tree 整棵树并置 p._rw_reason。mark() 由读循环在每行输出后调用续表活。
+def _warn(on_warn, name, msg):
+    try:
+        rr.rec("exec", err="预警：" + msg)
+    except Exception:
+        pass
+    try:
+        on_warn and on_warn(name, msg)
+    except Exception:
+        pass
+
+
+def watchdog(p, buf, limit=None, stall_s=None, name="命令", on_kill=None, on_warn=None):
+    """计时器本体（守护线程）·2026-10-01 增强（用户「增强 sms 在子进程阻塞下的检测与应对」）：
+    ① 在途登记 proc_guard.register——「哪条命令、卡了几秒、末行输出」进 <SMS_HOME>/runtime/procs.json，
+      看门狗/顶栏/QQ/stall_class 从此可直接点名（旧版 runtime_rec 记的是 SMS 自身 pid，永远活着＝看不见子进程）；
+    ② 静默不再只数「有没有新输出行」：同窗采 CPU（GetProcessTimes）——CPU 活跃＝闷头算不打印，
+      延到总预算再收口（不误杀）；CPU≈0 且静默到阈＝真死锁，立即 kill_tree（不白等满窗）；
+    ③ 末行像交互提示（y/n、密码、input(）＝非交互壳（stdin=DEVNULL）永远等不到，宽限数秒即收口并点名；
+    ④ 刷屏（行/秒超阈）＝疑似死循环，提前收口（旧版会白跑到总预算）；
+    ⑤ 半阈先 warn（回显＋留痕），到阈才杀；⑥ 命中＝kill_tree 整棵树＋unregister 落原因，
+      残留后代攥管道由 pump/drain 有界排空，读循环不再挂死。
     返回 stop()：跑完取消巡检（回命中原因或 None）。"""
-    t0 = time.time(); box = {"last": time.time(), "done": False, "why": "", "n": len(buf)}
+    t0 = time.time(); box = {"last": time.time(), "done": False, "why": "", "n": len(buf), "warned": False}
+    pid = int(getattr(p, "pid", 0) or 0)
+    try:
+        import proc_guard as pg
+        pg.register(pid, name, limit, stall_s)
+    except Exception:
+        pg = None
+
     def spin():
         while not box["done"] and p.poll() is None:
             now = time.time()
-            if len(buf) != box["n"]: box["n"] = len(buf); box["last"] = now
+            if len(buf) != box["n"]:
+                box["n"] = len(buf); box["last"] = now
+                if pg:
+                    try:
+                        pg.beat(pid, len(buf), (buf[-1] if buf else ""))
+                    except Exception:
+                        pass
             idle = now - box["last"]
-            if limit and now - t0 >= limit: box["why"] = "超总预算 %ds" % int(limit)
-            elif stall_s and idle >= stall_s: box["why"] = "静默 %ds 无任何输出（判为卡死）" % int(stall_s)
+            kind = det = ""
+            if pg:
+                try:
+                    kind, det = pg.classify(pid=pid, entry=dict(pg._MEM.get(str(pid)) or {}))
+                except Exception:
+                    pass
+            if limit and now - t0 >= limit:
+                box["why"] = "超总预算 %ds（%s）" % (int(limit), det or name)
+            elif kind in ("waiting_input", "flood"):
+                box["why"] = det
+            elif stall_s and idle >= stall_s:
+                if kind == "computing":
+                    if not box["warned"]:
+                        box["warned"] = True
+                        _warn(on_warn, name, "已静默 %ds 但 CPU 活跃（闷头算不打印，不误杀，延到总预算）" % int(idle))
+                else:
+                    box["why"] = det or "静默 %ds 无任何输出（判为卡死）" % int(stall_s)
+            elif stall_s and idle >= stall_s * 0.5 and not box["warned"]:
+                box["warned"] = True
+                _warn(on_warn, name, "已静默 %ds（阈 %ds）·%s" % (int(idle), int(stall_s), det or "无输出"))
             else:
                 try:
                     import stop_channel as sc
-                    if sc.stopped(): box["why"] = "用户请求停止"
-                except Exception: pass
+                    if sc.stopped():
+                        box["why"] = "用户请求停止"
+                except Exception:
+                    pass
             if box["why"]:
-                kill_tree(p); p._rw_reason = box["why"]
+                kill_tree(p)
+                p._rw_reason = box["why"]
+                if pg:
+                    try:
+                        pg.unregister(pid, "killed", box["why"])
+                    except Exception:
+                        pass
                 try:
                     on_kill and on_kill(box["why"])
-                except Exception: pass
+                except Exception:
+                    pass
                 return
             time.sleep(0.5)
     th = threading.Thread(target=spin, name="run_watch", daemon=True); th.start()
-    return lambda: (box.__setitem__("done", True), th.join(timeout=2), box["why"] or getattr(p, "_rw_reason", ""))[2]
+
+    def stop():
+        box["done"] = True
+        try:
+            th.join(timeout=2)
+        except Exception:
+            pass
+        if pg and not box["why"]:
+            try:
+                pg.unregister(pid, "done", "")
+            except Exception:
+                pass
+        return box["why"] or getattr(p, "_rw_reason", "")
+    return stop
+
+
+def _bg_close(p):
+    """后台关管道：readline 线程攥着 TextIOWrapper 内部锁，就地 close() 会等它解锁＝
+    等那个「脱离本树的后代」跑完（实测 40s）——故丢给守护线程，主路绝不陪等。"""
+    try:
+        p.stdout.close()
+    except Exception:
+        pass
+
+
+def pump(p, buf, on_line=lambda s: None, prefix="", name="命令", deadline=5.0):
+    """有界读管道（2026-10-01 新增·子进程阻塞应对最后一环；同日自测后修正）：
+    读取交独立线程，主循环只盯「进程是否已退出」——旧版在主循环里直接 readline，
+    写端被脱离本树的后代攥着时这一行永久挂住（poll 检查轮不到，实测白等 40s）；
+    现改为：进程已退出而管道未 EOF → 至多再等 deadline 秒强制收口并点名残留 pid。回 (ok, why)。"""
+    try:
+        import proc_guard as pg
+    except Exception:
+        pg = None
+    pid = int(getattr(p, "pid", 0) or 0)
+    box = {"eof": False, "err": ""}
+    def rd():
+        try:
+            while True:
+                ln = p.stdout.readline()
+                if not ln:
+                    break
+                if ln.strip():
+                    buf.append(ln.rstrip())
+                    if pg:
+                        try:
+                            pg.beat(pid, len(buf), ln.rstrip())
+                        except Exception:
+                            pass
+                    try:
+                        on_line(prefix + ln.rstrip())
+                    except Exception:
+                        pass
+        except Exception as e:
+            box["err"] = "读管道异常：%s" % e
+        finally:
+            box["eof"] = True
+
+    t = threading.Thread(target=rd, name="rw-pump", daemon=True)
+    t.start()
+    while not box["eof"]:
+        if p.poll() is not None:
+            t.join(max(0.2, float(deadline)))
+            if box["eof"]:
+                return True, box["err"]
+            threading.Thread(target=_bg_close, args=(p,), name="rw-pump-close",
+                             daemon=True).start()
+            if pg:
+                kids = [k for k in pg.descendants(pid) if pg.alive(k)]
+                return False, ("「%s」已退出但管道仍被持有（残留后代 pid=%s）——已强制收口，输出截至 %d 行；该命令会脱离本壳继续跑，产物可能不完整"
+                               % (name, ",".join(map(str, kids)) or "已脱离本树/未知", len(buf)))
+            return False, ("「%s」已退出但管道未 EOF——强制收口，输出截至 %d 行" % (name, len(buf)))
+        time.sleep(0.1)
+    return True, box["err"]
+
 
 def run_with_timeout(fn, secs, name="调用", args=(), kwargs=None, stall=None, stage=None):
     """给任意阻塞调用挂分级墙钟（QQ 入站派发／技能对话靠它兜底）。
@@ -142,7 +274,12 @@ def run_with_timeout(fn, secs, name="调用", args=(), kwargs=None, stall=None, 
 
 def status():
     import json
-    return json.dumps({"exec_timeout_s": budget(), "stall_timeout_s": stall(), "tiers": fb.snapshot(),
+    try:
+        import proc_guard as pg
+        pr = {"in_flight": pg.snapshot(), "hung": pg.hung()}
+    except Exception:
+        pr = {}
+    return json.dumps({"proc_guard": pr, "exec_timeout_s": budget(), "stall_timeout_s": stall(), "tiers": fb.snapshot(),
                        "note": "分级超时：T1＝网络/网关单请求（qq.net_timeout／llm_gateway.timeout）·T2＝阶段静默（普通档 qq.handle_stall·长等待阶段宽档 qq.handle_stall_llm）·T3＝总预算（qq.handle_timeout／shell.exec_timeout）；子进程仍按 shell.exec_timeout 总预算＋shell.stall_timeout 静默；改：:config set qq.handle_stall_llm 600",
                        "runtime": rr.read()}, ensure_ascii=False)
 
