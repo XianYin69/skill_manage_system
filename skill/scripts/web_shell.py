@@ -87,6 +87,12 @@ def g_chains(q=None):
     return {"chains": rows, "stats": {k: v["frags"] for k, v in per.items()},
             "total": sum(v["frags"] for v in per.values()), "config": cfg, "names": list(ch.CHAINS),
             "sess": ch.cur_sess(), "sessions": [x for x in str(ch.list_sess() or "").split("\n") if x][-10:]}
+def _solo_state():
+    """SOLO 状态（web 主输出窗口提示与风险告知用）：惰性 import，取不到一律 {"enabled": false}，绝不让 /api/perms 500。"""
+    try:
+        return _m("solo").status(SMS()) or {"enabled": False}
+    except Exception:
+        return {"enabled": False}
 def g_perms(q=None):
     pm = _m("permissions"); eff = pm._eff(SMS()); e = eff.get("effective") or {}; src = eff.get("source") or {}
     DESC = {"read": "读文件·读链", "write": "写工作区文件", "execute": "本机命令执行", "network": "外网检索",
@@ -98,7 +104,7 @@ def g_perms(q=None):
     tools = [{"name": k, "tool": k, "enabled": bool(v), "on": bool(v), "desc": "大模型工具开关"}
              for k, v in ((settings.status(SMS()) or {}).get("agent_tools") or {}).items()]
     return {"perms": perms, "items": perms, "grants": perms, "tools": tools, "roles": list(pm.ROLES),
-            "count": len(perms), "tool_count": len(tools)}
+            "count": len(perms), "tool_count": len(tools), "solo": _solo_state()}
 def g_hud(q=None):
     d = atomic_io.rjson(os.path.join(SMS(), "hud", "state.json"), encoding="utf-8", default=None) or {}
     now = time.time(); live = {}

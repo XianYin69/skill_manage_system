@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""solo.py — SOLO 模式唯一真源（权限免用户确认·缺权限时由大模型自审决定是否授予）：cfg/enabled/never/set/banner_lines/status/review/allow/gate/granted_today；review 经 gateway._req 非流式、不带 tools 的单次判定（prompt 含〔键/工具/目标/意图/本轮用户话语摘要/风险摘要〕，只回一行 JSON {"grant","ttl_min","reason"}），网关未启用/调用失败/不可解析/异常一律保守拒绝（绝不因审核失败放行）；allow 顺序＝已授予即真→SOLO 关即假→solo.never 键永不自审→danger 未开 solo.allow_danger 不自审→自审通过才 permissions.apply(grant, ttl 钳 max_ttl_min) 并落 audit（solo 标记）＋event 链；gate 回 (bool, note) 供工具层拼拒绝文案。红线：SOLO 只改「权限准入」，不绕 stop_channel/任务表/审计，自审授予可 :grant revoke <键> 即时收回（注意 :grant <键> 0＝永久授予、非收回）；后台与非交互路径（auto_compress/cache_cleanup/dep_fetch/dream_*/deploy 等）不经本模块，防做梦链路阻塞与成本失控；SOLO 关闭＝行为与今天逐字一致。用法：python -B solo.py status|on|off|banner|review <key> [ctx]"""
+"""solo.py — SOLO 模式唯一真源（权限免用户确认·缺权限时由大模型自审决定是否授予）：cfg/enabled/never/set/banner_lines/status/review/allow/gate/granted_today/notice；review 经 gateway._req 非流式、不带 tools 的单次判定（prompt 含〔键/工具/目标/意图/本轮用户话语摘要/风险摘要〕，只回一行 JSON {"grant","ttl_min","reason"}），网关未启用/调用失败/不可解析/异常一律保守拒绝（绝不因审核失败放行）；allow 顺序＝已授予即真→SOLO 关即假→solo.never 键永不自审→danger 未开 solo.allow_danger 不自审→自审通过才 permissions.apply(grant, ttl 钳 max_ttl_min) 并落 audit（solo 标记）＋event 链；gate 回 (bool, note) 供工具层拼拒绝文案。红线：SOLO 只改「权限准入」，不绕 stop_channel/任务表/审计，自审授予可 :grant revoke <键> 即时收回（注意 :grant <键> 0＝永久授予、非收回）；后台与非交互路径（auto_compress/cache_cleanup/dep_fetch/dream_*/deploy 等）不经本模块，防做梦链路阻塞与成本失控；SOLO 关闭＝行为与今天逐字一致。用法：python -B solo.py status|on|off|banner|review <key> [ctx]"""
 import os, sys, json, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import resolve_home, settings, permissions, chains
@@ -68,6 +68,21 @@ def _mark(sms, key, reason):
             if a.get("action") == "grant" and a.get("key") == key: a["solo"] = True; a["reason"] = reason; break
         atomic_io.wjson(p, d); return True
     except Exception: return False
+def notice(text):
+    """主输出窗口通报一行（SOLO 自审放行/拒绝上屏）：solo.notify=false 即静默；惰性 import agent_ctx/msg_flow
+    防循环依赖，信封机制同 agent_tools.emit（kind=notice＝msg_flow CLASS body，主输出可见）；全程 try/except，
+    异常只回 False——绝不影响权限判定与工具执行。"""
+    if not cfg().get("notify", True): return False
+    try:
+        import agent_ctx, msg_flow
+        c = agent_ctx.cur()
+        e = msg_flow.make("notice", str(text), conv=c.get("conv") or chains.ACTIVE["conv"],
+                          sess=chains.cur_sess(), tool="solo", ok=True)
+        if callable(c.get("ev")): c["ev"](e)
+        ln = c.get("on_line")
+        if ln: ln(msg_flow.brief(e))
+        return True
+    except Exception: return False
 def _decide(sms, key, ctx=None):
     """自审决策核心（allow/gate 共用·一次判定一次落账）：回 (grant, reason)。never 键与未开 allow_danger 的 danger 不送审；
     审核通过即 permissions.apply(grant, ttl 钳 max_ttl_min)＋audit 打 solo 标记＋event 链，可 :grant revoke <键> 收回。"""
@@ -75,10 +90,10 @@ def _decide(sms, key, ctx=None):
     if str(key) == "danger" and not cfg().get("allow_danger"): return False, "danger 不随自审（须 solo.allow_danger=true 或当轮 :grant danger）"
     g, why, ttl = review(key, ctx)
     if not g:
-        chains.record("event", "SOLO自审拒绝 key=%s 理由=%s" % (key, why)); return False, why
+        chains.record("event", "SOLO自审拒绝 key=%s 理由=%s" % (key, why)); notice("SOLO 自审拒绝 %s：%s" % (key, why)); return False, why
     c = cfg(); t2 = min(ttl or int(c.get("ttl_min", 30)), int(c.get("max_ttl_min", 120)))
     permissions.apply(sms, "grant", str(key), False, t2); _mark(sms, str(key), why)
-    chains.record("event", "SOLO自审授予 key=%s ttl=%d分钟 理由=%s" % (key, t2, why)); return True, why
+    chains.record("event", "SOLO自审授予 key=%s ttl=%d分钟 理由=%s" % (key, t2, why)); notice("SOLO 自审放行 %s（ttl=%d分钟）：%s" % (key, t2, why)); return True, why
 def allow(sms, key, id=None, ctx=None):
     """准入判定（布尔版）：已授予即真；SOLO 关即假；否则走自审（通过即落授予）。"""
     if permissions.allow_base(sms, key, id): return True
@@ -90,8 +105,11 @@ def gate(sms, key, ctx=None):
     if not enabled(): return False, "需 :grant " + str(key)
     g, why = _decide(sms, key, ctx); return (True, "") if g else (False, "SOLO 自审判定不予授予：" + why)
 def tail(note):
-    """拒绝文案尾部拼接：SOLO 关（note＝原文案「需 :grant ..」）＝空串保零回归；SOLO 开＝拼「（SOLO 自审：..）」。"""
-    return "" if (not note or note.startswith("需 :grant")) else "（" + note + "）"
+    """拒绝文案尾部拼接：SOLO 关（note＝原文案「需 :grant ..」）＝空串保零回归；SOLO 开＝拼「（SOLO 自审：..）」，
+    理由自带全角括号时改用〔〕包裹，避免括号套括号影响可读性。"""
+    if not note or note.startswith("需 :grant"): return ""
+    o, c = ("〔", "〕") if "（" in note else ("（", "）")
+    return o + note + c
 def granted_today(sms=None):
     """今日 SOLO 自审授予条数（permissions.json audit 中带 solo 标记者）。"""
     try:

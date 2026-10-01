@@ -25,6 +25,9 @@ def compress_day(sms, day, write):
     out = lines[:i + 1] + ["", "> 压缩 %s（原文归档 context_archive.md，sha1=%s）" % (time.strftime("%F %T"), sha), _digest(head), ""] + tail
     if not write: return {"preview": p, "context_bytes": total, "head_lines": len(head.splitlines())}
     import permissions
+    try:  # 后台/非交互：SOLO 自审不入此路（无人应答·防阻塞与成本失控）
+        import permissions; permissions.set_noninteractive(True)
+    except Exception: pass
     if not permissions.allow(sms, "write"): return {"denied": "会话未授予 write 权限（permissions.json），拒绝压缩"}
     with open(os.path.join(d, "context_archive.md"), "a", encoding="utf-8") as h:
         h.write("\n\n## 归档 %s sha1=%s\n\n%s\n" % (time.strftime("%F %T"), sha, head))

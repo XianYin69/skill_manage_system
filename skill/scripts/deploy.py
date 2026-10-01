@@ -42,6 +42,9 @@ if __name__ == "__main__":
     dirs = _targets(raw)
     if not dirs:
         print("用法: deploy.py [init] <dir...> | --Path P [--NewFolder Yes] [--FolderName F] [--write]"); sys.exit(1)
+    try:  # 后台/非交互：SOLO 自审不入此路（无人应答·防阻塞与成本失控）
+        import permissions; permissions.set_noninteractive(True)
+    except Exception: pass
     if w and not permissions.allow(sms, "write"):
         print("DENIED: 会话未授予 write 权限（permissions.json）"); sys.exit(1)
     print(json.dumps({"targets": dirs, "actions": [_register(sms, w)] + [a for d in dirs for a in _copy(d, w)]}, ensure_ascii=False, indent=2))

@@ -285,9 +285,9 @@ async function connect(){T=$("tok").value.trim();if(!T)return;sessionStorage.set
  catch(e){$("gerr").textContent="接通失败："+(e.err||e.message||e)}}
 function boot(i){INFO=i;$("gate").style.display="none";$("app").style.display="";
  $("tok").addEventListener("keydown",ev=>{if(ev.key==="Enter")connect()});
- lcd(i);pollAll();setInterval(pollTasks,4000);setInterval(pollAsk,3000)}
+ lcd(i);pollAll();pollSolo();setInterval(pollSolo,15000);setInterval(pollTasks,4000);setInterval(pollAsk,3000)}
 function lcd(i){const g=i.gateway||{};
- $("banner").textContent="网关 "+(g.enabled?"在线":"停用")+" · "+(g.model||"-");
+ setBanner();
  $("s_gw").textContent=g.enabled?"on":"off";$("s_model").textContent=g.model||"-";
  $("s_tok").textContent=i.token_prefix||"-";
  $("s_fpr").textContent=(i.fingerprint||"-").slice(0,23);
@@ -295,6 +295,23 @@ function lcd(i){const g=i.gateway||{};
  $("s_conv").textContent=i.conv_id||i.conv||"-";
  led("led_net","on");led("led_ext",i.external&&i.external.enabled?"warn":"off");
  led("led_dream",i.dream&&i.dream.enabled?"on":"off")}
+/* ---------- SOLO 自审模式：主输出窗口（出纸口）提示与风险告知 ---------- */
+let SOLO=null, SOLO_TOLD=false;
+function soloTag(){return (SOLO&&SOLO.enabled)?"SOLO: on":"SOLO: off"}
+function setBanner(){const g=(INFO&&INFO.gateway)||{};
+ $("banner").textContent="网关 "+(g.enabled?"在线":"停用")+" · "+(g.model||"-")+" · "+soloTag()}
+function soloWarn(s){return "【SOLO 模式已开启 · 风险告知】缺权限不再向用户确认，由大模型自审授予并立即执行。\n"
+ +"· 永不自审键（solo.never）："+((s.never||[]).join("、")||"（无）")+"\n"
+ +"· skill 目录写入（danger）自审："+(s.allow_danger?"已开（solo.allow_danger=true，高危）":"未开，仍须当轮 :grant danger")+"\n"
+ +"· 自审授予时长：默认 "+(s.ttl_min||30)+" 分钟，上限 "+(s.max_ttl_min||120)+" 分钟，到期自动失效\n"
+ +"· 每笔自审放行/拒绝都会打到本出纸口，并落 permissions.json 审计（solo 标记）＋event 链，可追溯\n"
+ +"· 关闭：进纸器输入 :solo off（或 F4 改 solo.enabled=false）；单项收回：:grant revoke <键>（注意 :grant <键> 0＝永久授予、非收回）\n"
+ +"如不认可此模式，请立即输入 :solo off"}
+async function pollSolo(){const r=await api("/api/perms");if(r.err)return;
+ const s=r.solo||{enabled:false}, was=SOLO;SOLO=s;setBanner();
+ if(s.enabled&&!SOLO_TOLD){SOLO_TOLD=true;print("系统",soloWarn(s),"sys")}
+ else if(!s.enabled){if(was&&was.enabled)print("系统","SOLO 模式已关闭——权限准入回到用户确认（:grant），与未启用 SOLO 时逐字一致","sys");SOLO_TOLD=false}}
+
 /* ---------- META 40 键 ---------- */
 const META=["agents","use","skill","cmds","intent","index","skills","workspace","debug","mode","dispatch","sh","edit","view","alias","unalias","hud","deploy","qq","session","grant","perms","tools","api","config","web","ext","net","tts","learn","file","path","dream","image","restart","shutdown","repair","show","help","quit"];
 const METAD={agents:"数据流 agent",use:"调用命令",skill:"技能治理",cmds:"命令总表",intent:"意图匹配",index:"文件索引",skills:"技能清单",workspace:"工作区",debug:"调试",mode:"界面模式",dispatch:"技能真派发",sh:"系统 shell",edit:"编辑器",view:"查看器",alias:"自定义指令",unalias:"删自定义",hud:"HUD 叠加",deploy:"部署",qq:"QQ 推送",session:"会话",grant:"权限授予",perms:"权限总览",tools:"工具开关",api:"格式 API",config:"配置",web:"网页壳",ext:"对外端口",net:"网络",tts:"朗读",learn:"学习",file:"文件",path:"按路径加技能",dream:"做梦",image:"图像",restart:"重启 SMS",shutdown:"关闭 SMS",repair:"修复待批",show:"命令详情",help:"速查",quit:"收口退出"};
@@ -420,7 +437,7 @@ async function openDrawer(title,kind){$("d_title").textContent=title;$("drawer")
 async function refreshDrawer(){if(DOPEN)openDrawer($("d_title").textContent,DOPEN)}
 const DF={};
 /* ---------- 巡检 ---------- */
-async function pollAll(){await Promise.all([pollTasks(),pollQQ(),pollTTS(),pollDream()]);
+async function pollAll(){await Promise.all([pollTasks(),pollQQ(),pollTTS(),pollDream(),pollSolo()]);
  print("系统","巡检完成：线路 "+(INFO?"已连通":"未连")+" · 任务表 "+(TASKS?TASKS.length:0)+" 行","sys")}
 async function pollQQ(){const r=await api("/api/qq");led("led_qq",r.err?"off":(r.enabled?"on":"off"))}
 async function pollTTS(){const r=await api("/api/tts");led("led_tts",r.err?"off":(r.enabled?"on":"off"))}
@@ -604,7 +621,23 @@ DF.perms=async b=>{const r=await api("/api/perms");
   const y=document.createElement("button");y.className="key sm";y.textContent=x.enabled?"关闭":"开启";
   y.onclick=async()=>{const q=await api("/api/grant",{tool:nm,on:!x.enabled});print("工具",nm+" → "+(x.enabled?"off":"on")+(q.err?"（"+q.err+"）":""),"sys");refreshDrawer()};
   tr.lastChild.appendChild(y);tt.appendChild(tr)});box.appendChild(tt);
- const h4=document.createElement("h3");h4.textContent="HUD 叠加";h4.style.marginTop="12px";box.appendChild(h4);
+   const hs=document.createElement("h3");hs.textContent="SOLO 自审模式";hs.style.marginTop="12px";box.appendChild(hs);
+  const sv=r.solo||{enabled:false};
+  const sp=document.createElement("div");sp.className="hint";
+  sp.textContent="当前："+(sv.enabled?"已开启——缺权限不再向用户确认，由大模型自审授予并立即执行（高危）":"关闭——权限走 :grant 用户确认")
+   +" · danger 自审："+(sv.allow_danger?"开":"关")+" · 永不自审："+((sv.never||[]).join("、")||"-")
+   +" · ttl "+(sv.ttl_min||30)+"分（上限 "+(sv.max_ttl_min||120)+"分） · 今日自审授予 "+(sv.granted_today||0)+" 笔";
+  box.appendChild(sp);
+  const sbb=document.createElement("div");sbb.className="bar";
+  [["开启 SOLO",true],["关闭 SOLO",false]].forEach(function(x){const y=document.createElement("button");
+   y.className="key sm"+(x[1]?" warn":"");y.textContent=x[0];
+   y.onclick=async()=>{if(x[1]&&!confirm("SOLO 开启后缺权限不再询问用户，由大模型自审即授予并立即执行（danger 默认仍不自审）。确认开启？"))return;
+    const q=await api("/api/config",{path:"solo.enabled",value:x[1]});
+    if(q.err)print("SOLO","设置失败："+q.err,"sys");
+    else{SOLO_TOLD=false;print("SOLO",x[1]?"已开启——风险须知见出纸口":"已关闭——权限准入回到用户确认（:grant）","sys");await pollSolo()}
+    refreshDrawer()};sbb.appendChild(y)});
+  box.appendChild(sbb);
+const h4=document.createElement("h3");h4.textContent="HUD 叠加";h4.style.marginTop="12px";box.appendChild(h4);
  const hd=await api("/api/hud");const pre=document.createElement("pre");
  pre.style.cssText="background:#0e1a20;color:#3ff0d6;padding:8px;border-radius:7px;font-size:11px;white-space:pre-wrap";
  pre.textContent=hd.err?"HUD 不可用："+hd.err:JSON.stringify(hd,null,2);box.appendChild(pre)};

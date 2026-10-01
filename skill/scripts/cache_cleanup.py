@@ -43,6 +43,9 @@ if __name__ == "__main__":
     targets = plan(sms, keep)
     if "--write" not in sys.argv:
         print("would delete: " + (", ".join(targets) or "无")); sys.exit(0)
+    try:  # 后台/非交互：SOLO 自审不入此路（无人应答·防阻塞与成本失控）
+        import permissions; permissions.set_noninteractive(True)
+    except Exception: pass
     if not permissions.allow(sms, "write"):
         print("DENIED: 会话未授予 write 权限（permissions.json），拒绝清理"); sys.exit(1)
     for n in targets:
