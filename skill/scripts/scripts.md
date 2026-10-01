@@ -55,3 +55,10 @@
 1. 使用项目默认 Python，并以 `python -B`（PYTHONDONTWRITEBYTECODE）运行，避免字节码缓存写入 skill 目录；数据写盘统一经 emit.py：默认预览，`--write` 且已授予 write 才落盘。
 2. 先 `session.py --write` 建会话，再 `permissions.py grant write --write` 授权，之后写盘才生效。
 3. 运行前先看 [`../resistance/resistance.md`](../resistance/resistance.md) 确认权限；初始化与 git 提交前必跑 `redlines.py check`（失败禁止继续，高危须 `grant danger`，红线 16）。
+
+## 工具执行范式（批27·tool_kit.py）
+- read＝流式窗口读（path[,max_lines,offset]，>2MB 取满窗口即早停）；先 grep 定位再按 offset 续读，禁止整读大文件。
+- grep＝剪枝 .git/__pycache__/node_modules/隐藏目录＋跳二进制与 >8MB＋逐行流式＋命中即止；glob＝生成器早停（limit 默认 200）。
+- exec＝sys_shells 统一入口＋范式适配：PowerShell 下 &&→;、2>nul→2>$null、dir /b→Get-ChildItem -Name，改写即回说明，一次到位免「语法报错再试一轮」。
+- webfetch＝gzip/deflate＋响应头 charset 自适应＋2MB 上限＋HTML 抽正文（as_text 默认 true·省 token 主因）＋瞬时错有限重试（agent.webfetch_retries）。
+- 自检：python -B scripts/tool_kit.py。
