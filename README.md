@@ -43,6 +43,11 @@ python -B skill/scripts/web_shell.py start   # 或壳内 :web start；对外：:
 
 `SMS_HOME` 覆盖 → 用户配置 `<SMS_HOME>/config/config.json` → 用户缓存目录 → 用户根目录，统一建 `SMS/`；运行时数据与缓存一律不落工具目录。详见 [resolve_home.py](skill/scripts/resolve_home.py)。
 
+## 壳/核拆分（批27）
+
+本仓库＝**合体发行仓**；源码另拆两个独立源码仓：[XianYin69/sms-core](https://github.com/XianYin69/sms-core)（引擎 127 模块，含唯一接缝 [runtime_bind.py](skill/scripts/runtime_bind.py) 与分离审计 [sep_audit.py](skill/scripts/sep_audit.py)）与 [XianYin69/sms-shell](https://github.com/XianYin69/sms-shell)（30 个 `shell_*.py`＋bin 启动器＋web_page.html）。两仓互不 import 对方源码，**运行时把两者覆盖安装到同一 `<SMS_HOME>/skill/scripts/` 即合体**（日常使用与部署照旧走本仓，拆分只改源码组织）。
+
+唯一接缝＝`runtime_bind.set_runner(fn)`/`set_pending(fn)` 注册回调：core 侧凡「把一句话语交壳执行」「跑壳侧待办」一律经 `runtime_bind.run()/pending_run()`，不认得任何 `shell_*` 模块名；壳侧 `shell_core`/`shell_lifecycle` 在自身 import 时登记回调。壳未绑定时的降级＝先惰性 `import shell_core`/`shell_lifecycle` 兜底并回填注册，兜底也失败则 `run()` 返回明确错误串「未绑定壳运行器…」（不抛异常，调用方自决改走 `agent_stream.ask`/`gateway.run` 纯核链路）、`pending_run()` 返回 None 静默跳过（与「无待办」同义）——绝不静默改行为。审计口径 `python -B skill/scripts/sep_audit.py`：shell→core 50 条单向边（壳站在核上，合法）、core→shell 反向边 0、seam→shell 2（契约允许）→ `verdict=SEPARATED`；该审计已接入根入口 [sms.py](sms.py) 的开箱即用与 `doctor` 体检，新增 core→shell 反向 import 会在启动/体检被拦下并报 violations。
 ## 红线摘要
 
 - 不删 skill/resistance/ 约束；运行时数据（HUD 状态、个性化指令、部署登记）不进工具本体目录；隐私文件仅存 `<SMS_HOME>/privacy/`，采集须授权+告知，解密须必要理由；SMS 不直接作答用户需求，一律 dispatch→已装 agent/托管 skill→整合 链路。
