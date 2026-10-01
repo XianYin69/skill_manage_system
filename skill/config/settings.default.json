@@ -152,6 +152,6 @@
   "max_ttl_min": 120,
   "review_max_tokens": 200,
   "notify": true,
-  "comment": "SOLO 模式（solo.py 唯一真源·权限免用户确认：缺权限时由大模型经 llm_gateway 单次自审决定是否授予）：enabled＝总开关（:solo on|off 或 F10→SOLO 模式，关闭时权限准入与未启用 SOLO 逐字一致）；allow_danger＝自审是否可放行 skill 目录写入（红线16·默认 false 仍须当轮 :grant danger）；never＝永不自审的键（默认 remote·远程越名单不受自审影响）；ttl_min＝自审授予默认时长（分钟）；max_ttl_min＝时长上限（模型给再高也钳到此值）；review_max_tokens＝单次自审输出上限；notify＝每次自审授予/拒绝是否向主输出窗口通报。全部自审授予落 permissions.json audit（solo 标记）＋event 链，可 :grant 某键 0 或 revoke 即时收回；后台与非交互路径（auto_compress/cache_cleanup/dep_fetch/dream_*/deploy）不经本模块"
+  "comment": "SOLO 模式（solo.py 唯一真源·权限免用户确认：缺权限时由大模型经 llm_gateway 单次自审决定是否授予）：enabled＝总开关（:solo on|off 或 F10→SOLO 模式，关闭时权限准入与未启用 SOLO 逐字一致）；allow_danger＝自审是否可放行 skill 目录写入（红线16·默认 false 仍须当轮 :grant danger）；never＝永不自审的键（默认 remote·远程越名单不受自审影响）；ttl_min＝自审授予默认时长（分钟）；max_ttl_min＝时长上限（模型给再高也钳到此值）；review_max_tokens＝单次自审输出上限；notify＝每次自审授予/拒绝是否向主输出窗口通报。全部自审授予落 permissions.json audit（solo 标记）＋event 链，可 :grant revoke <键> 即时收回（:grant <键> 0＝永久授予非收回）；后台与非交互路径（auto_compress/cache_cleanup/dep_fetch/dream_*/deploy）不经本模块"
  }
 }

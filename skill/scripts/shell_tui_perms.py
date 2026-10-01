@@ -62,7 +62,7 @@ class Perms:
         except Exception:
             st, on = {}, False
         self.log_line("SOLO 模式：" + ("已开启" if on else "已关闭") + "｜当日自审放行 " + str(st.get("granted_today", 0)) + " 项｜allow_danger=" + str(st.get("allow_danger")) + "｜自审网关=" + ("可用" if st.get("gateway_ok") else "未启用") + "｜永不自审：" + ("、".join(st.get("never") or []) or "-") + "\n风险须知：\n" + solo.banner_lines())
-        self.menu("SOLO 模式（Enter 切换·关闭＝权限回到用户确认·单项收回 :grant <键> 0）",
+        self.menu("SOLO 模式（Enter 切换·关闭＝权限回到用户确认·单项收回 :grant revoke <键>）",
                   [("solo:toggle", ("✓ " if on else "✗ ") + "SOLO 自审授予（免用户确认）"),
                    ("solo:danger", ("✓ " if st.get("allow_danger") else "✗ ") + "allow_danger（自审可放行 skill 目录写·红线16）"),
                    (":solo status", "状态（文本）"), (":grant ", "手工授予某键 <键> [分钟]"),
