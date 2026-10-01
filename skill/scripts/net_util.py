@@ -52,8 +52,8 @@ def body(h):
     except Exception: return {}
 def page(): return open(os.path.join(S, "web_page.html"), "rb").read()
 def chat(text):
-    import shell_core
-    lines = []; r = shell_core.handle(str(text or "")[:6000], lines.append)
+    import runtime_bind as rb
+    lines = []; r = rb.run(str(text or "")[:6000], lines.append)
     return {"lines": lines, "exit": r == "exit", "meta": None if r == "exit" else r}
 
 def qs(h):

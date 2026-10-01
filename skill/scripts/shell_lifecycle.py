@@ -166,3 +166,5 @@ if __name__ == "__main__":
     else:
         print(json.dumps({"launcher": BIN, "exists": os.path.isfile(BIN), "is_shell": _is_shell(),
                           "pending_restart": cg.peek(), "others": _shell_pids()}, ensure_ascii=False))
+
+import runtime_bind as _rb; _rb.set_pending(run_pending)  # 批27 接缝登记

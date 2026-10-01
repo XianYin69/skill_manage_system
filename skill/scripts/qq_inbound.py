@@ -27,7 +27,7 @@ def deliver(e, c=None):
     except Exception: pass
     try:
         if txt[:1] in (":", "：", "!"):
-            _beat("exec"); import shell_core; shell_core.handle(txt, _col(L)); _beat()
+            _beat("exec"); import runtime_bind as rb; rb.run(txt, _col(L)); _beat()
             _beat("push"); s = qq_report.snapshot(); return qp.push(("\n".join(L) or "（无输出）") + ("\n" + s if s else ""), "QQ·指令", c)
         try: qp._wj(qp._f(c["sms"], "active.json"), {"conv": str(__import__("chains").ACTIVE.get("conv") or ""), "ts": time.time()})
         except Exception: pass
@@ -36,7 +36,7 @@ def deliver(e, c=None):
         try: agent_stream.ask(txt, _col(L))
         finally: qq_brief.on(False); _beat("skill")  # 网关请求后／技能对话边界
         try:
-            import shell_lifecycle as lc; lc.run_pending(allow=True)
+            import runtime_bind as rb; rb.pending_run(allow=True)
         except Exception: pass
         _beat("push"); return "数据流已跑·正文经 qq_flow 被动回复（行 %d）" % len(L)
     finally:

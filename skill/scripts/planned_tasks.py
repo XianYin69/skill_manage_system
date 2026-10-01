@@ -156,10 +156,10 @@ def utter(doc, sid=""):
             "④完成后 user_send 一句回报。") % (doc.get("id"), doc.get("title"), doc.get("input"), sid)
 
 def _default_runner(text):
-    import shell_core as core
+    import runtime_bind as rb
     buf = []
-    try: core.handle(text, lambda s: buf.append(str(s)[:300]), lambda n: None, None)
-    except Exception as ex: buf.append("执行异常：" + repr(ex)[:200])
+    r = rb.run(text, lambda s: buf.append(str(s)[:300]))
+    if isinstance(r, str) and (r.startswith("未绑定壳") or r.startswith("壳执行异常")): buf.append(r)
     return "\n".join(buf[-40:])
 
 def _lock(path):

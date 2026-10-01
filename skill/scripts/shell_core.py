@@ -96,3 +96,5 @@ def handle(line, on_line, st=lambda n: None, ev=None):
     if user_commands.find(user_commands.load(SMS), (parts := t.split())[0]): st("个性化指令展开：" + parts[0]); on_line(run_script("user_commands.py", ["run"] + parts)); return None
     img = IMG[0] if IMG else None; IMG.clear(); debug.enabled() and debug.log("utter> " + line[:300]); st("话语→数据流（agent_stream）"); line = user_index.expand(line, SMS)
     import shell_mode; return shell_mode.utter(line, img, on_line, st, ev) or None
+
+import runtime_bind as _rb; _rb.set_runner(handle)  # 批27 接缝登记（core 侧经 runtime_bind 调壳，不再反向 import）
