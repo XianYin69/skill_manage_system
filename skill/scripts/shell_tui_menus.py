@@ -4,7 +4,16 @@ import os
 import shell_core as core, skill_route, user_index
 from rich.text import Text
 from shell_tui_menu import Menu, MAIN, Path
-META = [":" + m for m in ("agents","use","skill","cmds","intent","index","skills","workspace","debug","mode","dispatch","sh","edit","view","alias","unalias","hud","deploy","qq","session","grant","perms","tools","api","config","web","ext","net","tts","learn","file","path","dream","image","restart","shutdown","repair","help","quit")]
+META = [":" + m for m in ("agents","use","skill","cmds","intent","index","skills","workspace","debug","mode","dispatch","sh","edit","view","alias","unalias","hud","deploy","qq","session","grant","perms","solo","tools","api","config","web","ext","net","tts","learn","file","path","dream","image","restart","shutdown","repair","help","quit")]
+def _main_menu():
+    """MAIN 注入「SOLO 模式」项（配置·权限·工具组→perms 面板 action_menu_solo·不改 shell_tui_menu 原表·异常即原样返回）。"""
+    try:
+        for grp in MAIN:
+            items, title = grp[0], grp[1]
+            if isinstance(title, str) and "权限" in title and not any(str(c).startswith("#menu_solo") for c, _ in items):
+                items.append(("#menu_solo", "SOLO 模式：权限免用户确认·大模型自审授予（开/关·风险须知）")); break
+    except Exception: pass
+    return MAIN
 class Menus:
     def complete(self, ta):
         try: names = [c["name"] for c in core.user_commands.load(core.SMS)["commands"]]
@@ -29,6 +38,7 @@ class Menus:
         elif sel.startswith("grantp:"): self.grant_perm(sel[7:])
         elif sel.startswith("grantid:"): self.submit(":grant remote 30 --id " + sel[8:])
         elif sel.startswith("tool:"): self.tool_toggle(sel[5:])
+        elif sel.startswith("solo:"): self.solo_toggle(sel[5:])
         elif sel.startswith("path:"): self.ask_path()
         elif sel.startswith("fill:"): ta.text = sel[5:]; ta.focus()
         elif sel.startswith("#"): getattr(self, "action_" + sel[1:])()
@@ -39,7 +49,7 @@ class Menus:
         self.push_screen(Config(), self._cfg_picked)
     def _cfg_picked(self, path):
         if path: self.query_one("#input").text = ":config get " + path; self.query_one("#input").focus()
-    def action_menu_main(self): self.menu("sms-shell 菜单（↑↓ 选择 · Enter 执行 · ▸＝分组进入·「← 返回上一级」回退 · Esc 关闭）", MAIN)
+    def action_menu_main(self): self.menu("sms-shell 菜单（↑↓ 选择 · Enter 执行 · ▸＝分组进入·「← 返回上一级」回退 · Esc 关闭）", _main_menu())
     def action_menu_skill(self): self.menu("托管技能（Enter＝填入调用语句，回车经路由真调 skill_call）", [("path:skill","➕ 按路径输入加入 skill（登记扫描根＋重建注册表）")] + ([("call:" + str(s.get("id")), "%s｜%s" % (s.get("id"), str(s.get("description") or "")[:24])) for s in skill_route.skills()] or [(":cmds","注册表为空：先跑 register.py 或按路径加入")]))
     def ask_path(self): self.push_screen(Path("按路径加入 skill：输入含 SKILL.md 的技能目录（或其待扫描父目录）·Enter＝:index 登记扫描根＋重建注册表＋加入文件索引"), lambda p: p and p.strip() and self.submit(":index " + p.strip()))
     def agents_menu(self): self.menu("数据流 agent（Enter 切换）", [(":use " + n, "切到 " + n) for n in core.ag.detected()] or [(":agents","未检出 agent（:agents 查看）")])

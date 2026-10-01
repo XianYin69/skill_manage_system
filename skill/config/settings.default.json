@@ -45,9 +45,9 @@
  },
  "qq": {
   "handle_stall": 240,
-    "handle_stall_llm": 600,
-    "net_timeout": 30,
-    "tiered_timeout": true,
+  "handle_stall_llm": 600,
+  "net_timeout": 30,
+  "tiered_timeout": true,
   "comment": "QQ 通道可调项（qq_dispatch.py 入站 worker·config/qq.json 同名键可覆盖）：handle_stall＝单条入站消息静默多少秒判为卡死（交 run_watch.run_with_timeout 的 stall 参数，到点中止该条并恢复通道，防一条 ask 永久卡死唯一 worker；同段 handle_timeout＝该条墙钟总上限，默认 900s）；分级（2026-10-01 做梦审计错误1·error 链 2ab90541b9）：T1＝net_timeout 网络/网关单请求自计时即抛（LLM 侧另有 llm_gateway.timeout）；T2＝阶段静默，普通阶段用 handle_stall、长等待阶段（网关请求/技能对话）用 handle_stall_llm 宽档，由 qq_inbound.set_stage 声明；T3＝handle_timeout 总预算；tiered_timeout＝false 退回旧一档平铺"
  },
  "close_guard": {
@@ -141,5 +141,17 @@
  },
  "tui": {
   "console_font_fix": true
+ },
+ "solo": {
+  "enabled": false,
+  "allow_danger": false,
+  "never": [
+   "remote"
+  ],
+  "ttl_min": 30,
+  "max_ttl_min": 120,
+  "review_max_tokens": 200,
+  "notify": true,
+  "comment": "SOLO 模式（solo.py 唯一真源·权限免用户确认：缺权限时由大模型经 llm_gateway 单次自审决定是否授予）：enabled＝总开关（:solo on|off 或 F10→SOLO 模式，关闭时权限准入与未启用 SOLO 逐字一致）；allow_danger＝自审是否可放行 skill 目录写入（红线16·默认 false 仍须当轮 :grant danger）；never＝永不自审的键（默认 remote·远程越名单不受自审影响）；ttl_min＝自审授予默认时长（分钟）；max_ttl_min＝时长上限（模型给再高也钳到此值）；review_max_tokens＝单次自审输出上限；notify＝每次自审授予/拒绝是否向主输出窗口通报。全部自审授予落 permissions.json audit（solo 标记）＋event 链，可 :grant 某键 0 或 revoke 即时收回；后台与非交互路径（auto_compress/cache_cleanup/dep_fetch/dream_*/deploy）不经本模块"
  }
 }

@@ -10,7 +10,7 @@ ALI = {"llm_gateway": "网关", "model_meta": "元数据", "chains": "链", "dre
        "max_output_tokens": "输出限", "rpm": "RPM", "default": "默认", "merge_thr": "合并阈", "prune_days": "修剪天", "min_freq": "最小频", "comment": "注释", "sms_home": "数据根", "agent_cli": "CLI", "sms_skill": "回源", "repo": "仓库", "install_syntax": "装法",
          "debug": "调试", "path": "输出路径", "ui": "界面", "mode": "模式", "sms_workspace": "工作区", "workspaces": "工作区清单", "next_run": "下次做梦", "tmp": "临时", "tasks": "任务",
           "caps": "上限", "gateway_rounds": "工具轮", "skill_rounds": "派技轮", "ask_rounds": "子问答轮",
-          "task": "任务表", "auto_table": "自动建表", "auto_continue": "主流程守卫", "max_continue": "续推上限", "max_parallel": "并发上限"}
+          "task": "任务表", "auto_table": "自动建表", "auto_continue": "主流程守卫", "max_continue": "续推上限", "max_parallel": "并发上限", "solo": "SOLO自审", "allow_danger": "自审放行danger", "never": "永不自审", "ttl_min": "授予分", "max_ttl_min": "授予分上限", "review_max_tokens": "自审字限", "notify": "放行告知", "granted_today": "今日已放行"}
 def _walk_comment(p):
     node = settings.DEFAULTS; c = ""
     for k in p.split("."):
@@ -20,7 +20,7 @@ def _walk_comment(p):
     if not c and p.split(".")[0] in skills_config.SKILL_KEYS and skills_config.DEFAULT.get("comment"): c = skills_config.DEFAULT["comment"]
     return c
 def short(p): return "·".join(ALI.get(x, x) for x in p.split("."))
-SECT = ["llm_gateway", "model_meta", "chains", "dream", "tts", "debug", "ui", "hud", "sms_workspace", "workspaces", "web_shell", "external", "ff_lite", "agent_tools", "scan_roots", "skill_generator", "sync_clients", "Source_Remote", "permissions_default"]
+SECT = ["solo", "llm_gateway", "model_meta", "chains", "dream", "tts", "debug", "ui", "hud", "sms_workspace", "workspaces", "web_shell", "external", "ff_lite", "agent_tools", "scan_roots", "skill_generator", "sync_clients", "Source_Remote", "permissions_default"]
 def order(keys): return [s for s in SECT if s in keys] + sorted(k for k in keys if k not in SECT)
 def label(p):
     c = _walk_comment(p); return short(p) + ("｜" + c[:24] if c else "")

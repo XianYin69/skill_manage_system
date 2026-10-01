@@ -1,0 +1,121 @@
+#!/usr/bin/env python3
+"""solo.py — SOLO 模式唯一真源（权限免用户确认·缺权限时由大模型自审决定是否授予）：cfg/enabled/never/set/banner_lines/status/review/allow/gate/granted_today；review 经 gateway._req 非流式、不带 tools 的单次判定（prompt 含〔键/工具/目标/意图/本轮用户话语摘要/风险摘要〕，只回一行 JSON {"grant","ttl_min","reason"}），网关未启用/调用失败/不可解析/异常一律保守拒绝（绝不因审核失败放行）；allow 顺序＝已授予即真→SOLO 关即假→solo.never 键永不自审→danger 未开 solo.allow_danger 不自审→自审通过才 permissions.apply(grant, ttl 钳 max_ttl_min) 并落 audit（solo 标记）＋event 链；gate 回 (bool, note) 供工具层拼拒绝文案。红线：SOLO 只改「权限准入」，不绕 stop_channel/任务表/审计，自审授予可 :grant revoke <键> 即时收回（注意 :grant <键> 0＝永久授予、非收回）；后台与非交互路径（auto_compress/cache_cleanup/dep_fetch/dream_*/deploy 等）不经本模块，防做梦链路阻塞与成本失控；SOLO 关闭＝行为与今天逐字一致。用法：python -B solo.py status|on|off|banner|review <key> [ctx]"""
+import os, sys, json, time
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import resolve_home, settings, permissions, chains
+SMS = resolve_home.ensure()
+NEVER = ("remote",)
+RISK = ("无人确认：缺权限时不再询问用户，由大模型自审判定即执行",
+        "自审可放行 skill 目录写入——仅 solo.allow_danger=true 时（红线16·默认 false 仍须当轮 :grant danger）",
+        "solo.never 列内键（默认 remote）永不自审",
+        "误判不可逆：授予即生效并可能被后续工具立即使用",
+        "全部自审授予落 permissions.json audit（solo 标记）＋event 链，可追溯可收回",
+        "随时关闭：:solo off 或 F4 改 solo.enabled=false；单项收回：:grant revoke <键>（:grant <键> 0＝永久授予非收回）")
+def cfg(): return settings.get("solo") or {}
+def enabled(): return bool(cfg().get("enabled"))
+def never(): return tuple(cfg().get("never") or NEVER)
+def banner_lines(): return "\n".join("· " + x for x in RISK)
+def set(on):
+    """开关（写 config solo.enabled）：开启即回风险提示文案（供主输出窗口/菜单打印）。"""
+    on = bool(on); settings.set("solo.enabled", on)
+    return ("── SOLO 模式已开启 ──\n权限不再向用户确认，缺权限时由大模型自审决定是否授予。风险须知：\n" + banner_lines()) if on \
+        else "SOLO 模式已关闭——权限准入回到用户确认（:grant），与未启用 SOLO 时逐字一致"
+def _utter():
+    """本轮用户话语摘要（user 链最新碎片·取不到＝空串，绝不因缺上下文阻断审核）。"""
+    try:
+        fs = [f for f in chains.store().all_frags("user") if (f or {}).get("text")]
+        return sorted(fs, key=lambda f: f.get("ts", ""))[-1].get("text", "")[:300] if fs else ""
+    except Exception: return ""
+def _jsonline(txt):
+    """从回复里取第一个 JSON 对象（模型多话也容得下·解不出＝None→上层保守拒绝）。"""
+    s = str(txt or ""); i = s.find("{")
+    if i < 0: return None
+    try: return json.loads(s[i:s.rfind("}") + 1])
+    except Exception: return None
+def review(key, ctx=None):
+    """LLM 自审：回 (grant, reason, ttl_min)。网关未启用/调用失败/不可解析/异常一律 (False, 原因, 0)——审核失败绝不放行。"""
+    c = cfg(); ctx = ctx or {}
+    try:
+        import gateway
+        if not gateway.enabled(): return False, "网关未启用（llm_gateway.enabled=false），无法自审", 0
+        gc = gateway.cfg()
+        sysp = ('你是 SMS SOLO 权限自审器：判断本次工具调用是否应授予权限键。只回一行 JSON：'
+                '{"grant":true|false,"ttl_min":整数,"reason":"≤40字中文理由"}。原则：与本轮用户诉求直接相关且最小必要才授予；'
+                '破坏性/不可逆/越权/与诉求无关/意图不明＝拒绝；danger 仅限用户明确要求的 skill 目录改动；never 列内键不得授予。')
+        usr = "\n".join(["〔键〕" + str(key), "〔工具〕" + str(ctx.get("tool") or "-"),
+                         "〔目标〕" + str(ctx.get("path") or ctx.get("url") or ctx.get("target") or "-"),
+                         "〔意图〕" + str(ctx.get("intent") or "-"),
+                         "〔本轮用户话语摘要〕" + (_utter() or "-"),
+                         "〔风险摘要〕" + banner_lines().replace("\n", "；"),
+                         "〔永不自审〕" + "、".join(never()),
+                         "〔allow_danger〕" + str(bool(c.get("allow_danger"))), "〔已授予键〕" + "、".join(sorted(k for k in permissions.KEYS if permissions.allow_base(SMS, k)))])
+        data, err = gateway._req("/chat/completions", {"model": gc.get("model") or "auto",
+            "messages": [{"role": "system", "content": sysp}, {"role": "user", "content": usr}],
+            "max_tokens": int(c.get("review_max_tokens", 200)), "temperature": 0})
+        if not data: return False, "自审网关调用失败：" + str(err)[:80], 0
+        txt = ((data.get("choices") or [{}])[0].get("message") or {}).get("content") or ""
+        j = _jsonline(txt)
+        if not isinstance(j, dict) or not isinstance(j.get("grant"), bool):
+            return False, "自审回复不可解析（须 JSON·grant 为布尔）：" + str(txt)[:60], 0
+        return bool(j["grant"]), str(j.get("reason") or "（未给理由）")[:120], int(j.get("ttl_min") or 0)
+    except Exception as e: return False, "自审异常：" + str(e)[:100], 0
+def _mark(sms, key, reason):
+    """给本次自审授予的 audit 末条打 solo 标记与理由（审计可追溯·失败不影响授予结果）。"""
+    try:
+        import atomic_io
+        p = permissions._path(sms); d = permissions._doc(p, sms)
+        for a in reversed(d.get("audit") or []):
+            if a.get("action") == "grant" and a.get("key") == key: a["solo"] = True; a["reason"] = reason; break
+        atomic_io.wjson(p, d); return True
+    except Exception: return False
+def _decide(sms, key, ctx=None):
+    """自审决策核心（allow/gate 共用·一次判定一次落账）：回 (grant, reason)。never 键与未开 allow_danger 的 danger 不送审；
+    审核通过即 permissions.apply(grant, ttl 钳 max_ttl_min)＋audit 打 solo 标记＋event 链，可 :grant revoke <键> 收回。"""
+    if str(key) in never(): return False, "键 %s 在 solo.never 列内永不自审" % key
+    if str(key) == "danger" and not cfg().get("allow_danger"): return False, "danger 不随自审（须 solo.allow_danger=true 或当轮 :grant danger）"
+    g, why, ttl = review(key, ctx)
+    if not g:
+        chains.record("event", "SOLO自审拒绝 key=%s 理由=%s" % (key, why)); return False, why
+    c = cfg(); t2 = min(ttl or int(c.get("ttl_min", 30)), int(c.get("max_ttl_min", 120)))
+    permissions.apply(sms, "grant", str(key), False, t2); _mark(sms, str(key), why)
+    chains.record("event", "SOLO自审授予 key=%s ttl=%d分钟 理由=%s" % (key, t2, why)); return True, why
+def allow(sms, key, id=None, ctx=None):
+    """准入判定（布尔版）：已授予即真；SOLO 关即假；否则走自审（通过即落授予）。"""
+    if permissions.allow_base(sms, key, id): return True
+    if not enabled(): return False
+    return _decide(sms, key, ctx)[0]
+def gate(sms, key, ctx=None):
+    """(是否放行, 说明)：SOLO 关＝(False,「需 :grant <key>」) 与今天逐字一致；SOLO 开＝拒绝原因给到用户可见。"""
+    if permissions.allow_base(sms, key, (ctx or {}).get("id")): return True, ""
+    if not enabled(): return False, "需 :grant " + str(key)
+    g, why = _decide(sms, key, ctx); return (True, "") if g else (False, "SOLO 自审判定不予授予：" + why)
+def tail(note):
+    """拒绝文案尾部拼接：SOLO 关（note＝原文案「需 :grant ..」）＝空串保零回归；SOLO 开＝拼「（SOLO 自审：..）」。"""
+    return "" if (not note or note.startswith("需 :grant")) else "（" + note + "）"
+def granted_today(sms=None):
+    """今日 SOLO 自审授予条数（permissions.json audit 中带 solo 标记者）。"""
+    try:
+        d = permissions._doc(permissions._path(sms or SMS), sms or SMS)
+        return sum(1 for a in (d.get("audit") or []) if a.get("action") == "grant" and a.get("solo"))
+    except Exception: return 0
+
+def _gw_ok():
+    try:
+        import gateway; return bool(gateway.enabled())
+    except Exception: return False
+def status(sms=None):
+    sms = sms or SMS; c = cfg()
+    return {"enabled": bool(c.get("enabled")), "allow_danger": bool(c.get("allow_danger")), "never": list(never()),
+            "ttl_min": int(c.get("ttl_min", 30)), "max_ttl_min": int(c.get("max_ttl_min", 120)),
+            "notify": bool(c.get("notify", True)), "gateway_ok": _gw_ok(), "granted_today": granted_today(sms)}
+if __name__ == "__main__":
+    a = sys.argv[1:] or ["status"]; k = a[0]
+    if k == "on": print(set(True))
+    elif k == "off": print(set(False))
+    elif k == "banner": print(banner_lines())
+    elif k == "review":
+        g, why, ttl = review(a[1] if len(a) > 1 else "write", {"tool": "cli", "target": " ".join(a[2:]) or "-"})
+        print(json.dumps({"grant": g, "reason": why, "ttl_min": ttl}, ensure_ascii=False))
+    elif k == "allow":
+        print(json.dumps({"allow": allow(SMS, a[1] if len(a) > 1 else "write", ctx={"tool": "cli", "target": " ".join(a[2:]) or "-"}), "status": status()}, ensure_ascii=False))
+    else: print(json.dumps(status(), ensure_ascii=False, indent=2))
