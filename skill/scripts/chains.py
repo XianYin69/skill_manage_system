@@ -9,7 +9,11 @@ RULE = "对话规则（批23·对等对话）：本对话是独立对话——�
 ACTIVE = {"conv": "", "sess": ""}
 def store(): return chain_store.Store(resolve_home.ensure())
 def record(chain, text, edges=None): return chain_timing.buffer(chain, text, edges) if chain in CHAINS and chain_timing.deferred(chain) else store().add(chain, text, edges) if chain in CHAINS else "ERR 未知链：" + chain + "（候选：" + "、".join(CHAINS) + "）"
-def session_id(): return "conv-" + time.strftime("%Y%m%d-%H%M%S")
+_SEQ = [int.from_bytes(os.urandom(2), "big") & 0x3FF]  # 进程内随机起点：跨进程同毫秒也不易撞名
+def session_id():
+    """conv 全局唯一：秒＋毫秒＋进程内自增序号——同一秒连发多条消息各得独立 conv（session 下多 conv 的前提）。"""
+    _SEQ[0] = (_SEQ[0] + 1) & 0xFFF
+    return "conv-" + time.strftime("%Y%m%d-%H%M%S") + "-%03d%03d" % (time.time() * 1000 % 1000, _SEQ[0])
 def _st(n): p = os.path.join(resolve_home.ensure(), "shell"); os.makedirs(p, exist_ok=True); return os.path.join(p, n)
 def _smap():
     import atomic_io
@@ -19,7 +23,12 @@ def cur_sess():
     if not ACTIVE["sess"]:
         try: ACTIVE["sess"] = os.environ.get("SMS_SESSION") or open(_st("current_session"), encoding="utf-8").read().strip()
         except Exception: ACTIVE["sess"] = ""
-    return ACTIVE["sess"] or new_sess("默认会话")
+    if ACTIVE["sess"]: return ACTIVE["sess"]
+    try:
+        sid = __import__("session_reg").current()
+        if sid: ACTIVE["sess"] = sid; return sid
+    except Exception: pass
+    return new_sess("默认会话")
 def new_sess(name=""):
     sid = "sess-" + time.strftime("%Y%m%d-%H%M%S"); m = _smap(); m[sid] = {"created": time.strftime("%Y-%m-%d %H:%M:%S"), "name": (name or "").strip()[:40] or sid[5:], "kind": "shell", "key": sid, "pid": os.getpid(), "last_active": time.strftime("%Y-%m-%d %H:%M:%S"), "state": "active", "conv": ""}
     import atomic_io; atomic_io.wjson(_st("sessions.json"), m); open(_st("current_session"), "w", encoding="utf-8").write(sid)

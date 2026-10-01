@@ -35,6 +35,12 @@ def task(intent, parallel=True, lane="fg"):
 def bg(intent, parallel=True):
     """后台车道（并行处理）：另起线程跑 task(lane=bg)，本对话立刻拿句柄继续干别的；进度照常落 tasks/<id>.json＋顶栏。"""
     def _run():
+        _prev = dict(chains.ACTIVE); _pe = os.environ.get("SMS_SESSION"); _sid = ""
+        try:
+            import session_reg as sreg
+            _sid = sreg.bind("bg", "bg-" + str(int(time.time() * 1000) % 100000000), "后台·" + str(intent)[:24])
+            _cv = chains.session_id(); chains.set_active(conv=_cv); sreg.attach(_cv, _sid)
+        except Exception: pass
         try: task(intent, parallel, lane="bg")
         except stop.Stopped:
             try:
@@ -47,11 +53,17 @@ def bg(intent, parallel=True):
             except Exception: pass
         except Exception as e:
             __import__("chain_error").hook("bg-task", str(intent)[:40], repr(e)[:200])
+        finally:
+            try:
+                chains.ACTIVE.clear(); chains.ACTIVE.update(_prev)
+                if _pe is None: os.environ.pop("SMS_SESSION", None)
+                else: os.environ["SMS_SESSION"] = _pe
+                try:
+                    if _sid: __import__("session_reg").release(_sid)  # 后台任务收口＝session 置 finished（数据留）
+                except Exception: pass
+            except Exception: pass
     th = threading.Thread(target=_run, daemon=True, name="bg-task")
     th.start()
-    try:
-        import session_reg as sreg; sreg.bind("bg", "task", "后台任务")
-    except Exception: pass
     return "已转后台执行（lane=bg·与前台任务表同一地位·不阻塞本对话）：新建表稍后可用 task_detail 查（清单里 lane=bg 者即后台表）；前台可继续收口，守卫不受后台行阻挡"
 
 def task_detail(tid=""):

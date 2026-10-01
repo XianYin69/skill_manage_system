@@ -23,7 +23,7 @@ def _col(L):
     return on_line
 def deliver(e, c=None):
     c = c or qp.conf(); txt = e.get("text") or ""; L = []
-    try: _sreg.bind("qq", e.get("openid") or "", "QQ:" + str(e.get("user") or "")[:12])
+    try: _sreg.bind("remote", e.get("openid") or "", "QQ:" + str(e.get("user") or "")[:12])
     except Exception: pass
     try:
         if txt[:1] in (":", "：", "!"):

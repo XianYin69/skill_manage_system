@@ -42,6 +42,7 @@ def g_sessions(q=None):
     out = [{"id": k, "session": k, "created": v.get("created"), "at": v.get("created"), "name": v.get("name"),
             "kind": v.get("kind"), "state": v.get("state"), "conv": v.get("conv"),
             "last_active": v.get("last_active"), "unfinished": un.get(k, 0),
+            "convs": v.get("convs") or ([v["conv"]] if v.get("conv") else []), "conv_count": len(v.get("convs") or []),
             "current": bool(cur) and k == cur} for k, v in reg.items()]
     out.sort(key=lambda x: str(x["created"] or ""))
     return {"sessions": out, "current": cur, "count": len(out),

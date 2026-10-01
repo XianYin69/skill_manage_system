@@ -24,7 +24,7 @@ def _edge(conv): return [[conv, "ref", 1], [chains.cur_sess(), "member", 1]]
 def ask(text, on_line, st=lambda n: None, ev=None):
     on_line = qq_flow.wrap(tts.hook(on_line)); tts.preempt(); stop.clear(); dream.maybe(SMS); qq_boot.autostart(SMS); model_meta.maybe(); ag = current(); st("检测执行器：" + (ag or "无"))
     if not ag: on_line("拒绝：未检出 agent CLI 且原生网关未启用（config llm_gateway.enabled=true）——sms-shell 只经数据流执行，请先 :config 启用网关或装 agent CLI"); return None
-    spec = adapters()[ag]; ct.flush(); conv = chains.session_id(); chains.set_active(conv); chains.record("session", "open:" + conv, _edge(conv)); qq_flow._wb([]); st("开新对话：" + conv)
+    spec = adapters()[ag]; ct.flush(); conv = chains.session_id(); chains.set_active(conv); __import__("session_reg").attach(conv, chains.cur_sess()); chains.record("session", "open:" + conv, _edge(conv)); qq_flow._wb([]); st("开新对话：" + conv)
     wsp, virt = ws.begin(conv); st("工作区：" + wsp + ("〔虚拟·收口即删〕" if virt else "")); at.bind(on_line=on_line, ev=ev if ev is not None else False)
     want = _state("current_agent"); want and want != ag and not spec.get("native") and on_line("注意：所选 agent " + want + " 未检出，本次经 " + ag + " 执行（:agents 查看）")
     sid2, inj = skill_route.route(text, SMS); st("路由参考：" + (sid2 and ("打分命中 " + sid2 + "·已记 skill_call 链（〔参考〕注入模型·非脚本裁决）") or "未命中·注入技能全表"))

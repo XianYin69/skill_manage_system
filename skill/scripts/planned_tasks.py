@@ -185,7 +185,7 @@ def fire(entry, runner=None):
     mode = str((doc.get("schedule") or {}).get("mode", ""))
     sid = session_reg.ensure("cron", "%s:%s" % (doc.get("skill"), doc.get("id")), name=str(doc.get("title") or "")[:40])
     prev = dict(chains.ACTIVE)  # 红线17 防跨对话污染：触发期临时改归属，收口必还原
-    conv = chains.session_id(); chains.set_active(conv=conv, sess=sid)
+    conv = chains.session_id(); chains.set_active(conv=conv, sess=sid); session_reg.attach(conv, sid)
     now = NOW()
     doc.update(status="running", last_run=ISO(now), runs=int(doc.get("runs") or 0) + 1)
     nxt = next_run(doc, frm=now) if mode in ("cron", "interval") else None

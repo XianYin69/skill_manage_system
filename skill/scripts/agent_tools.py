@@ -36,7 +36,7 @@ def run_skill(name, inp, tag=""):
     if c["depth"] >= 2: return "拒绝：派发链已达 2 层（对等对话间防循环熔断·非主次层级）——请直接按已注入的 SKILL.md 用工具执行"
     nm = str(s.get("id")).lower()
     if nm in (c.get("chain") or []): return "拒绝：" + nm + " 自派发（本技能链已派发过它·防双 ⧉ 前缀复读循环）——请直接按已注入的 SKILL.md 用工具执行"
-    ip = str(s.get("install_path")); skp = os.path.join(ip, str(s.get("entry", "SKILL.md"))); dst = resolve_home.wtmp(); tl = str(tag or s.get("id")); cconv = chains.session_id(); c["conv"] = cconv; ce = [[cconv, "ref", 1], [chains.cur_sess(), "member", 1]]
+    ip = str(s.get("install_path")); skp = os.path.join(ip, str(s.get("entry", "SKILL.md"))); dst = resolve_home.wtmp(); tl = str(tag or s.get("id")); cconv = chains.session_id(); c["conv"] = cconv; __import__("session_reg").attach(cconv, chains.cur_sess()); ce = [[cconv, "ref", 1], [chains.cur_sess(), "member", 1]]
     doc = skill_doc.package(ip, str(s.get("entry", "SKILL.md")), 60000)
     if not doc: c["conv"] = ""; return "SKILL.md 读取失败：" + skp
     chains.record("session", "open:" + cconv, ce); chains.log("skill", "%s|src=%s|dst=%s" % (tl, skp, dst)); chains.log("sub", tl, cconv); emit("skill", "开对等对话派发 " + tl + "（conv=" + cconv + "｜src=" + skp + "｜dst=" + dst + "）", skill=tl, tool="skill", meta={"src_path": skp, "dst_path": dst})

@@ -22,7 +22,12 @@ class H(BaseHTTPRequestHandler):
         if p == "/api/verify": f = str(b.get("fpr", "")); ok = ext_net.answer(f, str(b.get("nonce", "")), str(b.get("sig_b64", "")))
         if p == "/api/verify" and ok: t = secrets.token_urlsafe(24); TOK[t] = {"fpr": f, "exp": time.time() + settings.get(NAME + ".session_ttl_min", 240) * 60}; chains.record("event", "对外端口会话签发 fpr=" + f[:16]); return net_util.send(self, 200, {"token": t})
         if p == "/api/verify": return self._reject(401, "PQ 验签失败或挑战过期")
-        if p == "/api/chat": return net_util.send(self, 200, net_util.chat(b.get("text"))) if self._bearer() else self._reject(401, "需要 Bearer 会话 token（/api/pair→/api/verify）")
+        if p == "/api/chat":
+            e = self._bearer()
+            if not e: return self._reject(401, "需要 Bearer 会话 token（/api/pair→/api/verify）")
+            try: __import__("session_reg").bind("remote", "ext:" + str(e.get("fpr") or "")[:16], "远程·" + str(e.get("fpr") or "")[:8])
+            except Exception: pass
+            return net_util.send(self, 200, net_util.chat(b.get("text")))
         return self._reject(404, "404")
 def serve(host=None, port=None):
     c = settings.eff()[NAME]

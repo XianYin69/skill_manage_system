@@ -12,7 +12,7 @@ def _ls():
     except Exception: pass
     cur = R.current(); out = []
     for sid, v in sorted(R.list_().items(), key=lambda kv: str(kv[1].get("created", ""))):
-        out.append("%s %s｜%-6s｜%s｜%s｜活 %s｜key=%s" % ("●" if sid == cur else "·", sid, v.get("kind", "shell"), str(v.get("name", ""))[:20], v.get("state", "?"), str(v.get("last_active") or v.get("created", ""))[5:16], str(v.get("key", ""))[:18]))
+        out.append("%s %s｜%-6s｜%s｜%s｜conv %d｜活 %s｜key=%s" % ("●" if sid == cur else "·", sid, v.get("kind", "shell"), str(v.get("name", ""))[:20], v.get("state", "?"), len(v.get("convs") or []), str(v.get("last_active") or v.get("created", ""))[5:16], str(v.get("key", ""))[:18]))
     return "\n".join(out) or "（暂无 session）——session_cli new <kind> <key> [名] 新建"
 def _new(a):
     if a and a[0] in R.KINDS:
@@ -29,7 +29,7 @@ def main(a):
         sid = a[1] if len(a) > 1 else ""
         if sid not in R.list_(): return "无此会话：" + sid + "（session ls 查看）"
         R.set_current(sid); R.touch(sid); _bind(sid); return "已切换会话 " + sid
-    if c in ("cur", "current"): return "当前会话（session）" + R.current() + "·通道 kind＝client|web|qq|cron|bg|shell·conv 每输入/派发自动开收"
+    if c in ("cur", "current"): return "当前会话（session）" + R.current() + "·通道 kind＝client|web|remote|cron|bg|shell（qq→remote 别名）·conv 每输入/派发自动开收"
     if c == "show": return json.dumps(R.get_(a[1]) or {"err": "无此会话 " + a[1]}, ensure_ascii=False, indent=1) if len(a) > 1 else "用法 :session show <sid>"
     if c == "touch": return "已刷新活跃 " + a[1] if len(a) > 1 and R.touch(a[1]) else "无此会话或用法 :session touch <sid>"
     if c == "rename": return "已改名 " + a[1] if len(a) > 2 and R.rename_(a[1], " ".join(a[2:])) else "无此会话或用法 :session rename <sid> <名>"

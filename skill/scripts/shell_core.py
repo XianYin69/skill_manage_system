@@ -57,7 +57,12 @@ def _meta(m, a, on_line, st):
         if c == "banner": on_line(s.banner_lines()); return None
         on_line(run_script("solo.py", a or ["status"])); return None
     if m in ("edit", "view"): return (on_line("用法 :" + m + " <路径>（TUI F8 或主菜单·查看器 :view）") and None) if not a else m + ":" + os.path.abspath(os.path.expanduser(" ".join(a)))
-    if m == "session": c = a[0] if a else "current"; import sessions_view as sv; on_line(chains.new_sess(" ".join(a[1:])) if c == "new" else chains.list_sess() if c == "list" else sv.overview(chains.cur_sess()) if c == "overview" else sv.conflicts(chains.cur_sess()) or "（无跨会话未完成·各会话任务表均已收口）" if c == "conflicts" else chains.use_sess(a[1]) if c == "use" and len(a) > 1 else ("当前会话（session）" + chains.cur_sess() + "·新建会话＝新 session 非 conv·conv 每输入/派发自动开收" if c == "current" else run_script("chains.py", ["session"] + a))); return None
+    if m == "session":
+        try:
+            import session_cli as _sc
+            on_line(_sc.main(list(a) or ['current'])); return None
+        except Exception:
+            pass
     if m == "agents": on_line("检出：" + ("、".join(ag.detected()) or "无") + " · 当前：" + (ag.current() or "-") + " · 技能前缀：" + ("on" if ag.prefix_on() else "off") + "\n可用适配器（含未装）：" + "、".join(ag.adapters()))
     elif m == "image" and a: p = " ".join(a); IMG[:] = [p] if os.path.isfile(p) else []; on_line(("已附图（下一句生效）：" if IMG else "图片不存在：") + p)
     elif m == "use" and a: on_line(ag.use(a[0]))
