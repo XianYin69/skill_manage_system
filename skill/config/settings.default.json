@@ -45,7 +45,10 @@
  },
  "qq": {
   "handle_stall": 240,
-  "comment": "QQ 通道可调项（qq_dispatch.py 入站 worker·config/qq.json 同名键可覆盖）：handle_stall＝单条入站消息静默多少秒判为卡死（交 run_watch.run_with_timeout 的 stall 参数，到点中止该条并恢复通道，防一条 ask 永久卡死唯一 worker；同段 handle_timeout＝该条墙钟总上限，默认 900s）"
+    "handle_stall_llm": 600,
+    "net_timeout": 30,
+    "tiered_timeout": true,
+  "comment": "QQ 通道可调项（qq_dispatch.py 入站 worker·config/qq.json 同名键可覆盖）：handle_stall＝单条入站消息静默多少秒判为卡死（交 run_watch.run_with_timeout 的 stall 参数，到点中止该条并恢复通道，防一条 ask 永久卡死唯一 worker；同段 handle_timeout＝该条墙钟总上限，默认 900s）；分级（2026-10-01 做梦审计错误1·error 链 2ab90541b9）：T1＝net_timeout 网络/网关单请求自计时即抛（LLM 侧另有 llm_gateway.timeout）；T2＝阶段静默，普通阶段用 handle_stall、长等待阶段（网关请求/技能对话）用 handle_stall_llm 宽档，由 qq_inbound.set_stage 声明；T3＝handle_timeout 总预算；tiered_timeout＝false 退回旧一档平铺"
  },
  "close_guard": {
   "enabled": true,

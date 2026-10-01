@@ -42,7 +42,10 @@ def webfetch(url, chars=4000):
     if not permissions.allow(SMS, "network"): return "拒绝：webfetch 需 :grant network（默认拒绝·敏感键不随角色批量）"
     try:
         q = urllib.request.Request(str(url), headers={"User-Agent": "sms-shell/1.0"})
-        t = urllib.request.urlopen(q, timeout=30).read().decode("utf-8", "replace")
+        # T1 分级（2026-10-01 error 链 2ab90541b9）：单请求超时＝自计时即抛（qq.net_timeout 默认 30s）＋打活动戳，
+        # 绝不让一次取页把上层 worker 拖到 T2/T3 被误判卡死
+        import run_watch as rw
+        t = rw.net_call(urllib.request.urlopen, q, timeout=rw.tiers.t1("net"), kind="net").read().decode("utf-8", "replace")
     except Exception as e: at.emit("tool", "webfetch 失败 " + str(url)[:80], tool="webfetch", ok=False); return "取页失败：" + str(e)[:180]
     at.emit("tool", "webfetch " + str(url)[:80] + "（" + str(len(t)) + " 字）", tool="webfetch", ok=True); return t[:int(chars)]
 if __name__ == "__main__":

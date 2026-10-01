@@ -81,11 +81,14 @@ def _work():
             m, _ = _coalesce(m)
             import qq_inbound as I, run_watch as rw, settings as st
             secs = max(60, int(st.get("qq.handle_timeout", 900)))
-            ok, r = rw.run_with_timeout(I.handle, secs, "QQ入站", (m,), stall=max(30, int(st.get("qq.handle_stall", 240))))
+            # 分级（2026-10-01 error 链 2ab90541b9）：T3＝secs 总预算；T2＝阶段静默——stall 只作「普通阶段」档，
+            # handle 内部 set_stage("llm"/"skill") 的长等待阶段自动换宽档 qq.handle_stall_llm，不再平铺误杀
+            ok, r = rw.run_with_timeout(I.handle, secs, "QQ入站", (m,),
+                                        stall=max(30, int(st.get("qq.handle_stall", 240))), stage="inbound")
             ST["done"] += 1
             if not ok:
-                ST["err"] += 1; _log("超时中止 " + str(r)[:150], True)
-                try: I.qp.push("⚠ 上一条消息处理超时已被计时器中止（上限 %ds），QQ 通道已恢复，请重发。" % secs, "QQ·计时器")
+                ST["err"] += 1; _log("超时中止 " + str(r).replace("\n", " ")[:220], True)  # 反馈首行带级别名（T1/T2/T3）
+                try: I.qp.push("⚠ 上一条消息被计时器中止：%s" % str(r).replace("\n", " ")[:200], "QQ·计时器")
                 except Exception: pass
             elif r: _log("done " + str(r)[:100])
         except Exception as e:
