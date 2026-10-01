@@ -30,7 +30,7 @@ class ShellApp(Menus, Index, Ws, Mode, Perms, Flow, Taskbar, Web, App):
             import net_util as nu
             if (core.settings.get("web_shell") or {}).get("enabled", True) and not nu.running("web_shell"): nu.spawn("web_shell")
         except Exception: pass
-        self._logw = self.query_one("#log", RichLog); self.set_interval(0.4, self.ask_poll); self.set_interval(2.0, self.taskbar_refresh); self.set_interval(30, self.plan_tick)
+        self._logw = self.query_one("#log", RichLog); self.set_interval(0.4, self.ask_poll); self.set_interval(1.0, self.bus_poll); self.set_interval(2.0, self.taskbar_refresh); self.set_interval(30, self.plan_tick)
         try:
             import planned_tasks as pt
             self.run_worker(lambda: pt.start(), thread=True)  # 壳一起即拉起分离调度进程（pid 文件防重复）

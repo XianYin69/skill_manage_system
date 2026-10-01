@@ -21,7 +21,16 @@ def wrap(on_line):
     return w
 if __name__ == "__main__":
     a = sys.argv[1:]
-    if a and a[0] == "tail":
+    if a and a[0] in ("tail", "bus"):
+        try:
+            import detail_bus as db
+            own = os.environ.get("SMS_SESSION") or ""
+            n0 = int(a[1]) if len(a) > 1 and a[1].isdigit() else 30
+            rows = ["%s %s %s" % (e.get("ts"), db.label(e), str(e.get("text"))[:400]) for e in db.recent(n0 * 3) if a[0] == "bus" or e.get("sess") != own]
+            print("\n".join(rows[-n0:]) or "（跨会话总线暂无其他会话明细——各会话的 ◌推导/$工具/!命令行输出经 detail_bus 自动汇入）")
+            sys.exit(0)
+        except Exception as e:
+            print("总线读取降级（回退本地 detail.json）：" + str(e)[:80])
         d = atomic_io.rjson(P(), default=[])
         print("\n".join(str(x).replace("\n", " ") for x in d[-(int(a[1]) if len(a) > 1 and a[1].isdigit() else 30):]) or "（空——◌思考/$工具/⧉技能/▸步骤/!sh/≡任务过程行收存于此·主输出只留正文）")
     else: print(__doc__.strip())
