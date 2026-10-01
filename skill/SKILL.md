@@ -46,6 +46,8 @@ metadata:
 ### SOLO 模式（[solo.py](scripts/solo.py) 唯一真源）
 权限免用户确认：缺权限时不再询问用户，由大模型经 llm_gateway 单次非流式判定（只回一行 JSON `{"grant","ttl_min","reason"}`）决定是否授予。开关 `:solo on|off|status|banner|review <键>` 或 F10→SOLO 模式；配置段 `solo`（enabled/allow_danger/never/ttl_min/max_ttl_min/review_max_tokens/notify）。保守失败＝网关未启用、调用异常、回复不可解析一律拒绝；`solo.never`（默认 remote）永不自审；danger 仅 `solo.allow_danger=true` 才参与自审（红线16 默认仍须当轮 `:grant danger`）；授予落 permissions.json audit（solo 标记）＋event 链，可 `:grant revoke <键>` 即时收回（`:grant <键> 0`＝永久授予、非收回）；后台与非交互路径（auto_compress/cache_cleanup/dep_fetch/dream_*/deploy）不经本模块；关闭时权限准入与未启用逐字一致。
 
+**批27 故障重试治理（analyze-then-retry）**：SOLO 开启时重试次数**无限但有硬条件**——任何阻塞/错误发生后必须先由大模型做根因分析（solo.analyze 单次非流式，只回 decision=retry|fix|abort + reason + action），分析之后才决定是修复（换参数/换路径/换技能/拆步/降级，指令注入主模型 msgs）还是重试（同做法再来）；同一错误签名连续超 solo.max_same_error（默认 5）即强制 abort 转人工——「无限」的边界是有进展；主流程守卫 task.max_continue 熔断同样先分析（solo.continue_gate），判 retry/fix 则带修复指令继续、判 abort 才收口。solo.analyze_retry=false／SOLO 关／后台非交互链路＝回退旧的有限重试（llm_gateway.retries），零回归。
+
 ## 红线
 
 - 不得删除 [resistance/](resistance/resistance.md) 约束；SMS 运行时数据与一切缓存文件（`__pycache__`/截图/tmp/日志/用户 config.json）不得写入任何 skill 目录；子 skill 未指定路径的新建目录必须经 [resolve_home.py](scripts/resolve_home.py) 分配到 `<SMS_HOME>/tmp/`，工程任务优先用 [sandbox.py](scripts/sandbox.py) 建 `<SMS_HOME>/tmp/sandbox/<id>`，并向子 skill 暴露该能力；子技能运行完必须回到 SMS；**LLM 主导·脚本辅助（批16·取代旧「SMS 本体不得直接回答用户需求」）＋批17 相信大模型**——纯知识问答/闲聊直答免跑子技能，凡要动手经 dispatch/工具真执行、模型整合作答（[SMS 路由] 打分仅供参考；链经验由模型 chain 工具直读写、脚本不代裁决；决策岔路 debate 自辩＋做梦后台自修＝人多在回路旁、仅高危节点回人在回路确认；无匹配且属新领域→委托 Skill_Generator 创建后执行；仍不可得→明确拒绝并说明，禁止空口声称已执行）。

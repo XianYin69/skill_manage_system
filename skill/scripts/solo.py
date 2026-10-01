@@ -121,6 +121,74 @@ def _gw_ok():
     try:
         import gateway; return bool(gateway.enabled())
     except Exception: return False
+# ---- 批27 SOLO 故障分析（用户：SOLO 下重试无限但有条件——阻塞/错误后大模型必须先分析，分析后才决定修复还是重试）
+import re as _re
+def analyze_on():
+    """分析闸：SOLO 开＋solo.analyze_retry＋非后台非交互（做梦/压缩等无人应答链路不入此路）。"""
+    try: return bool(enabled() and cfg().get("analyze_retry", True) and not permissions._NONINTERACTIVE[0])
+    except Exception: return False
+def retry_cfg():
+    c = cfg(); return {"max_same": int(c.get("max_same_error", 5)), "cap": float(c.get("retry_backoff_cap", 30.0))}
+def err_sig(err): return _re.sub(r"\d+", "N", str(err or ""))[:160]
+def _ajson(txt):
+    s = str(txt or ""); i = s.find("{")
+    if i < 0: return None
+    try: return json.loads(s[i:s.rfind("}") + 1])
+    except Exception: return None
+
+def analyze(kind, detail, ctx=None):
+    """故障分析器（非流式单次·不带 tools）：回 {"decision":"retry|fix|abort","reason","action"}；
+    网关未启用/调用失败/不可解析/异常＝None——上层据此回退旧的有限重试，绝不因分析失败而盲目放行或死循环。"""
+    c = cfg(); ctx = ctx or {}
+    try:
+        import gateway
+        if not gateway.enabled(): return None
+        gc = gateway.cfg()
+        sysp = ("你是 SMS SOLO 故障分析器：对刚发生的阻塞/错误先做根因分析，再决定下一步。只回一行 JSON："
+                '{"decision":"retry|fix|abort","reason":"≤40字根因","action":"≤80字给主模型的修复指令（retry 时可空）"}。'
+                "原则：必须先分析后决定，禁止未分析就原样重试。瞬时性（网络抖动/超时/429/5xx/空响应）且首次出现＝retry；"
+                "同类错误重复出现＝不得原样重试，必须 fix（换参数/换路径/换技能/拆步/降级）；权限缺失＝fix（先申请或改走不需该权限的路）；"
+                "不可恢复（认证失败/内容安全/目标不存在且无法创建/诉求本身矛盾）＝abort。")
+        usr = "\n".join(["〔类别〕" + str(kind), "〔错误/阻塞详情〕" + str(detail)[:600],
+                         "〔同签名连续次数〕" + str(ctx.get("same", 1)), "〔连续续推次数〕" + str(ctx.get("idle", 0)),
+                         "〔任务表未完成〕" + str(ctx.get("pend") or "-")[:600],
+                         "〔本轮用户话语摘要〕" + (_utter() or "-")])
+        data, err = gateway._req("/chat/completions", {"model": gc.get("model") or "auto",
+            "messages": [{"role": "system", "content": sysp}, {"role": "user", "content": usr}],
+            "max_tokens": int(c.get("analyze_max_tokens", 300)), "temperature": 0})
+        if not data: chains.record("event", "SOLO故障分析不可用：" + str(err)[:80]); return None
+        j = _ajson(((data.get("choices") or [{}])[0].get("message") or {}).get("content") or "")
+        if not isinstance(j, dict) or str(j.get("decision")) not in ("retry", "fix", "abort"):
+            chains.record("event", "SOLO故障分析回复不可解析：" + str(j)[:60]); return None
+        out = {"decision": str(j["decision"]), "reason": str(j.get("reason") or "")[:160],
+               "action": str(j.get("action") or "")[:300]}
+        chains.record("event", "SOLO故障分析 %s→%s：%s" % (kind, out["decision"], out["reason"]))
+        notice("SOLO 分析（%s）→ %s：%s" % (kind, out["decision"], out["reason"]))
+        return out
+    except Exception as e:
+        chains.record("event", "SOLO故障分析异常：" + str(e)[:100]); return None
+
+def on_error(err, same, kind="llm"):
+    """run() 错误口决策（批27）：分析闸未开＝("legacy", None) 与旧行为逐字一致；开＝先分析后决定
+    ("retry",d)/("fix",d)/("abort",d)。硬条件：同签名连续超 solo.max_same_error 直接 abort——
+    「无限重试」的边界是「有进展」，无进展即停，防死循环烧钱。"""
+    try:
+        if not analyze_on(): return "legacy", None
+        if same > retry_cfg()["max_same"]:
+            return "abort", {"decision": "abort", "reason": "同类错误已连续第 %d 次（solo.max_same_error=%d）·分析后仍无进展" % (same, retry_cfg()["max_same"]), "action": ""}
+        d = analyze(kind, err, {"same": same})
+        if not d: return "legacy", None
+        return (d["decision"], d)
+    except Exception: return "legacy", None
+def continue_gate(kind, idle, pend=""):
+    """主流程守卫熔断的 SOLO 分支：闸未开＝(False,None) 上层按旧 task.max_continue 收口；
+    开＝分析后决定继续（retry/fix 带修复指令注入）或中止。回 (是否继续, d)。"""
+    try:
+        if not analyze_on(): return False, None
+        d = analyze("stall", "主流程守卫连续续推第 %d 次（kind=%s）仍未收口" % (idle, kind), {"idle": idle, "same": idle, "pend": pend})
+        if not d or d["decision"] == "abort": return False, d
+        return True, d
+    except Exception: return False, None
 def status(sms=None):
     sms = sms or SMS; c = cfg()
     return {"enabled": bool(c.get("enabled")), "allow_danger": bool(c.get("allow_danger")), "never": list(never()),
