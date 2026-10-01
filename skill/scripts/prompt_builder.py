@@ -24,8 +24,27 @@ PLAN = ("\n⑤ 计划任务（批26）：真源＝各技能目录 planned_tasks 
   "用户提出定时/每天/到点/计划任务＝先 ask_user 问清细节（何时·做什么·产物·通知渠道），再 exec 跑 planned_tasks.py add 标题 时间 诉求 [技能] 登记"
   "（时间＝ISO 时刻｜+分钟｜5 段 cron）；到点由壳内 plan_tick 自动触发：建任务表→挂该任务绑定的 session 链→执行；:plan ls 查看、:plan pause <id> 暂停。")
 BRIEF = "\n⑥ QQ 简洁模式（用户此刻在 QQ 通道看消息）：回复≤200字·要点直给·勿刷屏。"
+def _bp(sms=None): return os.path.join(sms or resolve_home.ensure(), "shell", "qq_brief")
+def sess_kind(sms=None):
+    """当前 session 通道 kind（只读·绝不 ensure，免得为此新建会话）。"""
+    try:
+        import session_reg as R
+        sid = os.environ.get("SMS_SESSION") or R._rd(R._c(sms))
+        return str((R.get_(sid, sms) or {}).get("kind") or "") if sid else ""
+    except Exception: return ""
 def brief_on(sms=None):
-    try: return open(os.path.join(sms or resolve_home.ensure(), "shell", "qq_brief"), encoding="utf-8").read().strip() == "1"
+    """QQ 简洁模式判定（2026-09-30 残留修复）：qq_brief 是全局状态文件，一条 QQ ask 被看门狗杀掉时 finally 跑不到、
+    标志残留，于是 TUI/网页/计划任务对话也被告知「用户此刻在 QQ·回复≤200字」（实测本条由 cron 会话触发却挂着 QQ 口径）。
+    现＝仅当当前 session kind=qq 才生效；非 QQ 通道读到残留标志顺手清掉；kind 取不到＝按旧口径（宁保守不误关）。"""
+    try:
+        k = sess_kind(sms)
+        if k and k != "qq":
+            try:
+                if open(_bp(sms), encoding="utf-8").read().strip() == "1":
+                    open(_bp(sms), "w", encoding="utf-8").write("")
+            except Exception: pass
+            return False
+        return open(_bp(sms), encoding="utf-8").read().strip() == "1"
     except Exception: return False
 def build(user_input, sms=None):
     return "[SMS 逐轮构建·引导结构]\n① 处理协议：" + PROTOCOL + "\n② 治理红线：" + PROMPT + "\n③ " + index(sms) + "\n④ 用户输入（唯一指令）：\n" + user_input + PLAN + (BRIEF if brief_on(sms) else "")

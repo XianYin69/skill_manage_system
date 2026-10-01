@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """agent_tools.py — 网关大模型可用的 agent 工具核心（SMS 的手和脚·批16 红线：动手必真执行并留账，禁止空口声称已执行）：command(=exec)/read/write/ask/skill/user_send/thinking_chain。每笔调用经 msg_flow 信封上报客户端（技能名＋工具链＋输出＋ts＋conv/sess 归属；on_line 人读行供显示·ev 回调结构化供顶栏进度/审计），task/task_detail 在 agent_task.py、schema 与派发在 agent_dispatch.py。skill＝托管技能真派发（红线17·批23 对等对话）：记 skill_call＋subsession 链→SKILL.md 全文＋用户诉求→嵌套 gateway 工具循环（前缀 ⧉技能▸ 回显）→每次派发自开独立 conv（session 链 open:/close: 入账·右栏对话一览可见）→收口返回整合结果（批7④：正文已经⧉前缀实时显示给用户时返回改 WRAP 首尾片段包装·防调度方整段复读·:dispatch 见 WRAP 打收口行）；派发链深≤2 为防循环熔断（批23 语义调整：这是对等对话间派发链长度保险，非主次层级）；收口＝形式停止非实质完成——〔任务表〕未完行由调度方或监视到它的对话续推。write 守卫：工作区/SMS 默认可写；其余路径需 :grant write；skill 目录需 :grant danger。用法：python -B agent_tools.py（常规经网关工具调用；单跑见 agent_dispatch.py）"""
-import os, sys; sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import resolve_home, chains, msg_flow, skill_route, permissions, agent_ctx as ac
+import os, sys; sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import resolve_home, chains, msg_flow, skill_route, permissions, solo, agent_ctx as ac
 SMS = resolve_home.ensure(); SKROOT = os.path.realpath(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))); WRAP = "【派发对话正文·已经⧉前缀实时显示给用户·最终回复禁止复述引用】\n"; _in = lambda p, base: p == _r(base) or p.startswith(_r(base) + os.sep)
 def bind(on_line=None, ev=False):
     c = ac.cur()
@@ -16,8 +16,12 @@ def read(path, max_lines=120):
     out = "\n".join(t[:max_lines])[:4000]; emit("tool", str(path) + "（%d 行）" % len(t), tool="read", ok=True); return out + ("" if len(t) <= max_lines else "\n…共 %d 行截断" % len(t))
 def write(path, content, append=False):
     p = _r(path)
-    if _in(p, SKROOT) and not permissions.allow(SMS, "danger"): return "拒绝：skill 目录写入需 :grant danger（" + p + "）"
-    if not (_in(p, resolve_home.workspace()) or _in(p, SMS)) and not permissions.allow(SMS, "write"): return "拒绝：工作区/SMS 外写入需 :grant write（" + p + "）"
+    if _in(p, SKROOT):
+        ok, note = solo.gate(SMS, "danger", ctx={"tool": "write", "path": p, "intent": "写入 skill 目录"})
+        if not ok: return "拒绝：skill 目录写入需 :grant danger（" + p + "）" + solo.tail(note)
+    if not (_in(p, resolve_home.workspace()) or _in(p, SMS)):
+        ok, note = solo.gate(SMS, "write", ctx={"tool": "write", "path": p, "intent": "工作区/SMS 外写入"})
+        if not ok: return "拒绝：工作区/SMS 外写入需 :grant write（" + p + "）" + solo.tail(note)
     os.makedirs(os.path.dirname(p) or ".", exist_ok=True); open(p, "a" if append else "w", encoding="utf-8").write(str(content))
     emit("edit", ("追加 " if append else "写入 ") + p + "（" + str(len(str(content))) + " 字）", tool="write", ok=True); return "已写入 " + p
 def command(cmd):
@@ -32,7 +36,7 @@ def run_skill(name, inp, tag=""):
     if c["depth"] >= 2: return "拒绝：派发链已达 2 层（对等对话间防循环熔断·非主次层级）——请直接按已注入的 SKILL.md 用工具执行"
     nm = str(s.get("id")).lower()
     if nm in (c.get("chain") or []): return "拒绝：" + nm + " 自派发（本技能链已派发过它·防双 ⧉ 前缀复读循环）——请直接按已注入的 SKILL.md 用工具执行"
-    ip = str(s.get("install_path")); skp = os.path.join(ip, str(s.get("entry", "SKILL.md"))); dst = resolve_home.wtmp(); tl = str(tag or s.get("id")); cconv = chains.session_id(); c["conv"] = cconv; ce = [[cconv, "ref", 1], [chains.cur_sess(), "member", 1]]
+    ip = str(s.get("install_path")); skp = os.path.join(ip, str(s.get("entry", "SKILL.md"))); dst = resolve_home.wtmp(); tl = str(tag or s.get("id")); cconv = chains.session_id(); c["conv"] = cconv; __import__("session_reg").attach(cconv, chains.cur_sess()); ce = [[cconv, "ref", 1], [chains.cur_sess(), "member", 1]]
     doc = skill_doc.package(ip, str(s.get("entry", "SKILL.md")), 60000)
     if not doc: c["conv"] = ""; return "SKILL.md 读取失败：" + skp
     chains.record("session", "open:" + cconv, ce); chains.log("skill", "%s|src=%s|dst=%s" % (tl, skp, dst)); chains.log("sub", tl, cconv); emit("skill", "开对等对话派发 " + tl + "（conv=" + cconv + "｜src=" + skp + "｜dst=" + dst + "）", skill=tl, tool="skill", meta={"src_path": skp, "dst_path": dst})

@@ -8,7 +8,7 @@ try: sys.stdin.reconfigure(encoding="utf-8", errors="replace")
 except Exception: pass
 S = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, S)
-import shell_core as core, shell_console, stop_channel
+import shell_core as core, shell_console, stop_channel, close_guard as close_guard_mod
 try: import readline
 except ImportError: readline = None
 META = [":" + m for m in ("agents", "use", "skill", "cmds", "intent", "alias", "unalias", "hud", "deploy", "qq", "session", "workspace", "restart", "shutdown", "repair", "debug", "detail", "mode", "grant", "api", "config", "web", "ext", "net", "tts", "learn", "file", "path", "dream", "image", "help", "stop", "quit")]
@@ -29,10 +29,24 @@ def main():
         core.handle(" ".join(pos), shell_console.wrap(emit)); return
     if readline:
         readline.set_completer(_complete); readline.parse_and_bind("tab: complete")
-    emit(core.banner())
+    _fm = ''
+    try:
+        import console_font; _fm = console_font.ensure_cjk()
+    except Exception: pass
+    emit(core.banner() + (('\n' + _fm) if _fm else ''))
+    try:
+        emit('关闭拦截：' + close_guard_mod.arm())
+    except Exception: pass
     while True:
         try: line = input("\x1b[38;5;39msms>\x1b[0m " if sys.stdout.isatty() else "sms> ").strip()
-        except (EOFError, KeyboardInterrupt): print(); break
+        except EOFError: print(); break
+        except KeyboardInterrupt:
+            # 2026-09-30 用户「关闭主窗口或键入 ctrl+c 时需要二次确认（并向远端推送 SMS关闭中）」
+            import close_guard
+            ok, txt = close_guard.ask("Ctrl+C（readline 壳）")
+            print("\n" + txt)
+            if ok: break
+            continue
         if not line: continue
         try: r = core.handle(line, shell_console.wrap(emit))
         except KeyboardInterrupt: stop_channel.clear(); emit("⛔ Ctrl+C 已中断本轮任务（停止旗标复位·可继续输入下一句）"); continue

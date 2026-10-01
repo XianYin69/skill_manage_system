@@ -42,6 +42,7 @@ def g_sessions(q=None):
     out = [{"id": k, "session": k, "created": v.get("created"), "at": v.get("created"), "name": v.get("name"),
             "kind": v.get("kind"), "state": v.get("state"), "conv": v.get("conv"),
             "last_active": v.get("last_active"), "unfinished": un.get(k, 0),
+            "convs": v.get("convs") or ([v["conv"]] if v.get("conv") else []), "conv_count": len(v.get("convs") or []),
             "current": bool(cur) and k == cur} for k, v in reg.items()]
     out.sort(key=lambda x: str(x["created"] or ""))
     return {"sessions": out, "current": cur, "count": len(out),
@@ -87,6 +88,12 @@ def g_chains(q=None):
     return {"chains": rows, "stats": {k: v["frags"] for k, v in per.items()},
             "total": sum(v["frags"] for v in per.values()), "config": cfg, "names": list(ch.CHAINS),
             "sess": ch.cur_sess(), "sessions": [x for x in str(ch.list_sess() or "").split("\n") if x][-10:]}
+def _solo_state():
+    """SOLO 状态（web 主输出窗口提示与风险告知用）：惰性 import，取不到一律 {"enabled": false}，绝不让 /api/perms 500。"""
+    try:
+        return _m("solo").status(SMS()) or {"enabled": False}
+    except Exception:
+        return {"enabled": False}
 def g_perms(q=None):
     pm = _m("permissions"); eff = pm._eff(SMS()); e = eff.get("effective") or {}; src = eff.get("source") or {}
     DESC = {"read": "读文件·读链", "write": "写工作区文件", "execute": "本机命令执行", "network": "外网检索",
@@ -98,7 +105,7 @@ def g_perms(q=None):
     tools = [{"name": k, "tool": k, "enabled": bool(v), "on": bool(v), "desc": "大模型工具开关"}
              for k, v in ((settings.status(SMS()) or {}).get("agent_tools") or {}).items()]
     return {"perms": perms, "items": perms, "grants": perms, "tools": tools, "roles": list(pm.ROLES),
-            "count": len(perms), "tool_count": len(tools)}
+            "count": len(perms), "tool_count": len(tools), "solo": _solo_state()}
 def g_hud(q=None):
     d = atomic_io.rjson(os.path.join(SMS(), "hud", "state.json"), encoding="utf-8", default=None) or {}
     now = time.time(); live = {}
@@ -323,7 +330,7 @@ if __name__ == "__main__":
     if cmd == "status":
         pid = net_util.running(NAME); port = net_util.port_of(NAME) or settings.get(NAME + ".port", 8737)
         print(json.dumps({"running": pid, "port": port, "url": "https://127.0.0.1:%s/" % port, "fingerprint": web_certs.fpr()[:16]}, ensure_ascii=False))
-    elif cmd == "start": print("已在运行 pid=" + str(net_util.running(NAME)) if net_util.running(NAME) else net_util.spawn(NAME))
+    elif cmd == "start": print("网页端已禁用：先 :config set web_shell.enabled true" if not settings.get(NAME + ".enabled", True) else ("已在运行 pid=" + str(net_util.running(NAME)) if net_util.running(NAME) else net_util.spawn(NAME)))
     elif cmd == "serve": print(serve())
     elif cmd in ("stop", "token", "fingerprint"): print(net_util.stop(NAME) if cmd == "stop" else net_util.token("--rotate" in a) if cmd == "token" else web_certs.fpr())
     else: print(__doc__.strip().splitlines()[-1])

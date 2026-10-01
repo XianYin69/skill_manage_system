@@ -19,6 +19,7 @@ def spawn(sms):
         stamp(sms)
         subprocess.Popen([sys.executable, "-B", os.path.join(os.path.dirname(os.path.abspath(__file__)), "dream.py"), "run"],
                          stdin=subprocess.DEVNULL, stdout=f, stderr=f, cwd=os.path.dirname(os.path.abspath(__file__)),
+                         env=dict(os.environ, SMS_BG="1"),
                          creationflags=(0x00000008 | 0x00000200) if os.name == "nt" else 0)
     except Exception: return False
     return True

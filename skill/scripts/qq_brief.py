@@ -12,7 +12,20 @@ def on(v, sms=None):
 def state(sms=None):
     try: return open(_p(sms), encoding="utf-8").read().strip()
     except Exception: return ""
-def live(c=None): c = c or qp.conf(); return bool(c.get("brief")) and state(c["sms"]) == "1"
+def sess_kind(sms=None):
+    """当前 session 通道 kind（只读不 ensure·不 import prompt_builder 以免回环）。"""
+    try:
+        import session_reg as R
+        sid = os.environ.get("SMS_SESSION") or R._rd(R._c(sms))
+        return str((R.get_(sid, sms) or {}).get("kind") or "") if sid else ""
+    except Exception: return ""
+def live(c=None):
+    """简洁模式是否真在生效＝凭据开＋标志位 1＋当前 session 确为 qq 通道
+    （2026-09-30 残留修复：标志位曾跨通道残留，TUI/网页/cron 正文被无端限长）。"""
+    c = c or qp.conf()
+    k = sess_kind(c.get("sms"))
+    if k and k != "qq": return False
+    return bool(c.get("brief")) and state(c["sms"]) == "1"
 def cap(text, c=None):
     c = c or qp.conf(); t = str(text or ""); n = int(c.get("brief_len") or 260)
     return t if not live(c) or len(t) <= n else t[:n] + "…（余下见 SMS 壳）"

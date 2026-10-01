@@ -3,27 +3,47 @@
 import os, sys, json, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import qq_push as qp, qq_reply, qq_policy as Q, chain_error, qq_report, session_reg as _sreg
+def _beat(stage=None):
+    """阶段边界打活动戳（2026-10-01 error 链 2ab90541b9）：入站解析→网关请求前/后→技能派发→出站推送
+    每跨一个边界就 beat()；长等待处（agent_stream.ask 内含网关 LLM 请求）拿不到逐行输出，就 set_stage()
+    把该阶段声明成长等待档（qq.handle_stall_llm 宽阈值）——绝不允许「活着却被平铺 240s 误杀」。"""
+    try:
+        import run_watch as rw
+        if stage: rw.set_stage(stage)
+        rw.beat()
+    except Exception: pass
+
 def _col(L):
     def on_line(x):
         x = str(x).rstrip()
         if x: L.append(x)
+        try:
+            import run_watch as rw; rw.beat()  # 活动戳：有输出＝在推进，看门狗不杀（只杀静默卡死）
+        except Exception: pass
     return on_line
 def deliver(e, c=None):
     c = c or qp.conf(); txt = e.get("text") or ""; L = []
-    try: _sreg.bind("qq", e.get("openid") or "", "QQ:" + str(e.get("user") or "")[:12])
+    try: _sreg.bind("remote", e.get("openid") or "", "QQ:" + str(e.get("user") or "")[:12])
     except Exception: pass
     try:
         if txt[:1] in (":", "：", "!"):
-            import shell_core; shell_core.handle(txt, _col(L))
-            s = qq_report.snapshot(); return qp.push(("\n".join(L) or "（无输出）") + ("\n" + s if s else ""), "QQ·指令", c)
+            _beat("exec"); import runtime_bind as rb; rb.run(txt, _col(L)); _beat()
+            _beat("push"); s = qq_report.snapshot(); return qp.push(("\n".join(L) or "（无输出）") + ("\n" + s if s else ""), "QQ·指令", c)
         try: qp._wj(qp._f(c["sms"], "active.json"), {"conv": str(__import__("chains").ACTIVE.get("conv") or ""), "ts": time.time()})
         except Exception: pass
         import agent_stream, qq_brief; qq_brief.on(bool(c.get("brief")))
+        _beat("llm")  # 网关请求前：声明长等待阶段（T2 走宽档）＋打活动戳
         try: agent_stream.ask(txt, _col(L))
-        finally: qq_brief.on(False)
-        return "数据流已跑·正文经 qq_flow 被动回复（行 %d）" % len(L)
+        finally: qq_brief.on(False); _beat("skill")  # 网关请求后／技能对话边界
+        try:
+            import runtime_bind as rb; rb.pending_run(allow=True)
+        except Exception: pass
+        _beat("push"); return "数据流已跑·正文经 qq_flow 被动回复（行 %d）" % len(L)
     finally:
         qq_reply.clear()
+        try:
+            import run_watch as rw; rw.clear_stage()  # 阶段声明不留存：常驻线程带着上一次的宽/窄档进下一条消息＝阈值错档
+        except Exception: pass
 def ack(e, c):
     """即时回执（t1）：走 qq_chunk.send 直发**主动**端点——绝不消耗该 msg_id 的被动窗（被动位留给正文），也不经 push 的间隔/配额簿记（不占 min_gap）；≤20字；qq.json ack=false 可关；异常一律吞掉，绝不影响后续派发。"""
     if not c.get("ack"): return None
@@ -33,14 +53,14 @@ def ack(e, c):
     except Exception: return None
 def handle(m, c=None):
     try:
-        c = c or qp.conf(); e = Q.parse(m)
+        _beat("inbound"); c = c or qp.conf(); e = Q.parse(m); _beat()  # 入站解析边界
         if not e or not e.get("text"): return None
         if not Q.allowed(e, c): Q.mark(e["msg_id"], e, c); return "拒·非白名单 " + e["openid"][:14]
         if Q.seen(e["msg_id"], c): return "重复忽略 " + e["msg_id"][:16]
         ok, why = Q.gate(e["text"], c, e.get("openid", "")); Q.mark(e["msg_id"], e, c)
         if not ok: return qp.push("⚠" + why, "QQ·准入", c)
-        qq_reply.set_reply(e["msg_id"], e["openid"], e["kind"]); ack(e, c)
-        return deliver(e, c)
+        qq_reply.set_reply(e["msg_id"], e["openid"], e["kind"]); _beat("push"); ack(e, c)
+        _beat("dispatch"); return deliver(e, c)  # 技能派发边界
     except Exception as ex:
         try: chain_error.hook("gate", "qq_inbound.handle", str(ex)[:200])
         except Exception: pass

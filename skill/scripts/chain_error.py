@@ -17,6 +17,8 @@ def record(kind, src, msg, edges=None):
     if f := find(kind, src, msg): _st().bump(f["id"]); return f["id"]
     e = [[chains.ACTIVE["conv"] or chains.cur_sess(), "ref", 1.0], [chains.cur_sess(), "member", 1.0]] + list(edges or [])
     return _st().add("error", "err:%s:%s %s" % (kind, src, " ".join(str(msg).split())[:400]), e)
+SELFFIX = ("参数缺失", "参数不匹配")
+def selffix(text): return any(w in str(text)[:80] for w in SELFFIX)
 def hook(kind, src, msg):
     try: record(kind, src, msg)
     except Exception: pass

@@ -16,7 +16,8 @@ border:1px solid var(--edge);border-radius:14px;color:#1d252e;position:relative;
 box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 -3px 7px rgba(0,0,0,.2) inset,0 12px 26px rgba(0,0,0,.5)}
 .gloss{overflow:hidden}
 .screw{position:absolute;width:9px;height:9px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#93a1b1 60%,#4d5866);box-shadow:0 1px 2px rgba(0,0,0,.55) inset}
-#chassis{max-width:1420px;margin:0 auto;padding:14px 16px 16px}
+#chassis{max-width:1420px;margin:0 auto;padding:14px 16px 16px;display:flex;flex-direction:column;
+min-height:calc(100vh - 28px)}
 #chassis>.screw:nth-of-type(1){top:7px;left:8px}#chassis>.screw:nth-of-type(2){top:7px;right:8px}
 #chassis>.screw:nth-of-type(3){bottom:7px;left:8px}#chassis>.screw:nth-of-type(4){bottom:7px;right:8px}
 .brand{display:flex;align-items:baseline;gap:10px;padding:2px 8px 10px;border-bottom:1px solid rgba(0,0,0,.16)}
@@ -25,9 +26,14 @@ box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 -3px 7px rgba(0,0,0,.2) inset,0 
 .brand em{margin-left:auto;font-style:normal;font-size:11px;color:#4a5866}
 </style>
 <style>
-/* ---- 三区 ---- */
-#zones{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr) 330px;gap:14px;margin-top:12px}
-.zone{padding:10px 12px 12px;border-radius:12px;background:linear-gradient(180deg,#e9eff6,#c3cedb 55%,#dfe7ef);
+/* ---- 三区：左＝出纸口(上)/进纸器(下) 上下分屏 · 右＝控制面板通高 ---- */
+#zones{display:grid;grid-template-columns:minmax(0,1fr) 330px;grid-template-rows:minmax(260px,1fr) auto;
+grid-template-areas:"tray panel" "feeder panel";
+gap:14px;margin-top:12px;flex:1 1 auto;min-height:0}
+.z-tray{grid-area:tray;display:flex;flex-direction:column;min-height:0}
+.z-feeder{grid-area:feeder;min-width:0}
+#panel{grid-area:panel;min-width:0}
+.zone{padding:10px 12px 12px;min-width:0;min-height:0;border-radius:12px;background:linear-gradient(180deg,#e9eff6,#c3cedb 55%,#dfe7ef);
 border:1px solid var(--edge);box-shadow:0 1px 0 #fff inset,0 -2px 5px rgba(0,0,0,.16) inset}
 .ztitle{font-size:11px;letter-spacing:2px;color:#3c4a58;text-transform:uppercase;margin:0 0 8px;
 display:flex;align-items:center;gap:8px}
@@ -82,9 +88,10 @@ background:#071016;border:1px solid #2c4a56;border-radius:8px;box-shadow:0 10px 
 </style>
 <style>
 /* ---- 纸卷出纸口 ---- */
-#tray{margin-top:10px;padding:10px 12px 12px;border-radius:10px;background:linear-gradient(180deg,#3a4553,#232c36 55%,#161d25);box-shadow:0 3px 10px rgba(0,0,0,.6) inset,0 1px 0 #fff}
+#tray{margin-top:0;padding:10px 12px 12px;border-radius:10px;flex:1 1 auto;min-height:0;
+display:flex;flex-direction:column;background:linear-gradient(180deg,#3a4553,#232c36 55%,#161d25);box-shadow:0 3px 10px rgba(0,0,0,.6) inset,0 1px 0 #fff}
 #mouth{height:12px;border-radius:6px;background:linear-gradient(180deg,#000,#39434f);box-shadow:0 2px 4px rgba(0,0,0,.8) inset,0 1px 0 rgba(255,255,255,.3);margin-bottom:6px}
-#roll{background:var(--paper);color:var(--ink);border-radius:3px;padding:10px 12px 14px;min-height:300px;max-height:58vh;overflow:auto;font:12.5px/1.5 Consolas,"Microsoft YaHei",monospace;box-shadow:0 2px 8px rgba(0,0,0,.45);background-image:repeating-linear-gradient(180deg,rgba(0,0,0,.03) 0 1px,transparent 1px 4px);scrollbar-width:thin}
+#roll{background:var(--paper);color:var(--ink);border-radius:3px;padding:10px 12px 14px;flex:1 1 auto;min-height:160px;max-height:none;overflow:auto;font:12.5px/1.5 Consolas,"Microsoft YaHei",monospace;box-shadow:0 2px 8px rgba(0,0,0,.45);background-image:repeating-linear-gradient(180deg,rgba(0,0,0,.03) 0 1px,transparent 1px 4px);scrollbar-width:thin}
 .ln{margin:0 0 7px;padding-bottom:6px;border-bottom:1px dashed rgba(0,0,0,.18);white-space:pre-wrap;word-break:break-word}
 .ln .who{display:inline-block;font-size:10px;letter-spacing:1px;color:#6b6152;border:1px solid #c9c0ae;border-radius:3px;padding:0 4px;margin-bottom:2px}
 .ln.me .who{color:#2b4a63;border-color:#9db8cd;background:#e3edf6}
@@ -136,8 +143,10 @@ textarea{width:100%;min-height:190px}
 #slot{display:flex;gap:8px;align-items:stretch;margin-top:12px}
 #tok{flex:1;min-width:0;padding:10px 12px;border-radius:7px;font:13px Consolas,monospace}
 #eye{min-width:44px}
-@media (max-width:1180px){#zones{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}#panel{grid-column:1/-1}}
-@media (max-width:760px){#zones{grid-template-columns:1fr}#pad{grid-template-columns:repeat(4,46px)}}
+@media (max-width:980px){#zones{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto auto;
+grid-template-areas:"tray" "feeder" "panel"}
+#chassis{min-height:0}#roll{min-height:240px;max-height:60vh}}
+@media (max-width:760px){#pad{grid-template-columns:repeat(4,46px)}}
 </style>
 </head>
 <body>
@@ -165,7 +174,7 @@ textarea{width:100%;min-height:190px}
 
   <div id="zones">
     <!-- ① 进纸器 -->
-    <section class="zone">
+    <section class="zone z-feeder">
       <h3 class="ztitle">① 进纸器 DOC FEEDER <i>话语 / :元指令</i></h3>
       <div id="feeder">
         <div class="lip"></div>
@@ -185,7 +194,7 @@ textarea{width:100%;min-height:190px}
     </section>
 
     <!-- ② 出纸口 -->
-    <section class="zone">
+    <section class="zone z-tray">
       <h3 class="ztitle">② 出纸口 PAPER TRAY <i>接收记录 · 逐行传真扫描</i></h3>
       <div id="tray"><div id="mouth"></div><div id="roll"></div><div id="tear"></div></div>
       <div class="bar">
@@ -276,9 +285,9 @@ async function connect(){T=$("tok").value.trim();if(!T)return;sessionStorage.set
  catch(e){$("gerr").textContent="接通失败："+(e.err||e.message||e)}}
 function boot(i){INFO=i;$("gate").style.display="none";$("app").style.display="";
  $("tok").addEventListener("keydown",ev=>{if(ev.key==="Enter")connect()});
- lcd(i);pollAll();setInterval(pollTasks,4000);setInterval(pollAsk,3000)}
+ lcd(i);pollAll();pollSolo();setInterval(pollSolo,15000);setInterval(pollTasks,4000);setInterval(pollAsk,3000)}
 function lcd(i){const g=i.gateway||{};
- $("banner").textContent="网关 "+(g.enabled?"在线":"停用")+" · "+(g.model||"-");
+ setBanner();
  $("s_gw").textContent=g.enabled?"on":"off";$("s_model").textContent=g.model||"-";
  $("s_tok").textContent=i.token_prefix||"-";
  $("s_fpr").textContent=(i.fingerprint||"-").slice(0,23);
@@ -286,6 +295,23 @@ function lcd(i){const g=i.gateway||{};
  $("s_conv").textContent=i.conv_id||i.conv||"-";
  led("led_net","on");led("led_ext",i.external&&i.external.enabled?"warn":"off");
  led("led_dream",i.dream&&i.dream.enabled?"on":"off")}
+/* ---------- SOLO 自审模式：主输出窗口（出纸口）提示与风险告知 ---------- */
+let SOLO=null, SOLO_TOLD=false;
+function soloTag(){return (SOLO&&SOLO.enabled)?"SOLO: on":"SOLO: off"}
+function setBanner(){const g=(INFO&&INFO.gateway)||{};
+ $("banner").textContent="网关 "+(g.enabled?"在线":"停用")+" · "+(g.model||"-")+" · "+soloTag()}
+function soloWarn(s){return "【SOLO 模式已开启 · 风险告知】缺权限不再向用户确认，由大模型自审授予并立即执行。\n"
+ +"· 永不自审键（solo.never）："+((s.never||[]).join("、")||"（无）")+"\n"
+ +"· skill 目录写入（danger）自审："+(s.allow_danger?"已开（solo.allow_danger=true，高危）":"未开，仍须当轮 :grant danger")+"\n"
+ +"· 自审授予时长：默认 "+(s.ttl_min||30)+" 分钟，上限 "+(s.max_ttl_min||120)+" 分钟，到期自动失效\n"
+ +"· 每笔自审放行/拒绝都会打到本出纸口，并落 permissions.json 审计（solo 标记）＋event 链，可追溯\n"
+ +"· 关闭：进纸器输入 :solo off（或 F4 改 solo.enabled=false）；单项收回：:grant revoke <键>（注意 :grant <键> 0＝永久授予、非收回）\n"
+ +"如不认可此模式，请立即输入 :solo off"}
+async function pollSolo(){const r=await api("/api/perms");if(r.err)return;
+ const s=r.solo||{enabled:false}, was=SOLO;SOLO=s;setBanner();
+ if(s.enabled&&!SOLO_TOLD){SOLO_TOLD=true;print("系统",soloWarn(s),"sys")}
+ else if(!s.enabled){if(was&&was.enabled)print("系统","SOLO 模式已关闭——权限准入回到用户确认（:grant），与未启用 SOLO 时逐字一致","sys");SOLO_TOLD=false}}
+
 /* ---------- META 40 键 ---------- */
 const META=["agents","use","skill","cmds","intent","index","skills","workspace","debug","mode","dispatch","sh","edit","view","alias","unalias","hud","deploy","qq","session","grant","perms","tools","api","config","web","ext","net","tts","learn","file","path","dream","image","restart","shutdown","repair","show","help","quit"];
 const METAD={agents:"数据流 agent",use:"调用命令",skill:"技能治理",cmds:"命令总表",intent:"意图匹配",index:"文件索引",skills:"技能清单",workspace:"工作区",debug:"调试",mode:"界面模式",dispatch:"技能真派发",sh:"系统 shell",edit:"编辑器",view:"查看器",alias:"自定义指令",unalias:"删自定义",hud:"HUD 叠加",deploy:"部署",qq:"QQ 推送",session:"会话",grant:"权限授予",perms:"权限总览",tools:"工具开关",api:"格式 API",config:"配置",web:"网页壳",ext:"对外端口",net:"网络",tts:"朗读",learn:"学习",file:"文件",path:"按路径加技能",dream:"做梦",image:"图像",restart:"重启 SMS",shutdown:"关闭 SMS",repair:"修复待批",show:"命令详情",help:"速查",quit:"收口退出"};
@@ -411,7 +437,7 @@ async function openDrawer(title,kind){$("d_title").textContent=title;$("drawer")
 async function refreshDrawer(){if(DOPEN)openDrawer($("d_title").textContent,DOPEN)}
 const DF={};
 /* ---------- 巡检 ---------- */
-async function pollAll(){await Promise.all([pollTasks(),pollQQ(),pollTTS(),pollDream()]);
+async function pollAll(){await Promise.all([pollTasks(),pollQQ(),pollTTS(),pollDream(),pollSolo()]);
  print("系统","巡检完成：线路 "+(INFO?"已连通":"未连")+" · 任务表 "+(TASKS?TASKS.length:0)+" 行","sys")}
 async function pollQQ(){const r=await api("/api/qq");led("led_qq",r.err?"off":(r.enabled?"on":"off"))}
 async function pollTTS(){const r=await api("/api/tts");led("led_tts",r.err?"off":(r.enabled?"on":"off"))}
@@ -432,6 +458,13 @@ DF.config=async b=>{b.innerHTML="";const i=INFO||await api("/api/info");const g=
   ["llm_gateway.api_key","api_key（写覆盖）",""]]);
  const h2=document.createElement("h3");h2.textContent="做梦机制";h2.style.marginTop="12px";b.appendChild(h2);
  kv(b,[["dream.enabled","启用",i.dream&&i.dream.enabled,"bool"],["dream.interval_min","间隔（分钟）",i.dream&&i.dream.interval_min]]);
+ const h4=document.createElement("h3");h4.textContent="网页端 web_shell";h4.style.marginTop="12px";b.appendChild(h4);
+ const w=i.web_shell||{};
+ kv(b,[["web_shell.enabled","启用网页端",(w.enabled===undefined?true:w.enabled),"bool"],["web_shell.port","端口",w.port]]);
+ const wb=document.createElement("div");wb.className="bar";
+ wb.innerHTML="<span class='hint'>入口 https://"+esc(w.host||"127.0.0.1")+":"+esc(w.port||8737)+"/ · "+esc(w.running?("运行中 pid "+w.running):"未运行")+"</span>"
+ +"<button class='key sm' data-c=':web start'>开启</button><button class='key sm warn' data-c=':web stop'>关闭</button><button class='key sm' data-c=':web token'>密钥</button>";
+ b.appendChild(wb);wb.querySelectorAll("[data-c]").forEach(e=>e.onclick=()=>setCmd(e.dataset.c));
  const bar=document.createElement("div");bar.className="bar";
  bar.innerHTML="<button class='key sm' data-c=':dream run'>做梦整理</button><button class='key sm' data-c=':dream status'>做梦状态</button><button class='key sm' data-c=':repair list'>修复待批</button>";
  b.appendChild(bar);bar.querySelectorAll("[data-c]").forEach(e=>e.onclick=()=>setCmd(e.dataset.c));
@@ -522,11 +555,11 @@ DF.ws=async b=>{const r=await api("/api/info");const cur=(r.workspace||"");
 DF.sessions=async b=>{const r=await api("/api/sessions");
  if(r.err){b.innerHTML="<div class='hint'>会话数据不可用："+esc(r.err)+"</div>";return jam("会话拓扑不可用")}
  const ss=r.sessions||r.items||r.list||[];
- b.innerHTML="<div class='hint'>session "+ss.length+" 个 · 未完成行＝跨会话冲突（对等监视）· 接续：:session use &lt;id&gt;</div>";
- const t=document.createElement("table");t.innerHTML="<tr><th>id</th><th>创建</th><th>未完成</th><th>当前</th><th></th></tr>";
+ b.innerHTML="<div class='hint'>session "+ss.length+" 个（通道 client/web/remote/cron/bg·每通道各占 session·session 下挂多 conv）· 未完成行＝跨会话冲突（对等监视）· 接续：:session use &lt;id&gt;</div>";
+ const t=document.createElement("table");t.innerHTML="<tr><th>id</th><th>通道</th><th>conv</th><th>创建</th><th>未完成</th><th>当前</th><th></th></tr>";
  (Array.isArray(ss)?ss:Object.keys(ss).map(k=>Object.assign({id:k},ss[k]))).forEach(s=>{const tr=document.createElement("tr");
   const un=s.unfinished==null?(s.rows?Object.keys(s.rows).filter(x=>s.rows[x].status!=="done").length:0):s.unfinished;
-  tr.innerHTML="<td>"+esc(s.id||s.session||"-")+"</td><td>"+esc(s.created||s.at||"-")+"</td><td>"+esc(un)+"</td><td>"+esc(s.current?"●":"")+"</td><td><button class='key sm'>接续</button></td>";
+  tr.innerHTML="<td>"+esc(s.id||s.session||"-")+"</td><td>"+esc(s.kind||"shell")+"</td><td title='"+esc((s.convs||[]).join(" "))+"'>"+esc(s.conv_count!=null?s.conv_count:(s.convs||[]).length)+"</td><td>"+esc(s.created||s.at||"-")+"</td><td>"+esc(un)+"</td><td>"+esc(s.current?"●":"")+"</td><td><button class='key sm'>接续</button></td>";
   tr.querySelector("button").onclick=()=>setCmd(":session use "+(s.id||s.session||""));t.appendChild(tr)});
  b.appendChild(t);
  const bar=document.createElement("div");bar.className="bar";
@@ -588,7 +621,23 @@ DF.perms=async b=>{const r=await api("/api/perms");
   const y=document.createElement("button");y.className="key sm";y.textContent=x.enabled?"关闭":"开启";
   y.onclick=async()=>{const q=await api("/api/grant",{tool:nm,on:!x.enabled});print("工具",nm+" → "+(x.enabled?"off":"on")+(q.err?"（"+q.err+"）":""),"sys");refreshDrawer()};
   tr.lastChild.appendChild(y);tt.appendChild(tr)});box.appendChild(tt);
- const h4=document.createElement("h3");h4.textContent="HUD 叠加";h4.style.marginTop="12px";box.appendChild(h4);
+   const hs=document.createElement("h3");hs.textContent="SOLO 自审模式";hs.style.marginTop="12px";box.appendChild(hs);
+  const sv=r.solo||{enabled:false};
+  const sp=document.createElement("div");sp.className="hint";
+  sp.textContent="当前："+(sv.enabled?"已开启——缺权限不再向用户确认，由大模型自审授予并立即执行（高危）":"关闭——权限走 :grant 用户确认")
+   +" · danger 自审："+(sv.allow_danger?"开":"关")+" · 永不自审："+((sv.never||[]).join("、")||"-")
+   +" · ttl "+(sv.ttl_min||30)+"分（上限 "+(sv.max_ttl_min||120)+"分） · 今日自审授予 "+(sv.granted_today||0)+" 笔";
+  box.appendChild(sp);
+  const sbb=document.createElement("div");sbb.className="bar";
+  [["开启 SOLO",true],["关闭 SOLO",false]].forEach(function(x){const y=document.createElement("button");
+   y.className="key sm"+(x[1]?" warn":"");y.textContent=x[0];
+   y.onclick=async()=>{if(x[1]&&!confirm("SOLO 开启后缺权限不再询问用户，由大模型自审即授予并立即执行（danger 默认仍不自审）。确认开启？"))return;
+    const q=await api("/api/config",{path:"solo.enabled",value:x[1]});
+    if(q.err)print("SOLO","设置失败："+q.err,"sys");
+    else{SOLO_TOLD=false;print("SOLO",x[1]?"已开启——风险须知见出纸口":"已关闭——权限准入回到用户确认（:grant）","sys");await pollSolo()}
+    refreshDrawer()};sbb.appendChild(y)});
+  box.appendChild(sbb);
+const h4=document.createElement("h3");h4.textContent="HUD 叠加";h4.style.marginTop="12px";box.appendChild(h4);
  const hd=await api("/api/hud");const pre=document.createElement("pre");
  pre.style.cssText="background:#0e1a20;color:#3ff0d6;padding:8px;border-radius:7px;font-size:11px;white-space:pre-wrap";
  pre.textContent=hd.err?"HUD 不可用："+hd.err:JSON.stringify(hd,null,2);box.appendChild(pre)};
@@ -652,8 +701,10 @@ async function revealTok(){const r=await api("/api/token?reveal=1");
  TOKFULL=r.token||"";$("s_tok").textContent=TOKFULL.length>26?(TOKFULL.slice(0,14)+"…"+TOKFULL.slice(-8)):TOKFULL;
  $("s_tok").className="a";print("令牌","已显影全令牌（仅本机回环可见，审计已记）","sys")}
 /* ---------- 启动 ---------- */
+const HS=new URLSearchParams((location.hash||"").replace(/^#/,""));
+if(HS.get("tok")&&["127.0.0.1","localhost","::1"].includes(location.hostname)){T=String(HS.get("tok")).trim();sessionStorage.setItem("sms_tok",T);localStorage.setItem("sms_tok",T);history.replaceState(null,"",location.pathname)}
 (async()=>{keys();buildMeta();buildF1();buildPad();buildQuick();buildPanels();
- if(T&&localStorage.getItem("sms_tok")===T){try{const i=await api("/api/info");if(!i.err)boot(i)}catch(e){}}
+ if(T&&localStorage.getItem("sms_tok")===T){try{const i=await api("/api/info");if(!i.err){boot(i);const op=HS.get("open");if(op&&DF[op])openDrawer(op==="config"?"图形化配置":"网络",op)}}catch(e){}}
  $("tok").focus()})();
 </script>
 <footer style="text-align:center;color:#5c6a78;font-size:11px;padding:10px">

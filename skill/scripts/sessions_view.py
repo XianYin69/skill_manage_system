@@ -23,7 +23,12 @@ def _last():
 def rows(cur=""):
     sm, lm, pd = _smap(), _last(), {}
     for p in _pend(): pd[p["sess"]] = pd.get(p["sess"], 0) + p["rows"]
-    return [(sid, v.get("name", ""), v.get("created", ""), lm.get(sid, ""), pd.get(sid, 0), sid == cur) for sid, v in sorted(sm.items(), key=lambda kv: str(kv[1].get("created", "")))]
+    return [(sid, v.get("name", ""), v.get("created", ""), lm.get(sid, ""), pd.get(sid, 0), sid == cur) for sid, v in sorted(sm.items(), key=lambda kv: (str(kv[1].get("kind", "shell")), str(kv[1].get("created", ""))))]
+def kind_of(sid):
+    return str(_smap().get(sid, {}).get("kind", "shell"))
+def convs(sid):
+    v = _smap().get(sid) or {}
+    return list(v.get("convs") or ([v["conv"]] if v.get("conv") else []))
 def conflicts(cur=""):
     other = [p for p in _pend() if p["sess"] != cur]
     if not other: return ""
@@ -36,7 +41,7 @@ def conflicts(cur=""):
     return "\n".join(ls)
 def overview(cur=""):
     ls = ["〔会话拓扑〕session 按创建先后（◎当前·行末为未完成表行数）："]
-    for sid, n, c, l, un, cc in rows(cur): ls.append("%s %s %s｜创建 %s｜活动 %s｜未完成 %d" % ("◎" if cc else "·", sid, n, c[:16], l[5:16].replace("T", " ") or "-", un))
+    for sid, n, c, l, un, cc in rows(cur): ls.append("%s %s %s｜%s｜conv %d｜创建 %s｜活动 %s｜未完成 %d" % ("◎" if cc else "·", sid, n, kind_of(sid), len(convs(sid)), c[:16], l[5:16].replace("T", " ") or "-", un))
     cf = conflicts(cur); cf and ls.append(cf)
     return "\n".join(ls) if len(ls) > 1 else "〔会话拓扑〕暂无登记 session（:session new 新建会话＝新 session）"
 def hint(cur=""):

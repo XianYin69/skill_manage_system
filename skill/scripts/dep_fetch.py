@@ -79,6 +79,9 @@ def probe(sid, name=""):
 def fetch(sid, name, sms=None):
     """按 deps.json 的原始链接把上游取回 dependence/vendor/<name>/（须 :grant network）。"""
     sms = sms or resolve_home.ensure()
+    try:  # 后台/非交互：SOLO 自审不入此路（无人应答·防阻塞与成本失控）
+        import permissions; permissions.set_noninteractive(True)
+    except Exception: pass
     if not permissions.allow(sms, "network"):
         return "拒绝：下载依赖需 :grant network（外部代码入库须授权·默认拒绝）"
     d, items = deps_of(sid)
