@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""solo.py — SOLO 模式唯一真源（权限免用户确认·缺权限时由大模型自审决定是否授予）：cfg/enabled/auto_pending/never/set/banner_lines/status/review/allow/gate/granted_today/notice；auto_pending＝SOLO 开且 solo.auto_pending（默认 true）时对「做梦修复待批」视同用户已同意，空闲自动续跑（dream_pending.auto_solo）；自审 danger 授予范围＝用户明确要求的 skill 目录改动，或用户明确要求的 git 写操作（commit/merge/push/branch 删除等·非强推非改写已推送历史）；review 经 gateway._req 非流式、不带 tools 的单次判定（prompt 含〔键/工具/目标/意图/本轮用户话语摘要/风险摘要〕，只回一行 JSON {"grant","ttl_min","reason"}），网关未启用/调用失败/不可解析/异常一律保守拒绝（绝不因审核失败放行）；allow 顺序＝已授予即真→SOLO 关即假→solo.never 键永不自审→danger 未开 solo.allow_danger 不自审→自审通过才 permissions.apply(grant, ttl 钳 max_ttl_min) 并落 audit（solo 标记）＋event 链；gate 回 (bool, note) 供工具层拼拒绝文案。红线：SOLO 只改「权限准入」，不绕 stop_channel/任务表/审计，自审授予可 :grant revoke <键> 即时收回（注意 :grant <键> 0＝永久授予、非收回）；后台与非交互路径（auto_compress/cache_cleanup/dep_fetch/dream_*/deploy 等）不经本模块，防做梦链路阻塞与成本失控；SOLO 关闭＝行为与今天逐字一致。用法：python -B solo.py status|on|off|banner|review <key> [ctx]"""
+"""solo.py — SOLO 模式唯一真源（权限免用户确认·缺权限时由大模型自审决定是否授予）：cfg/enabled/auto_pending/never/set/banner_lines/status/review/allow/gate/granted_today/notice；auto_pending＝SOLO 开且 solo.auto_pending（默认 true）时对「做梦修复待批」视同用户已同意，空闲自动续跑（dream_pending.auto_solo）；自审 danger 授予范围＝用户明确要求的 skill 目录改动，或用户明确要求的 git 写操作（commit/merge/push/branch 删除等·非强推非改写已推送历史）；review 经 gateway._req 非流式、不带 tools 的单次判定（prompt 含〔键/工具/目标/意图/本轮用户话语摘要/风险摘要〕，只回一行 JSON {"grant","ttl_min","reason"}），网关未启用/调用失败/不可解析/异常一律保守拒绝（绝不因审核失败放行）；allow 顺序＝已授予即真→SOLO 关即假→solo.never 键永不自审→danger 未开 solo.allow_danger 不自审→自审通过才 permissions.apply(grant, ttl 钳 max_ttl_min) 并落 audit（solo 标记）＋event 链；gate 回 (bool, note) 供工具层拼拒绝文案。红线：SOLO 只改「权限准入」，不绕 stop_channel/任务表/审计，自审授予可 :grant revoke <键> 即时收回（注意 :grant <键> 0＝永久授予、非收回）；后台与非交互路径（auto_compress/cache_cleanup/dep_fetch/dream_*/deploy 等）不经本模块，防做梦链路阻塞与成本失控；SOLO 关闭＝行为与今天逐字一致。批28：err_sig＝分类前缀＋全串归一哈希签名（不截断头部，同错必同签、异错必不同签），err_count＝模块级跨调用同错计数（solo.retry_ttl_sec 默认 300s 过期自动清、成功一轮 reset 清零），修「同错熔断形同虚设＋跨轮计数清零」；自检 python -B solo.py check。用法：python -B solo.py status|on|off|banner|review <key> [ctx]"""
 import os, sys, json, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import resolve_home, settings, permissions, chains
@@ -132,14 +132,89 @@ def _gw_ok():
         import gateway; return bool(gateway.enabled())
     except Exception: return False
 # ---- 批27 SOLO 故障分析（用户：SOLO 下重试无限但有条件——阻塞/错误后大模型必须先分析，分析后才决定修复还是重试）
-import re as _re
+import re as _re, hashlib as _hashlib
 def analyze_on():
     """分析闸：SOLO 开＋solo.analyze_retry＋非后台非交互（做梦/压缩等无人应答链路不入此路）。"""
     try: return bool(enabled() and cfg().get("analyze_retry", True) and not permissions._NONINTERACTIVE[0])
     except Exception: return False
 def retry_cfg():
     c = cfg(); return {"max_same": int(c.get("max_same_error", 5)), "cap": float(c.get("retry_backoff_cap", 30.0))}
-def err_sig(err): return _re.sub(r"\d+", "N", str(err or ""))[:160]
+_VOL_UUID = _re.compile(r"\b[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}\b")
+_VOL_HEX = _re.compile(r"\b[0-9a-fA-F]{8,}\b")
+_VOL_Q = _re.compile(r'(["\'])(.{40,}?)\1', _re.S)
+_CLS = _re.compile(r"\b([A-Za-z0-9_]*(?:Error|Exception|Timeout|Failure))\b")
+_CODE = (_re.compile(r"HTTP Error (\d{3})"), _re.compile(r"Error code:?\s*(\d{3})"),
+         _re.compile(r'"(?:code|status)"\s*:\s*"?(\d{3})'))
+_ETYPE = _re.compile(r'"(?:type|error_code)"\s*:\s*"?([A-Za-z][A-Za-z0-9_.\-]{2,})')
+
+
+def _norm_err(s):
+    """全串易变归一（不截断头部）：uuid/长十六进制→H、引号内长文本只留前 40 字、数字→N、空白折叠。"""
+    s = _VOL_UUID.sub("H", s)
+    s = _VOL_HEX.sub("H", s)
+    s = _VOL_Q.sub(lambda m: m.group(1) + m.group(2)[:40] + m.group(1), s)
+    s = _re.sub(r"\d+", "N", s)
+    return _re.sub(r"\s+", " ", s).strip()
+
+
+def _classify(s):
+    """分类前缀＝异常类名 + 状态码（HTTP Error NNN / Error code: NNN / JSON "code"），
+    抽不到码退 JSON error.type 字符串；前缀只增辨识度，判同仍靠全串哈希。"""
+    m = _CLS.search(s)
+    cls = m.group(1) if m else ""
+    code = ""
+    for rx in _CODE:
+        mm = rx.search(s)
+        if mm:
+            code = mm.group(1)
+            break
+    if not code:
+        mm = _ETYPE.search(s)
+        code = mm.group(1) if mm else ""
+    return cls, code
+
+
+def err_sig(err):
+    """批28 签名＝分类前缀 + 完整串归一哈希（sha1[:12]）。旧实现先归一数字再截断 160 字符：长错误
+    （gateway._send 回 str(e)[:150]+" "+body[:300]）尾部差异被截掉致异错塌缩同签，易变量落在保留区
+    又致同错签名漂移——same 恒为 1 令 solo.max_same_error 熔断形同虚设。现不截断，同错必同签。"""
+    s = str(err or "")
+    cls, code = _classify(s)
+    h = _hashlib.sha1(_norm_err(s).encode("utf-8", "replace")).hexdigest()[:12]
+    return ":".join([x for x in (cls, code) if x] + [h])
+
+
+_SIG_COUNT = {}
+
+
+def _ttl():
+    """同错计数存活秒数（solo.retry_ttl_sec·默认 300）：超时自动过期，防陈旧计数误熔断。"""
+    try:
+        return float(cfg().get("retry_ttl_sec", 300) or 300)
+    except Exception:
+        return 300.0
+
+
+def err_count(err=None, reset=False):
+    """跨调用同错计数（批28·模块级存活）：gateway.run 旧版局部 same 每次调用即清零，400 投毒每轮
+    只计到 1＝无限烧 token。reset=True（拿到有效响应/成功一轮）＝全清；err=None 且非 reset＝回快照；
+    否则按 err_sig 累计并回本次次数（超 TTL 则从 1 重计）。solo.on_error 入参语义不变。"""
+    now = time.time()
+    if reset:
+        _SIG_COUNT.clear()
+        return 0
+    if err is None:
+        return dict((k, v[0]) for k, v in _SIG_COUNT.items())
+    sg = err_sig(err)
+    prev = _SIG_COUNT.get(sg)
+    n = (prev[0] if prev and now - prev[1] <= _ttl() else 0) + 1
+    _SIG_COUNT[sg] = (n, now)
+    return n
+
+
+def reset_sig():
+    """清空同错计数（成功一轮的显式入口·等价 err_count(reset=True)）。"""
+    return err_count(reset=True)
 def _ajson(txt):
     s = str(txt or ""); i = s.find("{")
     if i < 0: return None
@@ -213,6 +288,28 @@ if __name__ == "__main__":
     elif k == "review":
         g, why, ttl = review(a[1] if len(a) > 1 else "write", {"tool": "cli", "target": " ".join(a[2:]) or "-"})
         print(json.dumps({"grant": g, "reason": why, "ttl_min": ttl}, ensure_ascii=False))
+    elif k == "check":
+        e4 = ('HTTP Error 400: Bad Request {"error": {"message": "This model maximum context length '
+              'is 8192 tokens, however you requested 9000 tokens (index=17, offset=4201)", "type": '
+              '"invalid_request_error"}, "id": "chatcmpl-1a2b3c4d5e6f7a8b9c0d"}')
+        mx = retry_cfg()["max_same"]; reps = max(6, mx + 1)
+        sigs = [err_sig(e4) for _ in range(reps)]
+        uniq = list(dict.fromkeys(sigs))
+        assert len(uniq) == 1, "同错签名漂移：%s" % uniq
+        ns = [err_count(e4) for _ in range(reps)]
+        assert ns == list(range(1, reps + 1)), "计数未递增：%s" % ns
+        assert ns[-1] > mx, "未达熔断阈值：%s>%s" % (ns[-1], mx)
+        s401 = err_sig(e4.replace("400", "401"))
+        soth = err_sig(e4.replace("maximum context", "content policy"))
+        assert s401 != sigs[0], "400/401 塌缩同签"
+        assert soth != sigs[0], "同码异文塌缩同签"
+        assert err_count(reset=True) == 0 and err_count(e4) == 1, "reset 未清零"
+        _SIG_COUNT[sigs[0]] = (9, time.time() - _ttl() - 1)
+        assert err_count(e4) == 1, "TTL 未过期"
+        err_count(reset=True)
+        print(json.dumps({"check": "pass", "sig": sigs[0], "counts": ns, "max_same": mx,
+                          "ttl_sec": _ttl(), "sig_401": s401, "sig_other": soth},
+                         ensure_ascii=False, indent=2))
     elif k == "allow":
         print(json.dumps({"allow": allow(SMS, a[1] if len(a) > 1 else "write", ctx={"tool": "cli", "target": " ".join(a[2:]) or "-"}), "status": status()}, ensure_ascii=False))
     else: print(json.dumps(status(), ensure_ascii=False, indent=2))
