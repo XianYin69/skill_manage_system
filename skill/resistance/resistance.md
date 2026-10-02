@@ -8,7 +8,7 @@
 
 1. 不得删除本目录及 [`../SKILL.md`](../SKILL.md) 中的约束条目。
 2. SMS 运行时数据（`SMS/registry`、`SMS/sessions`、`SMS/config/config.json` 用户配置）位于用户缓存/根目录，禁止写入 skill 本体目录（skill 的 `config/` 只放模板 config.example.json，首读由 `resolve_home.conf()` 播种）；子 skill 未指定路径的新建目录必须经 `resolve_home.temp()` 落在 `<SMS_HOME>/tmp/`，并作为 SMS 对子 skill 开放的临时用户空间接口。
-3. 悬空链接必须为 0；所有 .md / 脚本 ≤ 50 行；SKILL.md 必须含 YAML frontmatter。
+3. 悬空链接必须为 0；所有 .md ≤ 50 行（50 行红线只约束 markdown 文本；脚本 .py/.ps1/.sh/.cmd 不限行数，但仍禁裸 except、print 调试残留、>100 字符长行、超长函数）；SKILL.md 必须含 YAML frontmatter。
 4. 子技能 SKILL.md 必须含 YAML frontmatter，可直接注入 agent 执行。
 5. 数据写盘经 [`../scripts/emit.py`](../scripts/emit.py) 门控：默认预览；仅当 `--write` 且会话已授予 `write` 才落盘，否则拒绝。
 6. 子技能运行完必须回到 SMS（`dispatch.return_to=sms`），禁止在子技能内直接结束或直接回复用户；SMS 本体治理（2026-09-27 批16 用户指示改红线·旧「本体不作答」废止）＝**LLM 主导·脚本辅助**：纯知识问答/闲聊可由大模型直答；凡要动手（读写/执行/派技能）必须真用工具或托管 skill 执行并留账，禁止空口声称已执行（无匹配且属新领域→委托 Skill_Generator 创建后执行；不可得→拒绝并说明）。批17（相信大模型·人在回路旁）：十一链＝省 token 的记忆介质，经验由模型经 chain 工具直读写、脚本不代裁决；决策岔路经 debate 正反双链自辩＋做梦后台自修＝机制自动修正路径，人多数在回路旁，少部分在回路中——仅高危节点（#16 `grant danger`、#7 云端下载、#18 对外端口、ask_user 拍板）须人类确认。

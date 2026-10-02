@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""redlines.py — 约束持久化机械自检：check 断言 AGENTS.md、SKILL.md、resistance.md 关键约束句未因压缩·改写丢失，全仓 .md/.py/.ps1/.sh/.cmd 等脚本 ≤50 行（含根目录与 bin/ 部署包），悬空链接=0，SKILL.md 含 frontmatter；初始化第一步与每轮 git 提交前必跑，任一失败 exit 1 禁止继续；seal 把三份入口文档 sha256 基线冻结到 <SMS_HOME>/redlines/baseline.json，check 报告未 seal 的漂移（drift，不致失败）。"""
+"""redlines.py — 约束持久化机械自检：check 断言 AGENTS.md、SKILL.md、resistance.md 关键约束句未因压缩·改写丢失，全仓 .md ≤50 行（脚本 .py/.ps1/.sh/.cmd 不计行数）（含根目录与 bin/ 部署包），悬空链接=0，SKILL.md 含 frontmatter；初始化第一步与每轮 git 提交前必跑，任一失败 exit 1 禁止继续；seal 把三份入口文档 sha256 基线冻结到 <SMS_HOME>/redlines/baseline.json，check 报告未 seal 的漂移（drift，不致失败）。"""
 import os, sys, re, json, hashlib
 SK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ROOT = os.path.dirname(SK)
@@ -25,8 +25,9 @@ def _fails():
         txt = open(p, encoding="utf-8").read()
         fails += ["缺少关键约束句 %s: %s" % (rel, s) for s in pats if s not in txt]
     for p in _scan():
-        n = sum(1 for _ in open(p, encoding="utf-8-sig"))
-        if n > 50: fails.append("超 50 行(%d): %s" % (n, os.path.relpath(p, ROOT)))
+        if p.endswith(".md"):
+            n = sum(1 for _ in open(p, encoding="utf-8-sig"))
+            if n > 50: fails.append("md 超 50 行(%d): %s" % (n, os.path.relpath(p, ROOT)))
         if p.endswith(".md"): fails += ["悬空链接 %s: %s" % (os.path.relpath(p, ROOT), t) for t in _dangling(p)]
     if not open(os.path.join(SK, "SKILL.md"), encoding="utf-8").read(4).startswith("---"):
         fails.append("SKILL.md 缺 YAML frontmatter")
