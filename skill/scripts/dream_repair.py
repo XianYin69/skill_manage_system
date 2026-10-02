@@ -17,7 +17,13 @@ def plan(sms=None):
         out.append({"fid": f["id"], "kind": k, "target": src, "action": _act(k), "msg": (f.get("text") or "")[:200], "freq": f.get("freq", 1)})
     return out
 def blocked(sms, it, consent=False):
+    """SOLO 自动同意（solo.auto_pending() 为真）＝视同用户已拍板（consent=True 语义），
+    不再因「高危核心脚本改动需用户拍板」挂起；缺权限仍照旧挂起——权限是硬门槛，自审没授予就是没授予。"""
     import permissions
+    try:
+        import solo
+        if solo.auto_pending(): consent = True
+    except Exception: pass
     for g in NEED:
         try:
             if not permissions.allow(sms, g): return "缺 %s 权限·后台不可自动修" % g

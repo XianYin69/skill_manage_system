@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""qq_listen.py — QQ 入站常驻监听器（2026-09-29 用户「我要发消息给你」；「该机器人未连接灵魂」＝本机没有常驻消费进程，本模块就是那个「灵魂」）：仿 dream_bg 后台范式——spawn 起分离子进程 `python -B qq_listen.py run`（DETACHED·stdout/stderr→<SMS_HOME>/qq/listen.log·不随壳退出而亡·防重复拉起），run 内写 pid 文件后跑 qq_session.Session(on_event=qq_dispatch.submit).loop()——入站事件只进 qq_dispatch 队列（非阻塞），agent_stream.ask 在派发线程里跑，WS 循环与心跳永不被阻塞，每次状态变化经 qq_watch.beat 续心跳（qq_session.loop 每轮回循环顶都发 live→徽标不再停在旧时间戳），流水只在状态变化或带详情时记（identified/live/down），断线指数退避自动重连（连续失败上限＝qq.json listen_retries，默认 8；耗尽则 gaveup：记 error 链＋QQ 告警，退出后由 qq_boot 下轮自愈重拉）；stop 读 pid 用 taskkill 终止并清 pid/心跳文件；status/badge 转调 qq_watch（判活与顶栏徽标同口径）。启动前置校验＝qq_push.ready（未绑定/未启用直接拒绝并提示 :qq bind / :qq on），intents 无权限（4013/4014）时自动降级只订 1<<25 重试一次，仍失败则记 error 链并提示去开放平台补权限。用法：python -B qq_listen.py spawn|run|stop|status|badge|tail [n]。"""
+"""qq_listen.py — QQ 入站常驻监听器（2026-09-29 用户「我要发消息给你」；「该机器人未连接灵魂」＝本机没有常驻消费进程，本模块就是那个「灵魂」）：仿 dream_bg 后台范式——spawn 起分离子进程 `python -B qq_listen.py run`（DETACHED·stdout/stderr→<SMS_HOME>/qq/listen.log·不随壳退出而亡·防重复拉起），run 内写 pid 文件后跑 qq_session.Session(on_event=qq_dispatch.submit).loop()——入站事件只进 qq_dispatch 队列（非阻塞），agent_stream.ask 在派发线程里跑，WS 循环与心跳永不被阻塞，每次状态变化经 qq_watch.beat 续心跳（qq_session.loop 每轮回循环顶都发 live→徽标不再停在旧时间戳），流水只在状态变化或带详情时记（identified/live/down），断线指数退避自动重连（连续失败上限＝qq.json listen_retries，默认 8；耗尽则 gaveup：记 error 链＋QQ 告警，退出后由 qq_boot 下轮自愈重拉）；stop 终止前先校验 pid 文件与心跳 pid 一致——不一致＝pid 已被别的程序复用，只清 pid/心跳文件、绝不 taskkill 陌生进程（本次误杀教训），一致才 taskkill 并清文件；status/badge 转调 qq_watch（listening＝真在听·判活与顶栏徽标同口径）。启动前置校验＝qq_push.ready（未绑定/未启用直接拒绝并提示 :qq bind / :qq on），intents 无权限（4013/4014）时自动降级只订 1<<25 重试一次，仍失败则记 error 链并提示去开放平台补权限。用法：python -B qq_listen.py spawn|run|stop|status|badge|tail [n]。"""
 import os, sys, time, json, subprocess
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import resolve_home, qq_push as qp, qq_watch as W
@@ -34,7 +34,9 @@ def run(sms=None):
         W.log("intents=%d 连续被拒，降级只订 1<<25 重试" % it, sms)
     return "监听循环退出"
 def spawn(sms=None):
-    if W.alive(sms): d = W.status(sms); return "已在监听（pid=%d·%s）" % (d["pid"], d["state"] or "?")
+    if W.alive(sms):
+        d = W.status(sms)
+        return "已在监听（pid=%d·心跳 %ss·state=%s）——新口径「真在听」才拒，僵尸/心跳过期一律重拉自愈" % (d["pid"], d["beat_age"], d["state"] or "?")
     if not qp.ready(qp.conf(sms)): return "未绑定或未启用 QQ（:qq bind / :qq on）——监听器不启动"
     os.makedirs(W._d(sms), exist_ok=True)
     f = open(os.path.join(W._d(sms or resolve_home.ensure()), "listen.log"), "ab")
@@ -45,6 +47,13 @@ def spawn(sms=None):
 def stop(sms=None):
     p = W._pid(sms)
     if not p: return "未在监听（无 pid 记录）"
+    hp, age, _st = W._hbrow(sms)
+    if hp and hp != p:
+        for n in ("listen.pid", "listen.heartbeat"):
+            try: os.remove(W._f(n, sms))
+            except OSError: pass
+        W.log("pid 复用（pid 文件=%d·心跳 pid=%d·心跳龄 %ss）→ 只清文件绝不 taskkill" % (p, hp, round(age, 1)), sms)
+        return "pid=%d 与心跳 pid=%d 不一致（pid 已被别的程序复用）——只清 pid/心跳文件，绝不 taskkill 陌生进程" % (p, hp)
     try: subprocess.run((["taskkill", "/PID", str(p), "/F"] if os.name == "nt" else ["kill", str(p)]), capture_output=True, timeout=15)
     except Exception as e: return "终止失败：" + str(e)[:120]
     for n in ("listen.pid", "listen.heartbeat"):

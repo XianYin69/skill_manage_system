@@ -115,7 +115,7 @@ _NONINTERACTIVE = [False]
 def set_noninteractive(on):
     """后台/非交互总闸（dream_bg／auto_compress／dep_fetch／deploy 启动时置 True）：置位后 allow 不走 SOLO 自审，权限判定回到纯授予/配置默认，防无人应答时阻塞与成本失控。"""
     _NONINTERACTIVE[0] = bool(on)
-def _solo_gate(sms, key, id=None):
+def _solo_gate(sms, key, id=None, ctx=None):
     """SOLO 自审放行分支（solo.py 缺失/异常/后台＝False·行为与今天逐字一致）：
     重入保护——solo.gate 内部回调本模块 allow()，置 _SOLO_BUSY 令其只走纯授予判定，绝不自审套自审。"""
     if _SOLO_BUSY[0] or _NONINTERACTIVE[0]: return False
@@ -126,7 +126,7 @@ def _solo_gate(sms, key, id=None):
         return False
     _SOLO_BUSY[0] = True
     try:
-        ok, _note = solo.gate(sms, str(key), {"id": id})
+        ok, _note = solo.gate(sms, str(key), {"id": id, **(ctx or {})})
         return bool(ok)
     except Exception:
         return False
@@ -137,10 +137,11 @@ def allow_base(sms, key, id=None):
     if not id: return _eff(sms)["effective"].get(key, False)
     if str(key) in ((_ids(sms).get(str(id)) or {}).get("grants") or {}): return id_check(sms, key, id)
     return _eff(sms)["effective"].get(key, False)
-def allow(sms, key, id=None):
-    """授予判定＋SOLO 自审放行分支：allow_base 判「未授予」时才问自审（solo.enabled=false／solo.py 缺失／后台＝恒 False，与今天逐字一致）。"""
+def allow(sms, key, id=None, ctx=None):
+    """授予判定＋SOLO 自审放行分支：allow_base 判「未授予」时才问自审（solo.enabled=false／solo.py 缺失／后台＝恒 False，与今天逐字一致）。
+    ctx（可选·tool/target/intent）透传给自审，让审核看得到调用意图（如 sys_shells 的 git 写操作）；不传＝行为与今天逐字一致。"""
     if allow_base(sms, key, id): return True
-    return _solo_gate(sms, key, id)
+    return _solo_gate(sms, key, id, ctx)
 def _list_ids(sms):
     """ids 视图：每 id 的 name/kind/未过期授予键与 until/最近 audit 3 条。"""
     out = {}

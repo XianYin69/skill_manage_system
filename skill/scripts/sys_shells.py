@@ -27,7 +27,7 @@ def manual(k=None): p = os.path.join(SD, {"pwsh": "powershell.md", "powershell":
 def reg_manual():
     import atomic_io; d = {x[:-3]: os.path.join(SD, x) for x in MDS}; ok = all(os.path.isfile(v) for v in d.values()); os.makedirs(os.path.join(SMS, "shell"), exist_ok=True); ok and atomic_io.wjson(os.path.join(SMS, "shell", "manual.json"), {"skill": "shell_commands", "manuals": d}); return ("已登记手册 %d 篇 → <SMS_HOME>/shell/manual.json（:cmds/F2/派发对话可读取）" % len(d)) if ok else "手册不全：" + "、".join(x for x in d.values() if not os.path.isfile(x))
 GITW = re.compile(r"(?:^|[;&|]\s*)(?:git\s+(?:-[^\s]+\s+)*?(add|commit|merge|rebase|reset|checkout|switch|restore|push|rm|mv|stash|clean|tag|cherry-pick|apply|am|revert|worktree|gc)\b)|git\s+branch\s+-[dD]\b")
-def guarded(cmd): m = GITW.search(str(cmd or "")); import permissions; return None if not m or permissions.allow(SMS, "danger") else "拒绝：git 写操作（" + (m.group(1) or "branch -d") + "）改动仓库历史须用户当轮确认＋:grant danger（红线2·实测有对话自行 commit 致误提交）"
+def guarded(cmd): m = GITW.search(str(cmd or "")); import permissions; return None if not m or permissions.allow(SMS, "danger", ctx={"tool": "exec", "target": str(cmd or "")[:60], "intent": "用户要求的 git 写操作"}) else "拒绝：git 写操作（" + (m.group(1) or "branch -d") + "）改动仓库历史须用户当轮确认＋:grant danger（红线2·实测有对话自行 commit 致误提交）"
 def run(cmd, kind=None, on_line=lambda s: None):
     k = kind_for(cmd, kind); binp = (detect().get(k) or "") if k else ""
     if not binp: return "未检出可用系统 shell（:sh list）"

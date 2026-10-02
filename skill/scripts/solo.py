@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""solo.py — SOLO 模式唯一真源（权限免用户确认·缺权限时由大模型自审决定是否授予）：cfg/enabled/never/set/banner_lines/status/review/allow/gate/granted_today/notice；review 经 gateway._req 非流式、不带 tools 的单次判定（prompt 含〔键/工具/目标/意图/本轮用户话语摘要/风险摘要〕，只回一行 JSON {"grant","ttl_min","reason"}），网关未启用/调用失败/不可解析/异常一律保守拒绝（绝不因审核失败放行）；allow 顺序＝已授予即真→SOLO 关即假→solo.never 键永不自审→danger 未开 solo.allow_danger 不自审→自审通过才 permissions.apply(grant, ttl 钳 max_ttl_min) 并落 audit（solo 标记）＋event 链；gate 回 (bool, note) 供工具层拼拒绝文案。红线：SOLO 只改「权限准入」，不绕 stop_channel/任务表/审计，自审授予可 :grant revoke <键> 即时收回（注意 :grant <键> 0＝永久授予、非收回）；后台与非交互路径（auto_compress/cache_cleanup/dep_fetch/dream_*/deploy 等）不经本模块，防做梦链路阻塞与成本失控；SOLO 关闭＝行为与今天逐字一致。用法：python -B solo.py status|on|off|banner|review <key> [ctx]"""
+"""solo.py — SOLO 模式唯一真源（权限免用户确认·缺权限时由大模型自审决定是否授予）：cfg/enabled/auto_pending/never/set/banner_lines/status/review/allow/gate/granted_today/notice；auto_pending＝SOLO 开且 solo.auto_pending（默认 true）时对「做梦修复待批」视同用户已同意，空闲自动续跑（dream_pending.auto_solo）；自审 danger 授予范围＝用户明确要求的 skill 目录改动，或用户明确要求的 git 写操作（commit/merge/push/branch 删除等·非强推非改写已推送历史）；review 经 gateway._req 非流式、不带 tools 的单次判定（prompt 含〔键/工具/目标/意图/本轮用户话语摘要/风险摘要〕，只回一行 JSON {"grant","ttl_min","reason"}），网关未启用/调用失败/不可解析/异常一律保守拒绝（绝不因审核失败放行）；allow 顺序＝已授予即真→SOLO 关即假→solo.never 键永不自审→danger 未开 solo.allow_danger 不自审→自审通过才 permissions.apply(grant, ttl 钳 max_ttl_min) 并落 audit（solo 标记）＋event 链；gate 回 (bool, note) 供工具层拼拒绝文案。红线：SOLO 只改「权限准入」，不绕 stop_channel/任务表/审计，自审授予可 :grant revoke <键> 即时收回（注意 :grant <键> 0＝永久授予、非收回）；后台与非交互路径（auto_compress/cache_cleanup/dep_fetch/dream_*/deploy 等）不经本模块，防做梦链路阻塞与成本失控；SOLO 关闭＝行为与今天逐字一致。用法：python -B solo.py status|on|off|banner|review <key> [ctx]"""
 import os, sys, json, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import resolve_home, settings, permissions, chains
@@ -13,6 +13,11 @@ RISK = ("无人确认：缺权限时不再询问用户，由大模型自审判�
         "随时关闭：:solo off 或 F4 改 solo.enabled=false；单项收回：:grant revoke <键>（:grant <键> 0＝永久授予非收回）")
 def cfg(): return settings.get("solo") or {}
 def enabled(): return bool(cfg().get("enabled"))
+def auto_pending():
+    """SOLO 下「自动同意修复待批」（配置 solo.auto_pending·默认 true）：开关开且 SOLO 开才为真。
+    供 dream_repair.blocked 视同用户已同意、dream_pending.auto_solo 空闲时逐条续跑；SOLO 关＝恒假零回归。"""
+    try: return bool(cfg().get("auto_pending", True) and enabled())
+    except Exception: return False
 def never(): return tuple(cfg().get("never") or NEVER)
 def banner_lines(): return "\n".join("· " + x for x in RISK)
 def set(on):
@@ -41,13 +46,17 @@ def review(key, ctx=None):
         gc = gateway.cfg()
         sysp = ('你是 SMS SOLO 权限自审器：判断本次工具调用是否应授予权限键。只回一行 JSON：'
                 '{"grant":true|false,"ttl_min":整数,"reason":"≤40字中文理由"}。原则：与本轮用户诉求直接相关且最小必要才授予；'
-                '破坏性/不可逆/越权/与诉求无关/意图不明＝拒绝；danger 仅限用户明确要求的 skill 目录改动；never 列内键不得授予。')
+                '破坏性/不可逆/越权/与诉求无关/意图不明＝拒绝；danger 仅限用户明确要求的 skill 目录改动，'
+                '或用户明确要求的 git 写操作（commit/merge/push/branch 删除等·非强推、非改写已推送历史）；never 列内键不得授予。'
+                'never 列内是 SMS 权限键名（remote＝远程会话越权执行元指令的键），'
+                '与 git remote、网络推送、GitHub 无关；用户明确要求的 git commit/merge/push '
+                '不得以 remote 键为由拒绝。')
         usr = "\n".join(["〔键〕" + str(key), "〔工具〕" + str(ctx.get("tool") or "-"),
                          "〔目标〕" + str(ctx.get("path") or ctx.get("url") or ctx.get("target") or "-"),
                          "〔意图〕" + str(ctx.get("intent") or "-"),
                          "〔本轮用户话语摘要〕" + (_utter() or "-"),
                          "〔风险摘要〕" + banner_lines().replace("\n", "；"),
-                         "〔永不自审〕" + "、".join(never()),
+                         "〔永不自审权限键（非 git remote）〕" + "、".join(never()),
                          "〔allow_danger〕" + str(bool(c.get("allow_danger"))), "〔已授予键〕" + "、".join(sorted(k for k in permissions.KEYS if permissions.allow_base(SMS, k)))])
         data, err = gateway._req("/chat/completions", {"model": gc.get("model") or "auto",
             "messages": [{"role": "system", "content": sysp}, {"role": "user", "content": usr}],
@@ -191,7 +200,8 @@ def continue_gate(kind, idle, pend=""):
     except Exception: return False, None
 def status(sms=None):
     sms = sms or SMS; c = cfg()
-    return {"enabled": bool(c.get("enabled")), "allow_danger": bool(c.get("allow_danger")), "never": list(never()),
+    return {"enabled": bool(c.get("enabled")), "allow_danger": bool(c.get("allow_danger")),
+            "auto_pending": auto_pending(), "never": list(never()),
             "ttl_min": int(c.get("ttl_min", 30)), "max_ttl_min": int(c.get("max_ttl_min", 120)),
             "notify": bool(c.get("notify", True)), "gateway_ok": _gw_ok(), "granted_today": granted_today(sms)}
 if __name__ == "__main__":
