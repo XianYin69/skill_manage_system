@@ -178,6 +178,25 @@ def _unlock(lk):
     try: lk and os.remove(lk)
     except Exception: pass
 
+# 本次执行语义内的 status：外部改成其它值（paused/cancelled/deleted/done/failed）＝外部优先
+OWN = ("pending", "running", "")
+
+def _merge_save(path, snap, fields):
+    """并发写回修复：落盘前重读最新文档，只叠加本次字段（外部改的 title/input 不被覆盖）。
+    fields 的值可为函数＝以盘上旧值为入参算新值（runs 以盘上最新值为基自增）。
+    status 冲突时如实保留外部值并回说明，不静默改回 pending/done。返回 (doc, 说明)。"""
+    fresh, _ = load(path)
+    if not isinstance(fresh, dict): fresh = dict(snap)  # 文件被删/坏：退回本次快照
+    note = ""
+    for k, v in fields.items():
+        if callable(v): v = v(fresh.get(k))
+        if k == "status" and str(fresh.get("status")) not in OWN:
+            note = "外部 status=%s 已如实保留（本次拟写 %s）" % (fresh.get("status"), v)
+            continue
+        fresh[k] = v
+    _save(path, fresh)
+    return fresh, note
+
 def fire(entry, runner=None):
     doc, path = entry["doc"], entry["path"]
     lk = _lock(path)
@@ -187,21 +206,29 @@ def fire(entry, runner=None):
     prev = dict(chains.ACTIVE)  # 红线17 防跨对话污染：触发期临时改归属，收口必还原
     conv = chains.session_id(); chains.set_active(conv=conv, sess=sid); session_reg.attach(conv, sid)
     now = NOW()
-    doc.update(status="running", last_run=ISO(now), runs=int(doc.get("runs") or 0) + 1)
+    doc["last_run"] = ISO(now)
     nxt = next_run(doc, frm=now) if mode in ("cron", "interval") else None
-    doc["next_run"] = ISO(nxt) if nxt else ""
-    _save(path, doc)
+    # 触发前写回也走合并：scan 与 fire 间的外部编辑不被快照覆盖，runs 以盘上最新值为基
+    doc, _ = _merge_save(path, doc, {"status": "running", "last_run": doc["last_run"],
+                                     "runs": lambda o: int(o or 0) + 1,
+                                     "next_run": ISO(nxt) if nxt else ""})
     chains.record("session", "计划任务触发 %s《%s》→ conv=%s sess=%s" % (doc.get("id"), doc.get("title"), conv, sid))
+    note = ""
     try:
         out = (runner or _default_runner)(utter(doc, sid))
-        doc["status"] = "failed" if "执行异常" in str(out) else ("done" if mode == "at" and not nxt else "pending")
+        fail = "执行异常" in str(out)
+        status = "failed" if fail else ("done" if mode == "at" and not nxt else "pending")
     except Exception as ex:
-        doc["status"] = "failed"; out = "执行异常：" + repr(ex)[:200]; _save(path, doc)
-    _save(path, doc)
-    chains.record("session", "计划任务收口 %s → %s" % (doc.get("id"), doc["status"]))
+        status = "failed"; out = "执行异常：" + repr(ex)[:200]
+    # 收口写回＝重读最新文档后叠加本次字段：status/runs/next_run 以本次执行结果为准
+    doc, note = _merge_save(path, doc, {"status": status, "last_run": doc.get("last_run"),
+                                       "runs": doc.get("runs"),
+                                       "next_run": doc.get("next_run")})
+    chains.record("session", "计划任务收口 %s → %s%s" % (doc.get("id"), doc.get("status"),
+                                                        ("·" + note) if note else ""))
     _unlock(lk)
     chains.set_active(conv=prev.get("conv") or "", sess=prev.get("sess") or "")
-    return doc["status"], str(out)[:400]
+    return doc.get("status") or status, str(out)[:400] + (("｜" + note) if note else "")
 
 def start(sms=None):
     """拉起分离的调度进程（同 dream_bg/qq_listen 范式）：已有活着的 serve 就跳过。"""
