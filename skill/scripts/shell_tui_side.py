@@ -24,10 +24,38 @@ def _sess():
                 str(v.get("kind") or "shell")[:4], str(v.get("name") or "")[:14], sid[-6:], str(v.get("last_active") or "")[-8:])))
         return {k: [x[1] for x in sorted(v, reverse=True)[:4]] for k, v in g.items()}
     except Exception: return {}
+def _heavy_iv():
+    """_heavy 轮询间隔（秒）：默认 20（旧 5s 同步取数＝每轮阻塞事件循环约 1.17s·卡顿主因）；
+    可在 <SMS_HOME>/config/config.json 设 shell.heavy_poll_interval_s 调节（默认不写该项）。"""
+    try:
+        import resolve_home
+        return float((resolve_home.conf(core.SMS).get("shell") or {}).get("heavy_poll_interval_s") or 20)
+    except Exception: return 20.0
+
+
 class Side(Static):
-    def on_mount(self): self._ov = []; self._sg = {}; self._nw = 0; self._ot = 0.0; self._tp = ""; self.set_interval(0.5, self._tick)
+    def on_mount(self):
+        self._ov = []; self._sg = {}; self._nw = 0; self._ot = 0.0; self._tp = ""
+        self._busy = False; self._iv = _heavy_iv(); self.set_interval(0.5, self._tick)
+
     def _heavy(self, force=False):
-        if force or time.time() - self._ot > 5: self._ot = time.time(); self._ov = shell_tui_sessions.overview(); self._nw = len(workspace.list_ws()); self._tp = __import__("sessions_view").overview(core.chains.cur_sess()); self._sg = _sess()
+        """重数据整批移出 UI 线程：默认 20s 一轮，上一轮未完即跳过（并发闸防叠轮）；
+        _tick 只渲染上一次缓存结果，绝不因取数阻塞事件循环。"""
+        if not force and time.time() - self._ot < self._iv: return
+        if self._busy: return
+        self._ot = time.time(); self._busy = True
+        try: self.run_worker(self._heavy_job, thread=True, name="side-heavy", group="side-heavy")
+        except Exception: self._busy = False
+
+    def _heavy_job(self):
+        """工作线程内取数（一次 snap 供对话一览＋会话拓扑共用·纯读不落盘）。"""
+        try:
+            sv = __import__("sessions_view"); sn = sv.snap(); cur = core.chains.cur_sess()
+            ov = shell_tui_sessions.overview(frags=sn["session"], dial=sn["dialogue"])
+            tp = sv.overview(cur, sn); nw = len(workspace.list_ws()); sg = _sess()
+            self._ov, self._tp, self._nw, self._sg = ov, tp, nw, sg
+        except Exception: pass
+        finally: self._busy = False
     def _tick(self):
         self._heavy()
         a = self.app; steps = list(getattr(a, "steps", [])); cur = steps[-1] if steps else "就绪"

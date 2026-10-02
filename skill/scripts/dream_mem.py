@@ -26,4 +26,8 @@ def absorb(sms, top, r=None):
 if __name__ == "__main__":
     sms = resolve_home.ensure()
     if len(sys.argv) > 2 and sys.argv[1] == "test": print(json.dumps({"private": _priv(sys.argv[2])}, ensure_ascii=False))
-    else: print(json.dumps(absorb(sms, sorted(chains.store().all_frags(), key=lambda f: -f.get("freq", 1))[:40]), ensure_ascii=False))
+    else:
+        # 先滤 dead 墓碑再取 top：merge_near/prune 只标不删，否则墓碑会以高频被复活
+        live = [f for f in chains.store().all_frags() if not f.get("dead")]
+        print(json.dumps(absorb(sms, sorted(live, key=lambda f: -f.get("freq", 1))[:40]),
+                         ensure_ascii=False))
