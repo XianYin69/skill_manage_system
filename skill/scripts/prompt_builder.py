@@ -51,8 +51,14 @@ def brief_on(sms=None):
             return False
         return open(_bp(sms), encoding="utf-8").read().strip() == "1"
     except Exception: return False
+def _solo_note():
+    """SOLO 权限指令段（批28·solo.prompt_note 同源）：SOLO 关＝空串，治理红线逐字零回归。"""
+    try:
+        import solo; return solo.prompt_note()
+    except Exception:
+        return ""
 def build(user_input, sms=None):
-    return "[SMS 逐轮构建·引导结构]\n① 处理协议：" + PROTOCOL + "\n② 治理红线：" + PROMPT + "\n③ " + index(sms) + "\n④ 用户输入（唯一指令）：\n" + user_input + PLAN + (BRIEF if brief_on(sms) else "")
+    return "[SMS 逐轮构建·引导结构]\n① 处理协议：" + PROTOCOL + "\n② 治理红线：" + PROMPT + _solo_note() + "\n③ " + index(sms) + "\n④ 用户输入（唯一指令）：\n" + user_input + PLAN + (BRIEF if brief_on(sms) else "")
 if __name__ == "__main__":
     a = sys.argv[1:] or ["init"]; cmd = a[0]
     if cmd == "init": print(init())

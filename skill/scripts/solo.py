@@ -20,6 +20,21 @@ def auto_pending():
     except Exception: return False
 def never(): return tuple(cfg().get("never") or NEVER)
 def banner_lines(): return "\n".join("· " + x for x in RISK)
+def prompt_note():
+    """SOLO 权限指令段（批28·提示词唯一真源）：SOLO 开＝返回「权限免用户确认」硬指令；
+    关＝空串（系统提示词与旧版逐字一致·零回归）。修「机制已通但提示词写死回人确认」——
+    模型照提示词办事才反复找用户要 :grant／用 ask_user 要权限。"""
+    if not enabled(): return ""
+    c = cfg()
+    return ("\n〔SOLO 权限自审·批28〕SOLO 已开启：权限准入由 solo.gate 自动自审并按 TTL 落账，"
+            "**你不得再向用户要权限**——不得为权限调用 ask_user、不得让用户输入 :grant、"
+            "不得在回复里征求授权；按用户诉求直接发起工具调用，缺权限时自审当场判定并放行/拒绝。"
+            "被拒（自审拒绝或 never 键）＝换低风险做法或如实说明受阻，仍不得回头问用户要授权。"
+            "禁止「先讨要 danger、用完 :grant revoke 收回」——收回令下次自审重来＝变相骚扰用户。"
+            "唯一例外：solo.never 列内键（当前=" + "、".join(never()) + "）永不自审须用户当轮授予；"
+            "skill 目录写与 git 写受 allow_danger=" + str(bool(c.get("allow_danger"))) + " 约束。"
+            "ask_user 只用于任务内容本身缺关键信息（目标/偏好/取舍），绝不用于权限。")
+
 def set(on):
     """开关（写 config solo.enabled）：开启即回风险提示文案（供主输出窗口/菜单打印）。"""
     on = bool(on); settings.set("solo.enabled", on)
