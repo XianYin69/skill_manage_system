@@ -47,6 +47,7 @@ def review(key, ctx=None):
         sysp = ('你是 SMS SOLO 权限自审器：判断本次工具调用是否应授予权限键。只回一行 JSON：'
                 '{"grant":true|false,"ttl_min":整数,"reason":"≤40字中文理由"}。原则：与本轮用户诉求直接相关且最小必要才授予；'
                 '破坏性/不可逆/越权/与诉求无关/意图不明＝拒绝；danger 仅限用户明确要求的 skill 目录改动，'
+                '〔工具〕为 dream_repair 且 SOLO 开（auto_pending）时，修复待批续跑＝用户已预先同意该 skill/脚本修复性改动，属可授予范围（给最小 TTL）；'
                 '或用户明确要求的 git 写操作（commit/merge/push/branch 删除等·非强推、非改写已推送历史）；never 列内键不得授予。'
                 'never 列内是 SMS 权限键名（remote＝远程会话越权执行元指令的键），'
                 '与 git remote、网络推送、GitHub 无关；用户明确要求的 git commit/merge/push '

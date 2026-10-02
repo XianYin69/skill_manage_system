@@ -18,16 +18,21 @@ def plan(sms=None):
     return out
 def blocked(sms, it, consent=False):
     """SOLO 自动同意（solo.auto_pending() 为真）＝视同用户已拍板（consent=True 语义），
-    不再因「高危核心脚本改动需用户拍板」挂起；缺权限仍照旧挂起——权限是硬门槛，自审没授予就是没授予。"""
+    不再因「高危核心脚本改动需用户拍板」挂起；权限门槛经 SOLO 自审（solo.gate）——已授予即过，未授予时 SOLO 开且自审放行（danger 需 solo.allow_danger）当场按 TTL 授予后续跑，自审拒绝才挂起（SOLO 关＝与旧版逐字一致，仍报缺权限）。"""
     import permissions
     try:
         import solo
-        if solo.auto_pending(): consent = True
-    except Exception: pass
+    except Exception:
+        solo = None
+    if solo and solo.auto_pending(): consent = True
     for g in NEED:
         try:
-            if not permissions.allow(sms, g): return "缺 %s 权限·后台不可自动修" % g
-        except Exception: return "权限校验异常·需前台确认"
+            if permissions.allow_base(sms, g): continue
+            if not solo: return "缺 %s 权限·后台不可自动修" % g
+            ok, note = solo.gate(sms, g, ctx={"tool": "dream_repair", "target": str(it.get("target")),
+                                              "intent": "SOLO 修复待批续跑（solo.auto_pending 开·用户已指示进行修复待批）：%s·%s 经 Skill_Generator self_update 修复，需 %s；依据：%s" % (it.get("action"), it.get("target"), g, str(it.get("msg"))[:80])})
+            if not ok: return "缺 %s 权限·后台不可自动修%s" % (g, solo.tail(note))
+        except Exception as e: return "权限校验异常·需前台确认：" + str(e)[:60]
     if not consent and it["action"] == "program" and any(w in it["target"] for w in HIGH): return "高危核心脚本改动需用户拍板"
     return None
 def _run(sms, it, repro=""):
