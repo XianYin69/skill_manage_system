@@ -61,10 +61,10 @@ class Menus:
         import time as _t
         if getattr(self, "_exit_at", 0) and _t.time() - self._exit_at < 5:
             self._exit_at = 0
-            self.log_line(Text("已确认退出——远端已通报「SMS 关闭中」·旧进程一并清掉", style="bold yellow"))
+            self.log_line(Text("已确认退出——正在收后台进程（HUD/网页壳/计划任务/监听器）…", style="bold yellow"))
             try:
                 import shell_lifecycle as lc
-                lc.shutdown(None, "用户 Ctrl+Q 确认退出")   # 通报＋清 HUD/后台＋os._exit
+                self.set_timer(0.05, lambda: lc.shutdown(None, "用户确认退出"))
             except Exception:
                 self.exit()
             return

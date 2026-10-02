@@ -30,7 +30,9 @@ def _shell_pids(exclude=()):
     keep = set([os.getpid()] + [int(x) for x in exclude if x])
     q = "Get-CimInstance Win32_Process -Filter \"Name like '%python%'\" | ForEach-Object { \"$($_.ProcessId)`t$($_.CommandLine)\" }"
     try:
-        out = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", q], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=25).stdout
+        # 实测一次 PowerShell 查询约 1.1s：25s 上限＝网关/PS 卡住时，用户点「确认关闭」最长干等 25 秒，
+        # 正是「点了没关」的观感来源。5s 足够；超时回 [] 由 kill_services 的 ctypes 路径兜底。
+        out = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", q], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=5).stdout
     except Exception: return []
     hits = []
     for ln in out.splitlines():
@@ -49,6 +51,52 @@ def kill_others(exclude=(), why=""):
         except Exception: pass
     gone and chains.record("event", "shell-kill-others %s（%s）" % (",".join(map(str, gone)), why or "restart"))
     return gone
+SVC = (("web_shell", ("shell", "web_shell.pid")), ("planned", ("planned", "serve.pid")),
+       ("hud", ("hud", "state.json.pid")), ("qq_listen", ("qq", "listen.pid")))
+def _alive(pid):
+    """ctypes 真判活（GetExitCodeProcess==259·绝不用 os.kill 防误杀）。"""
+    try:
+        import ctypes
+        k = ctypes.windll.kernel32
+        h = k.OpenProcess(0x1004, False, int(pid))
+        if not h: return False
+        c = ctypes.c_ulong(); ok = k.GetExitCodeProcess(h, ctypes.byref(c)); k.CloseHandle(h)
+        return bool(ok) and c.value == 259
+    except Exception: return True
+def kill_services(exclude=(), sms=None, budget=1.5, why=None):
+    """回收壳自己拉起的一切后台进程——DETACHED 子进程不随 os._exit 而亡，正是「点了确认关闭程序还在」的真根因。
+    两路取 pid：① SVC pid 文件表（web_shell/planned/hud/qq_listen·不活只清文件绝不误杀）② 本进程全部后代
+    （proc_guard ctypes Toolhelp32·零 PowerShell）。taskkill /T /F 逐个杀，总预算 budget 秒，异常一律静默。
+    why＝调用场景（close_guard._bye 按规格传「窗口/控制事件」·缺省按 close 记链）。"""
+    t0 = time.time(); sms = sms or resolve_home.ensure()
+    keep = set([os.getpid()] + [int(x) for x in exclude if x]); pids = []
+    for _name, rel in SVC:
+        try:
+            p = os.path.join(sms, *rel)
+            if not os.path.exists(p): continue
+            pid = int((open(p, encoding="utf-8").read() or "0").split("|")[0].strip() or 0)
+            if pid and pid not in keep and _alive(pid): pids.append(pid)
+            else:
+                try: os.remove(p)
+                except Exception: pass
+        except Exception: pass
+    try:
+        import proc_guard as pg
+        for d in pg.descendants(os.getpid()):
+            if d not in keep and d not in pids and _alive(d): pids.append(d)
+    except Exception: pass
+    for pid in pids:
+        if time.time() - t0 > budget: break
+        try: subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True, timeout=3)
+        except Exception: pass
+    pids and chains.record("event", "shell-kill-services %s（%s）" % (",".join(map(str, pids)), why or "close"))
+    return pids
+def _push_async(text, wait=1.2):
+    """远端通报挪到 daemon 线程（旧版同步 urlopen timeout=8s＝确认关闭后干等 8 秒＝「没关」错觉）。"""
+    import threading
+    try:
+        t = threading.Thread(target=cg.push, args=(text,), daemon=True); t.start(); t.join(wait)
+    except Exception: pass
 def _bye(sms, tag):
     chains.record("event", tag + " " + time.strftime("%Y-%m-%dT%H:%M:%S"))
     try: chain_timing.flush()
@@ -72,6 +120,8 @@ def restart(sms=None, why="", hard=True):
     r, newpid = _spawn(sms)
     if not newpid: return r
     time.sleep(1.0)
+    # 先收用户看得见的服务，再跑慢的 PowerShell 清旧壳；新实例 on_mount 会重拉服务
+    kill_services(exclude=[newpid], why="restart")
     kill_others(exclude=[newpid], why=why or "restart")
     if hard:
         try: chain_timing.flush()
@@ -82,7 +132,7 @@ def shutdown(sms=None, why="", hard=True):
     """关闭：通报远端→收 HUD/TTS→清所有壳进程。非壳进程调用＝只登记请求。"""
     sms = sms or resolve_home.ensure()
     if not _is_shell(): return request("shutdown", why)
-    cg.push("SMS 关闭中（%s）· %s" % (why or "shutdown", time.strftime("%H:%M:%S")))
+    _push_async("SMS 关闭中（%s）· %s" % (why or "shutdown", time.strftime("%H:%M:%S")))
     _flag(sms, False)
     try:
         import hud; hud._stop()
@@ -90,21 +140,25 @@ def shutdown(sms=None, why="", hard=True):
     try:
         import tts; hasattr(tts, "stop") and tts.stop()
     except Exception: pass
+    # 先收用户看得见的置顶 HUD/网页壳，再跑慢的 PowerShell 清其它实例（kill_others→_shell_pids）
+    kill_services(why="shutdown")  # 关壳必清后台＝批29 真根因（DETACHED 不随 os._exit 而亡）
     _bye(sms, "shell-shutdown"); kill_others(why=why or "shutdown")
     if hard:
+        try: kill_services(budget=0.4, why="shutdown-hard")
+        except Exception: pass
         try: chain_timing.flush()
         except Exception: pass
         os._exit(0)
     return "已关闭SMS：HUD/后台已收，本壳退出"
 
 def _is_shell():
-    """本进程是不是壳进程（壳自己执行重启/关闭才允许硬退；exec 派生的子进程只登记请求，交壳在收口时执行——否则子进程会把正在对话的壳当场打死）。"""
-    me = os.getpid()
+    """本进程是不是壳：argv 命中 PATTERNS 即真（旧版跑 PowerShell 查自身命令行＝实测 2.24s 白等，
+    点「确认关闭」后数秒无反馈正是「看起来没关」的成因之一）。取不到一律按壳处理＝宁硬退不误登记。"""
     try:
-        q = "Get-CimInstance Win32_Process -Filter \"ProcessId=%d\" | ForEach-Object { $_.CommandLine }" % me
-        cl = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", q], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=20).stdout
-    except Exception: return True
-    return any(pt in cl for pt in ("shell_tui_textual.py", "shell_tui.py", "shell_console.py", "shell_gui.py", "sms-shell.py"))
+        cl = " ".join([os.path.basename(sys.executable)] + sys.argv)
+    except Exception:
+        return True
+    return any(pt in cl for pt in PATTERNS)
 def request(action, why="", sms=None):
     """大模型侧入口：登记 restart/shutdown，本轮数据流收口时由壳自己执行（先说完话、先落任务表）。"""
     return cg.request(action, why, sms)
@@ -153,6 +207,50 @@ def resume_hint(sms=None):
 def auto_resume(sms=None):
     """兼容壳（旧入口·新代码请直接用 resume）：续跑话语取 resume()[1]（同上·不二次消费旗标）。"""
     return (resume(sms) if _LAST is None else _LAST)[1]
+def _selftest():
+    """批29 回归（python -B shell_lifecycle.py selftest）：① _is_shell 零 PowerShell ② kill_services 真收
+    DETACHED 后代 ③ 死 pid 只清文件不误杀。回收只在 tmp 镜像根里跑＝真服务进程不受扰；真实 pid 文件先备份后还原。"""
+    import shutil, tempfile
+    t = time.time(); assert not _is_shell(), "直跑本文件应判非壳（argv 不含 PATTERNS）"
+    dt = time.time() - t
+    assert dt < 0.2, "_is_shell 耗时 %.3fs＝仍在跑 PowerShell（旧版实测 2.24s）" % dt
+    sms = resolve_home.ensure(); bak = {}
+    for _n, rel in SVC:  # 真实 pid 文件先备份（测试全程不写它们＝兜底防污染）
+        p = os.path.join(sms, *rel)
+        bak[p] = open(p, "rb").read() if os.path.exists(p) else None
+    root = tempfile.mkdtemp(prefix="lc_selftest_"); pr = None
+    try:
+        pr = subprocess.Popen([sys.executable, "-B", "-c", "import time;time.sleep(60)"],
+                              creationflags=0x08000000 | 0x8)
+        time.sleep(0.4)
+        import proc_guard as pg
+        assert pr.pid in pg.descendants(os.getpid()), "Toolhelp32 后代枚举未命中测试孙进程 %s" % pr.pid
+        got = kill_services(sms=root, budget=2.0)
+        assert pr.pid in got, "kill_services 未收到后代（got=%s）" % got
+        time.sleep(1.2)
+        assert not _alive(pr.pid), "DETACHED 孙进程仍活着＝真根因未修"
+        dead = os.getpid() + 10 ** 6
+        pf = os.path.join(root, "planned", "serve.pid")
+        os.makedirs(os.path.dirname(pf), exist_ok=True)
+        open(pf, "w", encoding="utf-8").write("%d|%d" % (dead, time.time()))
+        got2 = kill_services(sms=root, budget=1.0)
+        assert dead not in got2, "死 pid 进了回收表＝pid 复用会误杀（got=%s）" % got2
+        assert not os.path.exists(pf), "死 pid 文件未被清（残留＝下次误判在跑）"
+        assert not _alive(dead), "死 pid 竟判活"
+    finally:
+        try:
+            pr and pr.kill()
+        except Exception: pass
+        shutil.rmtree(root, ignore_errors=True)
+        for p, data in bak.items():  # 还原真实 pid 文件
+            try:
+                if data is None:
+                    os.path.exists(p) and os.remove(p)
+                else:
+                    os.makedirs(os.path.dirname(p), exist_ok=True)
+                    open(p, "wb").write(data)
+            except Exception: pass
+    print("selftest OK（_is_shell %.3fs·零 PowerShell）" % dt)
 if __name__ == "__main__":
     a = sys.argv[1:] or ["status"]
     if a[0] in ("restart", "shutdown"):
@@ -163,6 +261,8 @@ if __name__ == "__main__":
         print(restart(why="CLI force") if a[1] != "shutdown" else shutdown(why="CLI force"))
     elif a[0] == "pending":
         print(run_pending() or "无待执行请求")
+    elif a[0] == "selftest":
+        _selftest()
     else:
         print(json.dumps({"launcher": BIN, "exists": os.path.isfile(BIN), "is_shell": _is_shell(),
                           "pending_restart": cg.peek(), "others": _shell_pids()}, ensure_ascii=False))

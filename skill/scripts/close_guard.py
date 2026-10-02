@@ -62,8 +62,12 @@ def _msgbox(text, title="SMS 关闭确认"):
         return ctypes.windll.user32.MessageBoxW(None, text, title, MB_YESNO | MB_ICONWARNING) == IDYES
     except Exception: return None
 def _bye(why):
-    """放行退出前的收尾：链落盘＋远端通报（顺序很重要——先通报再 flush，硬杀也至少发出去了）。"""
+    """放行退出前的收尾：链落盘＋远端通报＋回收后台服务（DETACHED 子进程不随本进程死＝旧版「关了个寂寞」）。"""
     push("SMS 关闭中（%s）· %s" % (why, time.strftime("%H:%M:%S")))
+    try:
+        import shell_lifecycle as lc  # 懒 import 防回环（shell_lifecycle 顶部 import close_guard）
+        lc.kill_services(why="窗口/控制事件")
+    except Exception: pass
     try:
         import chain_timing; chain_timing.flush()
     except Exception: pass
