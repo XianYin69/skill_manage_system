@@ -15,8 +15,19 @@ def toggle(on):
 def conf_set(kv):
     p = os.path.join(resolve_home.ensure(), "config", "qq.json"); d = qp._ld(p, {}) or {}
     k, _, v = str(kv).partition("="); v = v.strip().strip('"')
-    d[k] = {"true": True, "false": False}.get(v.lower(), int(v) if v.isdigit() else (float(v) if v.replace(".", "").isdigit() else v))
-    json.dump(d, open(p, "w", encoding="utf-8"), ensure_ascii=False, indent=1); return {k: d[k]}
+    if k not in qp.DEF: return {"拒绝": "未知键 " + k, "可用键": "、".join(sorted(qp.DEF))}
+    base = qp.DEF[k]; cur = d.get(k, base)
+    val = {"true": True, "false": False}.get(v.lower(), int(v) if v.lstrip("-").isdigit() else (float(v) if v.replace(".", "", 1).lstrip("-").isdigit() else v))
+    if isinstance(base, bool):
+        if not isinstance(val, bool): return {"拒绝": k + " 需 true/false", "当前": cur}
+    elif isinstance(base, (int, float)):
+        if not isinstance(val, (int, float)) or isinstance(val, bool): return {"拒绝": k + " 需数字", "当前": cur}
+        if val < 0: return {"拒绝": k + " 不能为负", "当前": cur}
+        if val > 1000000: return {"拒绝": k + " 超出合理上限 1000000（疑似打错）", "当前": cur}
+    else:
+        if not isinstance(val, str): return {"拒绝": k + " 需字符串", "当前": cur}
+    d[k] = val
+    json.dump(d, open(p, "w", encoding="utf-8"), ensure_ascii=False, indent=1); return {k: val, "原值": cur}
 if __name__ == "__main__":
     a = sys.argv[1:] or ["status"]; opt = lambda k, d="": sys.argv[sys.argv.index(k) + 1] if k in sys.argv else d
     if a[0] in ("bind", "resume"): p, m = (qf.bind((a[1] if len(a) > 1 and not a[1].startswith("--") else "") or "SMS", int(opt("--timeout", 180)), int(opt("--rounds", 3))) if a[0] == "bind" else qf.resume(int(opt("--timeout", 180)))); print(m + ("·" + p if p else ""))

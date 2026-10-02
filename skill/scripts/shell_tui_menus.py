@@ -4,7 +4,7 @@ import os
 import shell_core as core, skill_route, user_index
 from rich.text import Text
 from shell_tui_menu import Menu, MAIN, Path
-META = [":" + m for m in ("agents","use","skill","cmds","intent","index","skills","workspace","debug","mode","dispatch","sh","edit","view","alias","unalias","hud","deploy","qq","session","grant","perms","solo","tools","api","config","web","ext","net","tts","learn","file","path","dream","image","restart","shutdown","repair","help","quit")]
+META = [":" + m for m in ("agents","use","skill","cmds","intent","index","skills","workspace","debug","mode","dispatch","sh","edit","view","alias","unalias","hud","deploy","qq","session","grant","perms","solo","tools","api","config","web","ext","net","tts","learn","file","path","dream","image","plan","dep","resume","detail","task","manual","stop","restart","shutdown","repair","help","quit")]
 def _main_menu():
     """MAIN 注入「SOLO 模式」项（配置·权限·工具组→perms 面板 action_menu_solo·不改 shell_tui_menu 原表·异常即原样返回）。"""
     try:

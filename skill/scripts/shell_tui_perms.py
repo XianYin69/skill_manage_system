@@ -65,7 +65,7 @@ class Perms:
         self.menu("SOLO 模式（Enter 切换·关闭＝权限回到用户确认·单项收回 :grant revoke <键>）",
                   [("solo:toggle", ("✓ " if on else "✗ ") + "SOLO 自审授予（免用户确认）"),
                    ("solo:danger", ("✓ " if st.get("allow_danger") else "✗ ") + "allow_danger（自审可放行 skill 目录写·红线16）"),
-                   (":solo status", "状态（文本）"), (":grant ", "手工授予某键 <键> [分钟]"),
+                   (":solo status", "状态（文本）"), ("fill::grant ", "手工授予某键 <键> [分钟]（填入输入行·补值后回车）"),
                    ("#menu_perms", "← 返回权限与工具")])
     def solo_toggle(self, what):
         """开/关切换（写 config solo.enabled／solo.allow_danger）·失败仅提示，随后回面板刷新。"""
