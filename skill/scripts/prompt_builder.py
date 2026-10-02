@@ -8,9 +8,14 @@ PROTOCOL = "〔处理协议·批24〕内部处理（思考·工具参数·链写
 PROMPT = "你是 skill_manage_system（SMS）数据流中的主导决策者（LLM 主导·脚本辅助）：问答可直答（简短·用户语言）；本机事实先 read/grep/glob/ls/exec 查证、禁编造；动手才用工具——命中托管技能用 skill 派发对等对话（独立 conv·独立链·无主次·互任监视/指导/训诫）按注入 SKILL.md 真执行，收口＝形式停止、由你整合续推；本机脚本 exec 一次运行、禁反复试探、禁空口声称已执行；[SMS 路由·参考] 仅供裁量；既往先 chain recall、有价值即 chain append、岔路用 debate 自辩（仅高危回人确认）；确无可用技能则建议经 Skill_Generator 创建。生成文件只入工作区 tmp\\（env SMS_TMP·壳已自动建）；tmp 产物收编先 ws_release.py diff 预览、当轮同意后 release --yes（须 :grant danger）；模型/技能配置直读 <SMS_HOME>/config、禁复制重建入工作区；SMS 设置/命令据 settings/commands 查证作答。"
 def _reg(sms): return json.load(open(os.path.join(sms, "registry", "register.json"), encoding="utf-8")).get("skills", [])
 def model_block(sms=None):
-    sms = sms or resolve_home.ensure(); g = settings.eff(sms)["llm_gateway"]; mm = settings.eff(sms).get("model_meta", {}).get("defaults", {})
-    ctx = (mm or {}).get("context_length")
-    return "模型身份：" + str(g.get("model") or "auto") + "（" + str(g.get("base_url") or "未配置网关") + "）· temperature=" + str(g.get("temperature")) + " top_p=" + str(g.get("top_p")) + " max_tokens=" + str(g.get("max_tokens")) + (" 上下文≤" + str(ctx) if ctx else "")
+    sms = sms or resolve_home.ensure(); g = settings.eff(sms)["llm_gateway"]
+    try:
+        import model_meta; mm = model_meta.get(g.get("model") or "auto")
+    except Exception:
+        mm = dict(settings.eff(sms).get("model_meta", {}).get("defaults", {})); mm.setdefault("source", "default")
+    ctx = mm.get("context_length"); mo = mm.get("max_output_tokens")
+    src = {"upstream": "上游标注", "probe": "实测", "listing": "兜底", "default": "兜底"}.get(mm.get("source"), "")
+    return "模型身份：" + str(g.get("model") or "auto") + "（" + str(g.get("base_url") or "未配置网关") + "）· temperature=" + str(g.get("temperature")) + " top_p=" + str(g.get("top_p")) + " max_tokens=" + str(g.get("max_tokens")) + (" 上下文≤" + str(ctx) + ("（" + src + "）" if src else "") if ctx else " 上下文未探测") + (" 输出≤" + str(mo) if mo else "")
 def index(sms=None):
     sms = sms or resolve_home.ensure()
     try: rows = [s for s in _reg(sms) if s.get("status", "active") == "active" and s.get("trust") not in ("quarantine", "pending_review")]

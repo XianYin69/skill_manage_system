@@ -19,11 +19,13 @@
   "auto_refresh": true,
   "refresh_interval_min": 720,
   "defaults": {
-   "context_length": 8192,
-   "max_output_tokens": 1024,
+   "context_length": null,
+   "max_output_tokens": null,
    "rpm": null
   },
-  "comment": "上游模型元数据自动抓取（model_meta.py）：GET /models 扩展字段＋探测响应头 x-ratelimit；缓存 <SMS_HOME>/config/models.json；defaults＝上游未提供时的兜底标注"
+  "probe_limits": true,
+  "probe_fill_chars": 2000000,
+  "comment": "上游模型元数据自动抓取（model_meta.py）：GET /models 扩展字段＋探测响应头 x-ratelimit；缓存 <SMS_HOME>/config/models.json；defaults＝上游未提供且越界探测也拿不到时的兜底标注（null＝显示「未探测」，不再虚标 8192）；probe_limits＝批29 越界反推真实硬限开关；probe_fill_chars＝输入探测填充字数"
  },
  "caps": {
   "gateway_rounds": 0,

@@ -85,8 +85,14 @@ def bad_args(tcs):
 def est(s): s = str(s or ""); return len(CJK.findall(s)) + (len(s) - len(CJK.findall(s))) // 4
 def _c(m): c = m.get("content") or ""; return c if isinstance(c, str) else " ".join(str(p.get("text", "")) for p in c if isinstance(p, dict))
 def msgs_est(msgs): return sum(est(_c(m)) + sum(est(str((t.get("function") or {}).get("name", "")) + str((t.get("function") or {}).get("arguments", ""))) for t in m.get("tool_calls") or []) for m in msgs)
-def budget(msgs, mt):
-    x = msgs_est(msgs); return "" if x <= mt else "\n\n〔Token 预算·脚本测量·拆分由你〕本次输入≈%d tokens＞单轮 max_tokens=%d（输入超输出上限本身正常·上下文才是硬限制）——凡预计单轮输出（含工具参数/正文）会超 %d：长文件分多段 write(append=true)·长答复拆多轮续写；预计不超则正常作答，勿为此浪费篇幅。" % (x, mt, mt)
+NOTE = "\n\n〔Token 预算·脚本测量·拆分由你〕本次输入≈%d tokens＞单轮 max_tokens=%d（输入超输出上限本身正常·上下文才是硬限制）——凡预计单轮输出（含工具参数/正文）会超 %d：长文件分多段 write(append=true)·长答复拆多轮续写；预计不超则正常作答，勿为此浪费篇幅。"
+def budget(msgs, mt, ctx=None):
+    """批29：拿到真实上下文（上游标注或越界实测）就按占窗比例判——每轮 6k 输入不再误报；ctx 缺＝旧口径零回归。"""
+    x = msgs_est(msgs)
+    if not ctx: return "" if x <= mt else NOTE % (x, mt, mt)
+    if x >= int(ctx * 0.75): return "\n\n〔Token 预算·脚本测量·拆分由你〕本次输入≈%d tokens 已占真实上下文 %d 的 75%% 以上——立即分段：长答复拆多轮续写、长文件分多段 write(append=true)。" % (x, ctx)
+    if x > mt and x >= int(ctx * 0.35): return NOTE % (x, mt, mt)
+    return ""
 def add_note(msg, note):
     if not note: return msg
     m = dict(msg); c = m.get("content")
@@ -95,5 +101,5 @@ def add_note(msg, note):
 def notice(kind, idle): return "• 主流程守卫：" + {"pend": "〔任务表〕仍有未完成行·自动续推中（第", "cut": "正文被 max_tokens 截断·自动续推分段续写（第"}.get(kind, "检测到空口宣告（说要动手·本轮零执行调用）·自动续推中（第") + str(idle) + "次·对话不结束）"
 def inject(kind, pend=""): return {"pend": "[SMS 主流程守卫] 主任务未完成·不得收口结束：\n" + pend + "\n据实改表并继续推进未完成行（无依赖用 task 工具并发·有依赖 parallel=false 或依序逐 skill·完成即 task_plan status done）·全部行 done 后才一句 ≤40 字收口——禁止重复宣告完成而不推进。", "cut": CONT}.get(kind) or "[SMS 主流程守卫] 你刚宣告要动手，但本轮未调用任何 write/skill/task 执行工具、产物未落盘——禁止空口收口：立即用 write/exec/skill 真执行（长内容分多段 write append=true·每段≤600字·防 max_tokens 截断）；若确无需动手或已完成，给一句 ≤40 字事实结论。"
 if __name__ == "__main__":
-    ok = all(map(promises, ["现在开始写动画。", "Writing the animation now.", "Let me check the contents of tmp too.", "接下来我将创建文件", "我马上生成页面"])) and not any(map(promises, ["已完成，文件在 tmp\\a.html。", "链机制是省 token 的记忆介质。", "这段代码的含义是：先写头再写体。", ""])) and jargs('{"a":1}') and not jargs('{"a":1') and "主任务未完成" in inject("pend", "x") and "空口" in inject("prom") and "截断" in inject("cut") and est("你好") == 2 and est("abcd") == 1 and budget([{"role": "user", "content": "短"}], 4096) == "" and "Token 预算" in budget([{"role": "user", "content": "汉" * 100}], 50) and "预算" in add_note({"role": "user", "content": "hi"}, "〔Token 预算〕")["content"] and add_note({"role": "user", "content": "hi"}, "")["content"] == "hi"
+    ok = all(map(promises, ["现在开始写动画。", "Writing the animation now.", "Let me check the contents of tmp too.", "接下来我将创建文件", "我马上生成页面"])) and not any(map(promises, ["已完成，文件在 tmp\\a.html。", "链机制是省 token 的记忆介质。", "这段代码的含义是：先写头再写体。", ""])) and jargs('{"a":1}') and not jargs('{"a":1') and "主任务未完成" in inject("pend", "x") and "空口" in inject("prom") and "截断" in inject("cut") and est("你好") == 2 and est("abcd") == 1 and budget([{"role": "user", "content": "短"}], 4096) == "" and "Token 预算" in budget([{"role": "user", "content": "汉" * 100}], 50) and budget([{"role": "user", "content": "汉" * 100}], 50, 983616) == "" and "Token 预算" in budget([{"role": "user", "content": "汉" * 100}], 50, 150) and "75%" in budget([{"role": "user", "content": "汉" * 1000}], 50, 1000) and "预算" in add_note({"role": "user", "content": "hi"}, "〔Token 预算〕")["content"] and add_note({"role": "user", "content": "hi"}, "")["content"] == "hi"
     print("flow_guard selftest: " + ("OK" if ok else "FAIL")); raise SystemExit(0 if ok else 1)
