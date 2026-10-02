@@ -35,6 +35,9 @@ def _notice(why, text):
         NT[why] = time.time()
         import qq_push as qp; qp.push(text, "QQ·排队")
     except Exception: pass
+def _on_notice(s):
+    "运行提示（T3 延长等）：日志留痕＋QQ 侧告知一句（同因 60s 节流由 _notice 负责）"
+    _log(s); _notice("t3", "⏳ " + str(s)[:200])
 def _put(m):
     "入队：满则先挤掉队头（丢最旧保最新·计入 drop·主动告知），返回是否入队"
     try: K.put_nowait(m); return True
@@ -79,12 +82,14 @@ def _work():
         if m is None: return
         try:
             m, _ = _coalesce(m)
-            import qq_inbound as I, run_watch as rw, settings as st
-            secs = max(60, int(st.get("qq.handle_timeout", 900)))
-            # 分级（2026-10-01 error 链 2ab90541b9）：T3＝secs 总预算；T2＝阶段静默——stall 只作「普通阶段」档，
-            # handle 内部 set_stage("llm"/"skill") 的长等待阶段自动换宽档 qq.handle_stall_llm，不再平铺误杀
+            import qq_inbound as I, run_watch as rw, settings as st, timeout_tiers as tiers
+            secs = tiers.t3("qq")  # 阈值真源（旧版在此另写一份默认值，改配置不生效）
+            # 分级（2026-10-01 error 2ab90541b9 → 批27 error 43dc6d03a7）：T3＝**软预算**——到点若活动戳
+            # 仍新鲜＝链路在推进，按 qq.handle_timeout_extend 逐窗延长至 qq.handle_timeout_max 才收口；
+            # T2＝阶段静默，handle 内 set_stage("llm"/"skill") 的长等待阶段自动换宽档 qq.handle_stall_llm
             ok, r = rw.run_with_timeout(I.handle, secs, "QQ入站", (m,),
-                                        stall=max(30, int(st.get("qq.handle_stall", 240))), stage="inbound")
+                                        stall=max(30, int(st.get("qq.handle_stall", 240))),
+                                        stage="inbound", kind="qq", on_notice=_on_notice)
             ST["done"] += 1
             if not ok:
                 ST["err"] += 1; _log("超时中止 " + str(r).replace("\n", " ")[:220], True)  # 反馈首行带级别名（T1/T2/T3）
@@ -94,7 +99,7 @@ def _work():
         except Exception as e:
             ST["err"] += 1; _log("worker 异常 " + str(e)[:160], True)
         finally:
-            ST["last"] = time.time(); K.task_done()  # 停止旗标不在这里清：超时放弃的线程靠它自行收口，run_watch 已挂 60s 定时复位
+            ST["last"] = time.time(); K.task_done()  # 旗标不在这里清：被放弃线程靠本任务键自行收口
 def ensure():
     with LK:
         t = _T[0]

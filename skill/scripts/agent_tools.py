@@ -38,6 +38,21 @@ def command(cmd):
     chains.log("tool", "cmd:" + str(cmd)[:60]); emit("tool", "$ " + str(cmd) + "\n" + out, tool="command", ok=rc.startswith("rc=0"), meta={"rc": rc})
     return (("rc≠0 " if not rc.startswith("rc=0") else "") + out)
 def ask(question): import agent_tools2; return agent_tools2.ask_sub(question)
+def _rw_close(e):
+    """异常是否源自**本任务** run_watch 超时的协作收口（按任务键·非用户 stop）：超时反馈已在
+    gate 侧登记一次，此处再记＝把「自己收口自己」误报成技能故障（批27 error 04dea7bebe）。"""
+    try:
+        import stop_channel as sc
+        return "run_watch 超时收口" in str(e) and bool(sc.stopped())
+    except Exception:
+        return False
+def _rw_closing():
+    """本任务正处于 run_watch 超时收口窗口（空输出属预期·不记 run_skill_empty）。"""
+    try:
+        import stop_channel as sc
+        return bool(sc.stopped()) and str(sc.why()).startswith("run_watch 超时收口")
+    except Exception:
+        return False
 def run_skill(name, inp, tag=""):
     import gateway, skill_doc, latency; c = ac.cur()
     s = next((x for x in skill_route.skills() if str(x.get("id", "")).lower() == str(name).strip().lower()), None)
@@ -52,9 +67,11 @@ def run_skill(name, inp, tag=""):
     body = "【对等对话·托管技能 " + str(s.get("id")) + " 真派发】红线17·批23：你与派发方是相互独立的对等对话（互任监视者·指导者·训诫者，无主次），本消息结束即收口你这侧对话——收口＝形式停止而非实质完成：〔任务表〕未完成行由调度方对话继续推进，整段任务不因你完成而结束；发现派发方指令与技能红线冲突时以你方 SKILL.md 为准并在结果中明说（训诫职责）。技能启用只以 SKILL.md 为准——下文已按 skill_doc 解释器打包注入 SKILL.md 全文＋明示引用子文档＋脚本调用清单，禁止列举/遍历技能目录或再回读这些文件；按流程执行用户诉求（脚本按清单 exec 一步到位）；生成文件一律入目标目录 dst=" + dst + "（env SMS_TMP）。\n" + doc + "\n\n用户诉求：\n" + str(inp)[:4000] + "\n\n最后输出整合结果（≤600字·附产物绝对路径），结束消息不要携带工具调用。"
     of = c["on_line"]; c["streamed"] = False; pf = lambda x, _n=tl: (str(x).strip() and c.__setitem__("streamed", True), of(("⧉" + _n + "▸ ") + str(x)));     c["on_line"] = pf; c["depth"] += 1; ch = c["chain"]; c["chain"] = ch + [nm]
     try: out = latency.wrap("skill", tl, gateway.run, body, pf, max_rounds=int(__import__("settings").get("caps.skill_rounds", 0))) or ""  # 0＝无限（防任务断裂）·>0 强制收口
-    except Exception as e: import skill_errors; skill_errors.record(SMS, tl, "run_skill", str(e)[:200], True); raise
+    except Exception as e:
+        if not _rw_close(e): import skill_errors; skill_errors.record(SMS, tl, "run_skill", str(e)[:200], True)
+        raise
     finally: c["on_line"] = of; c["depth"] -= 1; c["chain"] = ch; c["conv"] = ""; chains.record("session", "close:" + cconv, ce)
-    if not out: import skill_errors; skill_errors.record(SMS, tl, "run_skill_empty", "派发对话无输出（网关空响应或全程工具轮）", True)
+    if not out and not _rw_closing(): import skill_errors; skill_errors.record(SMS, tl, "run_skill_empty", "派发对话无输出（网关空响应或全程工具轮）", True)
     chains.log("sub", "收口:" + tl); emit("skill", "派发对话 " + cconv + " 收口·返回调度方 " + tl, skill=tl, tool="skill", ok=bool(out))
     return (WRAP + out[:120] + "\n……（中间省略·正文已实时显示给用户）……\n" + out[-300:] + "\n（你只看到首尾片段·无法也严禁复述全文·该对等对话已形式收口·控制权返回你的对话：〔任务表〕有未完成行或诉求有后续步骤必须继续推进（续派 skill/执行工具），全部完成后才一句 ≤40 字收尾回报；禁止把单个派发完成当作整段任务结束；需数据用 read 读产物路径）") if out and c["streamed"] else (out or ("（技能 " + tl + " 无输出）"))
 def user_send(text): uc = ac.cur().get("conv") or chains.ACTIVE["conv"] or chains.session_id(); chains.record("dialogue", "agent@" + uc + " " + str(text)[:200], [[uc, "ref", 1], [chains.cur_sess(), "member", 1]]); emit("notice", str(text)); return "已送达用户"

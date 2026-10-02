@@ -68,6 +68,14 @@ def feedback(name, why, secs, limit, buf=None, n=30):
             "改成带超时与非交互参数的写法、或拆小步再执行。") % (
         why, name, float(secs), int(limit), min(n, len((buf or []))), t or "（无任何输出——多半卡在启动或等 stdin）")
 
+def _notify(cb, msg):
+    """T3 延长这类「非致命」提示：回调可选·异常吞掉，绝不打断被观察调用。"""
+    try:
+        cb and cb(msg)
+    except Exception:
+        pass
+
+
 def _warn(on_warn, name, msg):
     try:
         rr.rec("exec", err="预警：" + msg)
@@ -227,21 +235,29 @@ def pump(p, buf, on_line=lambda s: None, prefix="", name="命令", deadline=5.0)
     return True, box["err"]
 
 
-def run_with_timeout(fn, secs, name="调用", args=(), kwargs=None, stall=None, stage=None):
+def run_with_timeout(fn, secs, name="调用", args=(), kwargs=None, stall=None, stage=None,
+                     kind="qq", on_notice=None):
     """给任意阻塞调用挂分级墙钟（QQ 入站派发／技能对话靠它兜底）。
     分级（2026-10-01 做梦审计错误1·error 链 2ab90541b9·freq=5 修复）：
-    ① T3 总预算＝secs（qq.handle_timeout／shell.exec_timeout）；
+    ① T3 总预算＝secs（qq.handle_timeout／shell.exec_timeout）——**软预算**：到点若活动戳仍新鲜
+       （静默未超本阶段 T2 阈·长等待阶段＝宽档）＝链路在推进，按 qq.handle_timeout_extend 逐窗延长，到硬上限
+       qq.handle_timeout_max（默认 3×）才收口（批27 error 43dc6d03a7：900s 到点时活动戳仅 2.2s 前＝活着被杀）；
     ② T2 阶段静默＝被观察线程多久没打活动戳，阈值按该线程 set_stage() 声明的阶段动态取——
        已知长等待阶段（llm/gateway/skill…）走宽档 qq.handle_stall_llm（默认 600s），
        普通阶段沿用显式 stall（qq.handle_stall 240s）。旧版只有一档平铺 240s，深层链路在网关
        合法长等待期间不打戳 → 240s 早于 900s 触发，把「慢但活着」的调用误杀成卡死；
     ③ T1 网络/网关单请求＝net_call() 自计时即抛，本就不该走到 T2/T3。
     stall=None＝不挂 T2（保持旧调用方语义）；qq.tiered_timeout=false＝退回旧一档平铺。
-    命中＝先 stop_channel 协作收口再放弃该线程，回 (False, 反馈)；反馈文本必带级别名与建议。"""
+    命中＝先按**本任务键** stop_channel 协作收口（不广播·不牵连同进程其它对话，批27 error 04dea7bebe）
+    再放弃该线程，回 (False, 反馈)；反馈文本必带级别名与建议。"""
     kwargs = kwargs or {}; box = {}; ev = threading.Event(); t0 = time.time()
+    tk = "rw:%s:%d" % (str(name)[:24], int(t0 * 1000))  # 停止旗标按任务隔离键
     def go():
         wid = threading.get_ident(); ACT[wid] = time.time()
         if stage: STAGE[wid] = str(stage)
+        try:
+            import stop_channel as sc; sc.bind(tk)  # 本线程及其嵌套调用只认本任务旗标
+        except Exception: pass
         try:
             box["v"] = fn(*args, **kwargs)
         except BaseException as e:
@@ -250,25 +266,45 @@ def run_with_timeout(fn, secs, name="调用", args=(), kwargs=None, stall=None, 
             ACT.pop(wid, None); STAGE.pop(wid, None); ev.set()
     th = threading.Thread(target=go, name="rw-" + str(name)[:20], daemon=True); th.start(); wid = th.ident
     base = max(30, int(stall)) if stall else 0
-    tier = ""; band = ""; lim = 0
+    secs = max(5, int(secs)); hard = max(secs, tiers.t3_max(kind, secs))
+    tier = ""; band = ""; lim = 0; ext = 0; ext_at = secs
+
+    def alive(idle):
+        """「活着」判定：静默未超本阶段 T2 阈（长等待阶段走宽档）＝慢但在推进，绝不判死；
+        没挂 T2 的调用退回 qq.handle_alive_within 短窗。"""
+        lim_a = tiers.t2(STAGE.get(wid, stage or ""), base)[0] if base else tiers.t3_fresh()
+        return idle < max(10, int(lim_a))
+
     while not ev.wait(0.5):
         el = time.time() - t0
-        if el >= max(5, int(secs)): tier, band, lim = "T3", "", max(5, int(secs)); break
+        idle = time.time() - ACT.get(wid, t0)
+        if el >= ext_at:
+            # T3 软预算（批27 error 43dc6d03a7）：预算到点但仍在推进＝逐窗延长，到硬上限才收口
+            if el < hard and alive(idle):
+                ext += 1; ext_at = min(hard, ext_at + tiers.t3_extend())
+                _notify(on_notice, "T3 预算 %ds 用满但链路在推进（活动戳 %.1fs 前）"
+                        "·第 %d 次延长至 %ds（硬上限 %ds）" % (secs, idle, ext, ext_at, hard))
+                continue
+            tier, band = ("T3", "延长%d窗·硬上限" % ext) if ext else ("T3", "")
+            lim = hard if el >= hard else secs
+            break
         if base:
             sl, band = tiers.t2(STAGE.get(wid, stage or ""), base) if tiers.tiered() else (base, "平铺档")
-            if (time.time() - ACT.get(wid, t0)) >= sl: tier, lim = "T2", sl; break
+            if idle >= sl: tier, lim = "T2", sl; break
     if not tier:
         try:
-            import stop_channel as sc; sc.clear()
+            import stop_channel as sc; sc.clear(tk)  # 只清本任务旗标（用户真实 stop 的广播旗标留给它自己）
         except Exception: pass
         if "e" in box: raise box["e"]
         return True, box.get("v")
     try:
-        import stop_channel as sc; sc.request("run_watch 超时收口：" + str(name))
-        threading.Timer(60.0, sc.clear).start()  # 60s 后自动复位：被放弃线程在此窗口内拿旗标自行收口，也不把旗标永久留给下一个任务
+        import stop_channel as sc; sc.request("run_watch 超时收口：" + str(name), tk)
+        # 只复位本任务旗标：旧版走广播把同进程其它对话（含嵌套技能派发）一并判停
+        # ＝批27 error 04dea7bebe 误报根源
+        threading.Timer(60.0, lambda: sc.clear(tk)).start()
     except Exception: pass
     why = fb.report(tier, lim, STAGE.get(wid) or stage, band) + "（线程已放弃·随进程退出而亡）"
-    return False, feedback(name, why, time.time() - t0, secs,
+    return False, feedback(name, why, time.time() - t0, ext_at,
                            ["（该调用无末段输出可附；活动戳 " + str(round(time.time() - ACT.get(wid, t0), 1)) + "s 前）"], n=1)
 
 
@@ -279,7 +315,11 @@ def status():
         pr = {"in_flight": pg.snapshot(), "hung": pg.hung()}
     except Exception:
         pr = {}
-    return json.dumps({"proc_guard": pr, "exec_timeout_s": budget(), "stall_timeout_s": stall(), "tiers": fb.snapshot(),
+    return json.dumps({"proc_guard": pr, "exec_timeout_s": budget(), "stall_timeout_s": stall(),
+                       "tiers": fb.snapshot(),
+                       "t3_soft": "T3＝软预算：到点若静默未超本阶段 T2 阈＝链路在推进，"
+                                  "按 qq.handle_timeout_extend 逐窗延长至 qq.handle_timeout_max"
+                                  "（默认 3× 预算）才收口；改：:config set qq.handle_timeout_extend 300",
                        "note": "分级超时：T1＝网络/网关单请求（qq.net_timeout／llm_gateway.timeout）·T2＝阶段静默（普通档 qq.handle_stall·长等待阶段宽档 qq.handle_stall_llm）·T3＝总预算（qq.handle_timeout／shell.exec_timeout）；子进程仍按 shell.exec_timeout 总预算＋shell.stall_timeout 静默；改：:config set qq.handle_stall_llm 600",
                        "runtime": rr.read()}, ensure_ascii=False)
 

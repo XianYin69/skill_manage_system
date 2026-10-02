@@ -10,7 +10,9 @@ import timeout_tiers as tiers
 NAME = {"T1": "网络/网关单请求超时", "T2": "阶段静默", "T3": "超总预算"}
 HINT = {"T1": "单请求已自计时抛错、worker 未被拖死：查网关与网络可达（llm_gateway.timeout／qq.net_timeout）后重试该请求即可",
         "T2": "该阶段长时间无活动戳＝在阶段边界调 run_watch.beat() 打戳，或 set_stage() 声明为长等待阶段（宽档 qq.handle_stall_llm）；已打戳仍静默＝真卡死，查在途子进程与网络",
-        "T3": "整条链路耗时超上限：提高 qq.handle_timeout 或把诉求拆小步／转后台任务"}
+        "T3": "预算到点且活动戳已陈旧（或已到硬上限）＝真卡死才收口：查在途子进程与网络；"
+              "链路在推进时 run_watch 会按 qq.handle_timeout_extend 自动延长到 qq.handle_timeout_max，"
+              "无需再手工提高 qq.handle_timeout 或拆步"}
 
 def report(tier, secs, stage=None, band=None):
     """反馈文本＝级别名＋阈值＋阶段档＋下一步建议（例：「T2 阶段静默 600s（阶段=llm·宽档/llm）·…」）。"""
@@ -22,7 +24,9 @@ def snapshot():
     """run_watch status 用：三档配置一次摊开（旧版 status 只回两个平铺值，看不出分级）。"""
     return {"tiered": tiers.tiered(), "T1_net_s": tiers.t1("net"), "T1_llm_s": tiers.t1("llm"),
             "T2_normal_s": tiers.t2("inbound")[0], "T2_llm_s": tiers.t2("llm")[0],
-            "T2_long_stages": list(tiers.LONG_STAGES), "T3_qq_s": tiers.t3("qq"), "T3_shell_s": tiers.t3("shell")}
+            "T2_long_stages": list(tiers.LONG_STAGES), "T3_qq_s": tiers.t3("qq"), "T3_shell_s": tiers.t3("shell"),
+            "T3_extend_s": tiers.t3_extend(), "T3_alive_s": tiers.t3_fresh(),
+            "T3_max_qq_s": tiers.t3_max("qq"), "T3_max_shell_s": tiers.t3_max("shell")}
 
 if __name__ == "__main__":
     print(json.dumps(snapshot(), ensure_ascii=False, indent=1))

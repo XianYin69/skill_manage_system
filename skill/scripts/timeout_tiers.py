@@ -40,3 +40,25 @@ def t3(kind="qq"):
     sh = kind == "shell"
     try: return max(5 if sh else 60, _i(settings.get("shell.exec_timeout" if sh else "qq.handle_timeout"), 600 if sh else 900))
     except Exception: return 600 if sh else 900
+
+
+def t3_extend():
+    """T3 延长窗（批27 error 43dc6d03a7）：预算用满但活动戳新鲜＝链路在推进，
+    每次续 qq.handle_timeout_extend 秒（默认 300·下限 30），绝不因「慢」判死。"""
+    try: return max(30, _i(settings.get("qq.handle_timeout_extend"), 300))
+    except Exception: return 300
+
+
+def t3_max(kind="qq", base=None):
+    """T3 硬上限＝延长后的绝对天花板：显式 qq.handle_timeout_max 优先，否则**本次预算** 3 倍——
+    按调用方传入的 secs 算，别让调用方给的小预算被 settings 默认值放大成 45 倍。"""
+    b = int(base) if base else t3(kind)
+    try: v = _i(settings.get("qq.handle_timeout_max"), 0)
+    except Exception: v = 0
+    return max(v, b) if v > 0 else b * 3
+
+
+def t3_fresh():
+    """判「活着」的窗口：活动戳距今小于此值＝在推进（qq.handle_alive_within·默认 60s）。"""
+    try: return max(10, _i(settings.get("qq.handle_alive_within"), 60))
+    except Exception: return 60
