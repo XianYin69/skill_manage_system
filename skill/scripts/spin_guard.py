@@ -13,7 +13,12 @@
 也能抓栈）；② 活性只认真进展（输出行/产物落盘/任务表行 done），UI 定时器自转不算进展；
 ③ 判自旋即分级：抓栈→藏 #prog 停动画（立刻还核子）→stop_channel 停在轮→仍不止则
 shell_lifecycle.restart 自愈。零焦点侵入：不动前台窗口/不动光标/不激活窗口。
-用法：python -B spin_guard.py status|probe <pid>|arm-test"""
+批29 修（2026-10-03 22:49 取证）：旧 arm() 的 dump_traceback_later(repeat=True)
+与「有无进展」无关，每个壳每 120s 无条件把全线程栈灌进 spin.log
+（现场 3.8MB/5261 段空闲栈，真自旋被噪声淹没）。
+现改进展驱动：_watch 判可疑才挂一次性转栈，beat() 真进展即撤销；
+spin.log 另加体积封顶轮转（shell.spin_log_max_kb 默认 512KB 只留尾部）。
+用法：python -B spin_guard.py status|probe <pid>|selftest"""
 import os, sys, time, json, ctypes, threading
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 SMS = None
@@ -28,6 +33,7 @@ def _cfg(k, d):
     except Exception: return float(d)
 ST = {"beat": time.time(), "bkind": "boot", "app": None, "cpu": 0.0, "silent": 0.0,
       "verdict": "ok", "hits": 0, "armed": False, "hide_req": False, "last_ext": 0.0, "tid": ""}
+_FH = {"fh": None, "path": "", "armed": False, "until": 0.0, "fired": 0.0, "susp": False}
 class _FT(ctypes.Structure):
     """FILETIME（lo/hi 两个 DWORD）——进程 CPU 时间戳载体。"""
     _fields_ = [("lo", ctypes.c_uint32), ("hi", ctypes.c_uint32)]
@@ -58,6 +64,7 @@ def beat(kind="out", tid=""):
     """壳在「真进展」处调用：输出行 / 产物落盘 / 任务表行 done。UI 定时器自转绝不可调本函数。"""
     ST["beat"] = time.time(); ST["bkind"] = str(kind)[:24]
     if tid: ST["tid"] = str(tid)
+    _cancel_dump("progress")   # 进展驱动：真进展一到即撤销待落转栈（UI 定时器自转不走这里）
 def _ext_new(since):
     """外部进展证据：工作区 tmp 最新 mtime、runtime/procs.json mtime、tasks/*.json 最新 mtime。
     取不到一律回 0（宁缺勿误杀）。"""
@@ -93,6 +100,67 @@ def dump_stack(why=""):
         with open(os.path.join(p, "spin.log"), "a", encoding="utf-8") as f:
             f.write("\n==== spin dump %s %s ====\n" % (time.strftime("%H:%M:%S"), why))
             f.flush(); faulthandler.dump_traceback(file=f, all_threads=True); f.write("\n")
+        _cap_log()          # 写完即封顶：spin.log 不得无界增长
+        return True
+    except Exception: return False
+def _log_path():
+    """logs/spin.log 绝对路径（顺带建目录）。"""
+    p = os.path.join(_home(), "logs"); os.makedirs(p, exist_ok=True)
+    return os.path.join(p, "spin.log")
+def _open_fh():
+    """faulthandler 落盘句柄（懒开、轮转后重开）。"""
+    fh = _FH["fh"]
+    if fh is not None and not getattr(fh, "closed", True): return fh
+    fh = open(_log_path(), "a", encoding="utf-8")
+    _FH["fh"] = fh; _FH["path"] = fh.name
+    return fh
+def _cap_log():
+    """spin.log 体积封顶：超 shell.spin_log_max_kb（默认 512KB）只留尾部半份。
+    任何路径（faulthandler 自写／dump_stack 追加）都不得再造成无界增长。"""
+    try:
+        p = _FH["path"] or _log_path()
+        lim = int(_cfg("spin_log_max_kb", 512) * 1024)
+        if lim <= 0 or not os.path.isfile(p): return 0
+        sz = os.path.getsize(p)
+        if sz <= lim: return 0
+        _cancel_dump("rotate")                      # 先撤定时器，防写进已关句柄
+        with open(p, "rb") as f:
+            f.seek(max(0, sz - lim // 2)); tail = f.read()
+        with open(p, "wb") as f:
+            tag = ("==== spin.log rotated, tail kept %s ====\n"
+                   % time.strftime("%m-%d %H:%M:%S")).encode()
+            f.write(tag)
+            f.write(tail)
+        if _FH["fh"] is not None:
+            try: _FH["fh"].close()
+            except Exception: pass
+            _FH["fh"] = None
+        return sz
+    except Exception: return 0
+def _arm_dump(secs, why=""):
+    """进展驱动转栈：仅在 _watch 判可疑时挂一次性 dump_traceback_later（repeat=False）。
+    到点仍无进展才落全线程栈——GIL 被死循环攥死时由 faulthandler 独立线程照样抓到。"""
+    if _FH["armed"]: return False
+    try:
+        import faulthandler
+        fh = _open_fh()
+        faulthandler.enable(file=fh, all_threads=True)
+        try: faulthandler.cancel_dump_traceback_later()
+        except Exception: pass
+        t = max(5.0, float(secs))
+        faulthandler.dump_traceback_later(t, repeat=False, file=fh)
+        _FH["armed"] = True; _FH["until"] = time.time() + t; _FH["fired"] = time.time()
+        fh.write("==== arm dump %s %s (in %.0fs) ====\n"
+                 % (time.strftime("%H:%M:%S"), why, t))
+        fh.flush()
+        return True
+    except Exception: return False
+def _cancel_dump(why=""):
+    """进展恢复即撤销待落转栈——这是与旧版墙钟定时器的根本区别。"""
+    if not _FH["armed"]: return False
+    _FH["armed"] = False
+    try:
+        import faulthandler; faulthandler.cancel_dump_traceback_later()
         return True
     except Exception: return False
 def arm(app=None, tick_s=None):
@@ -103,10 +171,8 @@ def arm(app=None, tick_s=None):
     if app is not None: ST["app"] = app
     try:
         import faulthandler
-        p = os.path.join(_home(), "logs"); os.makedirs(p, exist_ok=True)
-        _fh = open(os.path.join(p, "spin.log"), "a", encoding="utf-8")
-        faulthandler.enable(file=_fh, all_threads=True)
-        faulthandler.dump_traceback_later(max(60.0, _cfg("spin_dump_s", 120)), repeat=True, file=_fh)
+        faulthandler.enable(file=_open_fh(), all_threads=True)   # 致命错误才落栈（极小）
+        _cap_log()   # 现场遗留的超大 spin.log 先截尾（旧版墙钟定时器灌出来的）
     except Exception: pass
     threading.Thread(target=_watch, args=(tick_s or _cfg("spin_tick_s", 5.0),), daemon=True, name="spin-guard").start()
     return status()
@@ -143,6 +209,14 @@ def _watch(tick_s):
         silent = now - max(ST["beat"], ext or 0.0)
         ST["cpu"], ST["silent"] = rate, silent
         thr_c = _cfg("spin_cpu_ms_per_s", 600); thr_s = _cfg("spin_after_s", 60)
+        _cap_log()   # 兜底封顶：faulthandler 自己写也受体积约束
+        # 一次性定时器已落栈 → 释放标志，持续可疑时冷却期满可再挂
+        if _FH["armed"] and now > _FH["until"]: _FH["armed"] = False
+        susp = (rate >= thr_c) or (silent >= thr_s)   # 可疑＝高CPU 或 无进展超阈
+        if susp and not _FH["armed"] and now - _FH["fired"] >= _cfg("spin_dump_s", 120):
+            _arm_dump(_cfg("spin_dump_s", 120), "susp cpu=%.0f silent=%.0f" % (rate, silent))
+        elif not susp and _FH["armed"]:
+            _cancel_dump("recovered")
         if rate >= thr_c and silent >= thr_s:
             ST["hits"] += 1; ST["verdict"] = "spin"
             try:
@@ -173,9 +247,78 @@ def status():
                     "selfheal": _cfg("spin_selfheal", 1)}}
 def probe(pid):
     c = _cpu_ms(int(pid)); return {"pid": int(pid), "cpu_ms_total": c, "alive": c >= 0}
+def selftest():
+    """受控自测（隔离临时 cap.log·_escalate/_ext_new 打桩，不碰处置链/UI）：
+    ①纯忙等 4s 判 spin 且 hits>=1 ②可疑才挂转栈、beat() 即解除
+    ③忙等期间全线程栈确实落盘（原能力不丢）④空闲不周期灌栈 ⑤spin.log 封顶轮转
+    ⑥外部产物 mtime 前进不得误杀。用法：python -B spin_guard.py selftest"""
+    import tempfile
+    res = []
+    def chk(n, c, g=""): res.append((n, bool(c), g))
+    cap = os.path.join(tempfile.mkdtemp(prefix="spin_st_"), "cap.log")
+    cfg0, esc0, ext0 = _cfg, _escalate, _ext_new
+    fh0, path0 = _FH["fh"], _FH["path"]
+    try:
+        def _c(k, d):
+            return {"spin_cpu_ms_per_s": 100.0, "spin_after_s": 1.5,
+                    "spin_dump_s": 5.0, "spin_log_max_kb": 64.0}.get(k, float(d))
+        globals()["_cfg"] = _c
+        globals()["_escalate"] = lambda s: None
+        globals()["_ext_new"] = lambda since: 0.0
+        _FH.update({"fh": open(cap, "a", encoding="utf-8"), "path": cap,
+                    "armed": False, "until": 0.0, "fired": 0.0})
+        ST.update({"beat": time.time(), "hits": 0, "verdict": "ok", "armed": False})
+        arm(tick_s=0.3)
+        t0 = time.time()
+        while time.time() - t0 < 4.0: pass
+        s = status()
+        chk("busy_wait_judged_spin", s["verdict"] == "spin" and s["hits"] >= 1,
+            "hits=%d cpu=%.0f" % (s["hits"], s["cpu_ms_per_s"]))
+        chk("suspicious_arms_dump", _FH["armed"] is True)
+        beat("out")
+        chk("beat_cancels_dump", _FH["armed"] is False)
+        t0 = time.time()
+        while time.time() - t0 < 12.0: pass      # 冷却期满仍可疑 → 再挂并落栈
+        beat("out"); time.sleep(0.8)
+        txt = open(cap, encoding="utf-8", errors="replace").read()
+        chk("stack_still_captured", "Thread 0x" in txt or "Current thread" in txt,
+            "blocks=%d" % txt.count("Thread 0x"))
+        chk("dump_only_when_suspicious", 1 <= txt.count("==== arm dump") <= 6,
+            "arms=%d bytes=%d" % (txt.count("==== arm dump"), os.path.getsize(cap)))
+        arms_now = txt.count("==== arm dump")   # 有进展窗口内不得再新增转栈
+        globals()["_ext_new"] = lambda since: time.time()
+        t0 = time.time()
+        while time.time() - t0 < 4.0:
+            beat("out"); time.sleep(0.2)
+        txt2 = open(cap, encoding="utf-8", errors="replace").read()
+        chk("progress_adds_no_dump", txt2.count("==== arm dump") == arms_now,
+            "arms %d -> %d" % (arms_now, txt2.count("==== arm dump")))
+        with open(cap, "a", encoding="utf-8") as f: f.write("NOISE\n" * 20000)
+        big = os.path.getsize(cap); _cap_log()
+        chk("log_capped_rotation", os.path.getsize(cap) <= 64 * 1024,
+            "%d -> %d" % (big, os.path.getsize(cap)))
+        globals()["_ext_new"] = lambda since: time.time()   # 外部产物在前进
+        t0 = time.time()
+        while time.time() - t0 < 3.0: time.sleep(0.2)
+        s2 = status()
+        chk("external_progress_not_killed", s2["verdict"] != "spin",
+            "verdict=%s silent=%.1f" % (s2["verdict"], s2["silent_s"]))
+        _cancel_dump("selftest-end")
+    finally:
+        globals()["_cfg"], globals()["_escalate"] = cfg0, esc0
+        globals()["_ext_new"] = ext0
+        try: _FH["fh"].close()
+        except Exception: pass
+        _FH.update({"fh": fh0, "path": path0, "armed": False, "until": 0.0, "fired": 0.0})
+        ST.update({"hits": 0, "verdict": "ok", "beat": time.time()})
+    bad = [r for r in res if not r[1]]
+    for n, ok, g in res: print("  %s %s %s" % ("PASS" if ok else "FAIL", n, g))
+    print("spin_guard selftest: " + ("OK" if not bad else "FAIL(%d)" % len(bad)))
+    raise SystemExit(0 if not bad else 1)
 if __name__ == "__main__":
     a = sys.argv[1:]
     if a and a[0] == "probe" and len(a) > 1: print(json.dumps(probe(a[1]), ensure_ascii=False))
+    elif a and a[0] == "selftest": selftest()
     elif a and a[0] == "test":
         arm(); t0 = time.time()
         while time.time() - t0 < 200: pass
