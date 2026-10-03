@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""sync_skills.py — 多 agent 客户端 skills 管理与同步：SMS/skills 为 hub，pull/push/status 与各客户端 skills 目录同步；sha1(SKILL.md) 比对、冲突取新，pending_review/quarantine 不推送。客户端默认已知目录，env SMS_CLIENTS="name=path;..." 可增改。"""
+"""sync_skills.py — 多 agent 客户端 skills 管理与同步：SMS/skills 为 hub，pull/push/status 与各客户端 skills 目录同步；sha1(SKILL.md) 比对、冲突取新，pending_review/quarantine 不推送。
+复制 ignore private/：附属技能只登记 register.json，不随 hub→客户端发布。
+客户端默认已知目录，env SMS_CLIENTS="name=path;..." 可增改。"""
 import os, sys, json, glob, shutil, hashlib
 
 KNOWN = {"kilocode": "~/.kilocode/skills", "claude": "~/.claude/skills", "codex": "~/.codex/skills", "agents": "~/.agents/skills", "cursor": "~/.cursor/skills"}
@@ -18,19 +20,33 @@ def _hash(p):
 def scan(root):
     return {os.path.basename(d): d for d in sorted(glob.glob(os.path.join(root, "*"))) if os.path.isfile(os.path.join(d, "SKILL.md"))}
 
+IGNORE_NAMES = ("private", "__pycache__", "*.pyc")
+
+
 def _copy(src, dst):
-    shutil.rmtree(dst, ignore_errors=True); shutil.copytree(src, dst, dirs_exist_ok=True)
+    """镜像整目录，但永不携带 private/（附属技能内容涉侵权：登记进 SMS register.json
+    只供索引派发，绝不等于发布到 hub 与各客户端，更不得经 Source_Remote 推上 GitHub）。
+    返回被跳过的顶层条目名，供报告 `skipped` 字段留痕。"""
+    skipped = [n for n in ("private",) if os.path.isdir(os.path.join(src, n))]
+    shutil.rmtree(dst, ignore_errors=True)
+    shutil.copytree(src, dst, dirs_exist_ok=True,
+                    ignore=shutil.ignore_patterns(*IGNORE_NAMES))
+    return skipped
 
 def sync(sms, mode, write):
     hubd = os.path.join(sms, "skills"); os.makedirs(hubd, exist_ok=True); hub = scan(hubd); cls = clients()
-    rep = {"pull": [], "push": [], "blocked": []}; import trust
+    rep = {"pull": [], "push": [], "blocked": [], "skipped": []}
+    import trust
     if mode in ("pull", "status"):
         for c, root in sorted(cls.items()):
             for n, p in sorted(scan(root).items()):
                 hp = hub.get(n)
                 if (not hp) or (_hash(p) != _hash(hp) and os.path.getmtime(os.path.join(p, "SKILL.md")) > os.path.getmtime(os.path.join(hp, "SKILL.md"))):
                     rep["pull"].append(("add " if not hp else "upd ") + c + "/" + n)
-                    if write and mode == "pull": _copy(p, hp or os.path.join(hubd, n)); hub = scan(hubd)
+                    if write and mode == "pull":
+                        sk = _copy(p, hp or os.path.join(hubd, n))
+                        if sk: rep["skipped"].append(c + "/" + n + ":" + ",".join(sk))
+                        hub = scan(hubd)
     if mode in ("push", "status"):
         for n, p in sorted(scan(hubd).items()):
             lb = trust.label_of(sms, n)
@@ -39,7 +55,9 @@ def sync(sms, mode, write):
                 dst = os.path.join(root, n)
                 if not os.path.isdir(dst) or _hash(dst) != _hash(p):
                     rep["push"].append(("add " if not os.path.isdir(dst) else "upd ") + c + "/" + n)
-                    if write and mode == "push": _copy(p, dst)
+                    if write and mode == "push":
+                        sk = _copy(p, dst)
+                        if sk: rep["skipped"].append(n + "->" + c + ":" + ",".join(sk))
     return rep
 
 if __name__ == "__main__":

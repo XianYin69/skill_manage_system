@@ -29,7 +29,7 @@ metadata:
 
 ## 脚本
 
-- [register.py](../../scripts/register.py)：默认预览，`--write` 且已授予 write 才写盘。
+- [register.py](../../scripts/register.py)：默认预览，`--write` 且已授予 write 才写盘；深度 1＋深度 2（`<skill>/private/*`）两级扫描，附属技能登记带 `visibility`/`parent`/`publish`。
 
 ## 红线
 
