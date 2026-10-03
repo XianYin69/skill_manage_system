@@ -42,11 +42,16 @@
  },
  "shell": {
   "exec_timeout": 600,
-  "comment": "系统 shell 与子脚本单条超时（秒·sys_shells.run 与 shell_core.run_script 共用·到点强杀防卡死）；stall_timeout＝子进程无输出多久算卡住；parallel＝批27 用户「多个用户输入无需排队等待·全部并行处理」：TUI 每条输入各起一个 worker 同屏并发（false＝退回旧的 busy 排队续发）；max_parallel＝同时在跑的任务上限（0＝无限·到上限后新输入排队，有空位自动续发）；detail_bus＝批27 用户「其他会话任务的详细信息（推导·工具使用·命令行输出）也应写进主 shell 详细细节」：各会话明细经 detail_bus 落 <SMS_HOME>/runtime/details.jsonl，主壳 F9/右栏增量合并（false＝只记本会话）",
+  "comment": "系统 shell 与子脚本单条超时（秒·sys_shells.run 与 shell_core.run_script 共用·到点强杀防卡死）；stall_timeout＝子进程无输出多久算卡住；parallel＝批27 用户「多个用户输入无需排队等待·全部并行处理」：TUI 每条输入各起一个 worker 同屏并发（false＝退回旧的 busy 排队续发）；max_parallel＝同时在跑的任务上限（0＝无限·到上限后新输入排队，有空位自动续发）；detail_bus＝批27 用户「其他会话任务的详细信息（推导·工具使用·命令行输出）也应写进主 shell 详细细节」：各会话明细经 detail_bus 落 <SMS_HOME>/runtime/details.jsonl，主壳 F9/右栏增量合并（false＝只记本会话）；spin_*＝批28 用户「解决卡死问题」壳自身空转哨兵：spin_tick_s＝采样间隔（秒）；spin_cpu_ms_per_s＝本进程 CPU 毫秒/秒超此值才算忙（约单核 6 成）；spin_after_s＝高 CPU 且零真进展持续此秒数即判自旋；spin_dump_s＝faulthandler 定时转储全线程栈间隔（秒）；spin_selfheal＝1＝自旋三次后允许 shell_lifecycle 自愈重启该壳（0＝只抓栈通报不重启）",
   "stall_timeout": 120,
   "parallel": true,
   "max_parallel": 4,
-  "detail_bus": true
+  "detail_bus": true,
+  "spin_tick_s": 5,
+  "spin_cpu_ms_per_s": 600,
+  "spin_after_s": 60,
+  "spin_dump_s": 120,
+  "spin_selfheal": 1
  },
  "agent": {
   "exec_timeout": 1800,

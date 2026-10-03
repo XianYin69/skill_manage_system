@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""stall_class.py — 「卡住」原因分类器（2026-09-29 用户诉求「卡住看门狗分清原因＋不误杀＋带重试计数」第2步）：classify(doc, age, cfg) -> (kind, detail)，kind∈network|model|process|busy|unknown。判据①busy（不误杀）＝runtime.phase∈{exec,llm,llm_stream} 且 runtime.ts 距今 < 宽限窗（窗读实际配置 shell.exec_timeout / llm_gateway.timeout×(剩余重试+1)）且该 pid 真活，或该表派发仍在跑（qq_dispatch 队列非空/worker 刚动）→ 交上层静默、不告警、不消耗重试、不重发；②process＝runtime.pid 已死（ctypes OpenProcess 判活·不依赖 psutil）或监听器僵尸（qq_watch）或壳心跳 shell/alive.json 过期；③network＝err_kind/last_err 指向 URLError/超时/断连/5xx/429 或曾 gaveup；④model＝4xx 不可重试或网关空返回；⑤其余 unknown。detail 带证据（phase/age/窗/err 摘要/重试计数）。用法：python -B stall_class.py [态]。"""
+"""stall_class.py — 「卡住」原因分类器（2026-09-29 用户诉求「卡住看门狗分清原因＋不误杀＋带重试计数」第2步）：classify(doc, age, cfg) -> (kind, detail)，kind∈network|model|process|busy|unknown。判据①busy（不误杀）＝runtime.phase∈{exec,llm,llm_stream} 且 runtime.ts 距今 < 宽限窗（窗读实际配置 shell.exec_timeout / llm_gateway.timeout×(剩余重试+1)）且该 pid 真活，或该表派发仍在跑（qq_dispatch 队列非空/worker 刚动）→ 交上层静默、不告警、不消耗重试、不重发；②process＝runtime.pid 已死（ctypes OpenProcess 判活·不依赖 psutil）或监听器僵尸（qq_watch）或壳心跳 shell/alive.json 过期；③network＝err_kind/last_err 指向 URLError/超时/断连/5xx/429 或曾 gaveup；④model＝4xx 不可重试或网关空返回；⑤其余 unknown。detail 带证据（phase/age/窗/err 摘要/重试计数）；⑥spin＝proc_guard 判「CPU 高却零输出零进展」的空转，先于 busy 宽限窗点名（根治把 100% 忙等当闷头算所以永不告警）。用法：python -B stall_class.py [态]。"""
 import os, sys, time, json
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import resolve_home, runtime_rec as rr, settings
@@ -58,12 +58,28 @@ def _proc_hung(c):
     return ""
 
 
+def _spin_hit(c):
+    """空转点名＝proc_guard.hung() 里 kind==spin 的条目（CPU 高却零输出零进展）。
+    根治旧盲区：BUSY 宽限窗把 100% 忙等当「闷头算」所以永不告警——先点名再进窗。"""
+    try:
+        import proc_guard as pg
+        for e in pg.hung(c.get("sms")):
+            if e.get("kind") == "spin":
+                return "%s（命令「%s」·已跑 %.0fs·状态 %s）" % (e.get("detail"), str(e.get("name"))[:60],
+                        time.time() - float(e.get("started") or time.time()), e.get("kind"))
+    except Exception:
+        pass
+    return ""
+
 def classify(doc, age, cfg=None, rt=None):
     """主入口：回 (kind, detail)。busy/unknown 交上层静默；network/model/process 才告警。"""
     c = dict(cfg or {}); doc = doc or {}; rt = rt if rt is not None else rr.read(c.get("sms"))
     ph = str(rt.get("phase") or ""); ts = float(rt.get("ts") or 0) or 0.0
     pid = _i(rt.get("pid")); att = _i(rt.get("attempt")); ret = _i(rt.get("retries"))
     low = _sig(rt, doc).lower(); age = int(age or 0)
+    sp = _spin_hit(c)
+    if sp:
+        return "process", sp
     hg = _proc_hung(c)
     if hg:
         return "process", hg

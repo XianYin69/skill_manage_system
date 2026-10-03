@@ -108,6 +108,9 @@ class Flow:
             self.log_line(Text("✔ 任务 %s 收口（%.1fs）·仍在并行跑 %d 个：%s" % (tid, el, len(self.running), "、".join(sorted(self.running))), style="dim"))
         else:
             self.busy = False; self.task_prog = ""; self.query_one("#prog", ProgressBar).display = False; self.query_one("#status", StatusBar).end(); self.subconv_hint()
+            try:
+                import spin_guard; spin_guard.beat("turn-end", tid)  # 轮收口＝真进展，护住 busy 窗不误判自旋
+            except Exception: pass
             auto = None
             try: auto = __import__("dream_pending").auto_solo()
             except Exception: pass

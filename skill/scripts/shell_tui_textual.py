@@ -23,7 +23,9 @@ class ShellApp(Menus, Index, Ws, Mode, Perms, Flow, Taskbar, Web, App):
     # 底部栏重排（2026-09-26 用户报障「选项溢出」）：Footer 只显高频 8 键，其余仍生效但从底栏隐藏（F5/F6/F8/F10/Shift+Tab/Ctrl+L 全收进 F1 主菜单）
     BINDINGS = [Binding(k, a, d, priority=k != "escape", show=s) for k, a, d, s in [("f1,alt+m", "menu_main", "菜单", True), ("f2,alt+k", "menu_skill_index", "SKILL索引", False), ("ctrl+k", "menu_skill", "技能", True), ("f3,alt+h", "help_cmd", "帮助", True), ("f4,alt+c", "config", "配置", True), ("f7", "menu_mode", "模式", True), ("f9", "detail_win", "详情", True), ("ctrl+q", "exit_app", "退出", True), ("f5", "menu_files", "文件索引", False), ("f6", "menu_ws", "工作区", False), ("f8", "editor", "编辑器", False), ("f10", "menu_perms", "权限工具", False), ("shift+tab", "agents_menu", "agent", False), ("ctrl+l", "clear_log", "清屏", False), ("escape", "mode_chat", "回对话", False), ("ctrl+shift+c", "copy_log", "复制全部输出", True), ("f11", "stop_task", "停止", False), ("f12", "continue_task", "继续", False), ("ctrl+c", "confirm_quit", "退出确认", False)]]
     def __init__(self): super().__init__(); self.hist = []; self.logbuf = []; self.hi = 0; self.steps = []; self.touched = []; self.details = []; self.busy = False; self.task_prog = ""; self.pend = []; self.awaiting = None
-    def compose(self): yield TopBar(id="top"); yield ProgressBar(total=None, id="prog"); yield Horizontal(RichLog(id="log", wrap=True), VerticalScroll(Side(id="side"))); yield TaskBar(id="taskbar"); yield Input(id="input"); yield StatusBar(id="status"); yield Footer()
+    def compose(self):
+        prog = ProgressBar(total=None, id="prog"); prog.display = False  # 空转放大器：默认不显，busy 由 flow 打开
+        yield TopBar(id="top"); yield prog; yield Horizontal(RichLog(id="log", wrap=True, max_lines=400), VerticalScroll(Side(id="side"))); yield TaskBar(id="taskbar"); yield Input(id="input"); yield StatusBar(id="status"); yield Footer()
     def on_mount(self):
         import ask_channel; ask_channel.arm()
         try:
@@ -31,6 +33,10 @@ class ShellApp(Menus, Index, Ws, Mode, Perms, Flow, Taskbar, Web, App):
             if (core.settings.get("web_shell") or {}).get("enabled", True) and not nu.running("web_shell"): nu.spawn("web_shell")
         except Exception: pass
         self._logw = self.query_one("#log", RichLog); self.set_interval(0.4, self.ask_poll); self.set_interval(1.0, self.bus_poll); self.set_interval(2.0, self.taskbar_refresh); self.set_interval(30, self.plan_tick)
+        self.set_interval(1.0, self.spin_tick)  # 空转哨兵 UI 侧心跳：只消费 hide_req 藏 #prog，自转不算进展
+        try:
+            import spin_guard; spin_guard.arm(self)
+        except Exception: pass
         try:
             import planned_tasks as pt
             self.run_worker(lambda: pt.start(), thread=True)  # 壳一起即拉起分离调度进程（pid 文件防重复）
@@ -53,10 +59,18 @@ class ShellApp(Menus, Index, Ws, Mode, Perms, Flow, Taskbar, Web, App):
             hint and self.log_line(Text(hint, style="bold magenta"))
             nxt and self.set_timer(1.5, lambda: self.submit(nxt))  # 重启后自动续跑未完成任务表
         except Exception: pass
+    def spin_tick(self):
+        """1s 一次：把「藏 #prog」请求交回 UI 线程消费（停 15fps 整屏重绘＝归还核子）。"""
+        try:
+            import spin_guard; return spin_guard.tick(self)
+        except Exception: return "ok"
     def log_line(self, t):
         try:
             w = getattr(self, "_logw", None) or self.query_one("#log", RichLog); self._logw = w
             self.log_copy(t); w.write(t if isinstance(t, Text) else Text(str(t)))
+            try:
+                import spin_guard; spin_guard.beat("log")
+            except Exception: pass
         except Exception: pass
     def action_detail_win(self):
         if isinstance(self.screen, Details): self.screen.action_close(); return

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """proc_guard.py — 子进程「阻塞画像」探针＋在途登记（2026-10-01 用户诉求「增强 sms 在子进程阻塞下的检测与应对」）。
 补旧版三盲区：①静默看门狗只数「有没有新输出行」——把「闷头算不打印」的合法长任务误杀，又把「CPU=0 且无输出」的真死锁白拖满静默窗；②子进程 pid 从不进活性记录（runtime_rec 记的是 SMS 自身 pid，永远活着）→ stall_class 只能判 busy，看门狗/顶栏/QQ 都不知道「到底哪条命令卡住、卡了几秒」；③kill_tree 之后原读循环 readline 仍可能被「已脱离本树的后代」攥着的管道写端永久挂住＝最恶劣的子进程阻塞（壳再也拿不回控制权）。
-能力：cpu_ms/children/descendants（纯 stdlib ctypes·不依赖 psutil）＋在途登记表 <SMS_HOME>/runtime/procs.json（register/beat/unregister/snapshot）＋classify 阻塞归因（waiting_input|computing|deadlock|flood|orphan_pipe|exited|running）＋drain（杀树后有界排空管道，超时即点名残留后代）。
+能力：cpu_ms/children/descendants（纯 stdlib ctypes·不依赖 psutil）＋在途登记表 <SMS_HOME>/runtime/procs.json（register/beat/unregister/snapshot）＋classify 阻塞归因（waiting_input|computing|deadlock|flood|spin|orphan_pipe|exited|running）＋drain（杀树后有界排空管道，超时即点名残留后代）。
 用法：python -B proc_guard.py status | probe <pid> | classify <pid>"""
 import os, sys, json, time, threading, ctypes as C
 import ctypes.wintypes  # noqa: F401（C.wintypes 显式可用）
@@ -19,6 +19,7 @@ CPU_BUSY_MS = 300
 FLOOD_LPS = 400
 PROMPT_GRACE = 8.0
 STALE = 900
+SPIN_AFTER = 120  # 空转阈（秒）：CPU 高却零输出零进展持续这么久＝自旋（非闷头算勿误杀）
 
 def cpu_ms(pid):
     """进程累计 CPU 毫秒（kernel+user）；取不到回 -1。"""
@@ -236,7 +237,7 @@ def line_rate(pid, lines):
 
 
 def classify(pid=None, entry=None, sms=None):
-    """阻塞归因：回 (kind, detail)。kind∈exited|waiting_input|flood|computing|deadlock|running。"""
+    """阻塞归因：回 (kind, detail)。kind∈exited|waiting_input|flood|spin|computing|deadlock|running。"""
     e = entry or {}
     if not e and pid:
         e = next((x for x in snapshot(sms) if int(x.get("pid") or 0) == int(pid)), {})
@@ -257,6 +258,8 @@ def classify(pid=None, entry=None, sms=None):
     rl, wdt = line_rate(p, lines)
     if rl >= FLOOD_LPS and wdt >= 0.3:
         return "flood", "pid=%d 本窗输出 %.0f 行/秒（共 %d 行·窗 %.1fs）＝疑似死循环刷屏" % (p, rl, lines, wdt)
+    if rate >= CPU_BUSY_MS and rl <= 0 and sil >= SPIN_AFTER:
+        return "spin", "pid=%d CPU %.0f ms/s 却 %.0fs 零输出零进展＝空转（非闷头算）" % (p, rate, sil)
     if rate >= CPU_BUSY_MS:
         return "computing", "pid=%d 静默 %.0fs 但 CPU 活跃（%.0f ms/s）＝闷头算不打印，勿误杀" % (p, sil, rate)
     if sl and sil >= sl:
@@ -273,7 +276,7 @@ def hung(sms=None):
         k, det = classify(entry=dict(e), sms=sms)
         sl = float(e.get("stall") or 0)
         sil = time.time() - float(e.get("last_out") or e.get("started") or time.time())
-        if k in ("deadlock", "waiting_input", "flood") or (sl and sil >= sl and k != "computing"):
+        if k in ("deadlock", "waiting_input", "flood", "spin") or (sl and sil >= sl and k != "computing"):
             out.append(dict(e, kind=k, detail=det))
     return out
 
@@ -318,6 +321,7 @@ def status(sms=None):
     import json
     return json.dumps({"procs": snapshot(sms), "hung": hung(sms),
                        "thresholds": {"cpu_busy_ms_per_s": CPU_BUSY_MS, "flood_lines_per_s": FLOOD_LPS,
+                                      "spin_after_s": SPIN_AFTER,
                                       "prompt_grace_s": PROMPT_GRACE}}, ensure_ascii=False)
 
 
