@@ -94,7 +94,28 @@ def fetch(url, chars=4000, as_text=True, call=None, retries=2):
     try:
         import retry_io as rio
         return rio.call(_once, max(0, int(retries)), base=1.0, cap=5.0)
-    except Exception as e: return None, str(e)[:180]
+    except Exception as e: return None, net_err(e)
+
+def net_err(e):
+    """批29 P3-10：网络失败分类——域名不可达/DNS、连接被拒/超时＝环境抖动（提示查代理或跳过该项调研，非技能缺陷）；
+    401/403＝站点拒绝（需登录/反爬）；404＝资源不存在；T1/T2＝超时分级。回带类别前缀的可读一句。"""
+    import socket, urllib.error
+    t = str(e) or e.__class__.__name__
+    if isinstance(e, socket.gaierror) or "getaddrinfo" in t or "Name or service" in t:
+        return "〔网络·域名不可达〕%s——查 DNS/代理，或跳过该项调研（非技能缺陷）" % t[:90]
+    if isinstance(e, urllib.error.HTTPError):
+        if e.code in (401, 403): return "〔站点拒绝·%d〕需登录或被反爬拦截，换来源或带鉴权：%s" % (e.code, t[:80])
+        if e.code == 404: return "〔资源不存在·404〕链接失效或路径变更：%s" % t[:80]
+        if e.code in (429, 503): return "〔限流/暂不可用·%d〕稍后重试或降频：%s" % (e.code, t[:80])
+        return "〔HTTP·%d〕%s" % (e.code, t[:120])
+    if isinstance(e, urllib.error.URLError):
+        r = str(getattr(e, "reason", e))
+        if "10060" in r or "timed out" in r.lower() or "refused" in r.lower():
+            return "〔网络·连接超时/被拒〕%s——目标端口未开放或被防火墙拦截，属环境问题（非技能缺陷）" % r[:90]
+        return "〔网络·不可达〕%s" % r[:120]
+    if isinstance(e, TimeoutError) or "T1" in t or "timeout" in t.lower():
+        return "〔超时〕%s——T1 网络单请求到点，可降 chars 或换源" % t[:110]
+    return "〔异常·%s〕%s" % (e.__class__.__name__, t[:140])
 
 def _amp(c):
     """引号感知的 && → ; 改写（引号内不动·反斜杠转义按 PS 规则只在双引号内处理）。回 (新命令, 改写处数)。"""

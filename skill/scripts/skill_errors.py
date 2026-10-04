@@ -16,10 +16,17 @@ def _save(sms, doc, write):
     json.dump(doc, open(_p(sms), "w", encoding="utf-8"), ensure_ascii=False, indent=2)
     return {"ok": _p(sms)}
 
+NOT_DEFECT = ("run_watch 超时收口", "超时收口", "底栏停止", "用户主动", "用户停止", "stop_channel")
+def not_defect(msg):
+    """批29 P3-09：超时收口（run_watch 经 handle_timeout_extend/max 自动延长）与用户主动停止＝非缺陷，不记 open。"""
+    m = str(msg or "")
+    return next((k for k in NOT_DEFECT if k in m), "")
 def record(sms, skill, where, msg, write):
     doc = _doc(sms)
-    e = next((x for x in doc["entries"] if x["skill"] == skill and x["where"] == where and x["status"] == "open"), None)
+    nd = not_defect(msg)
+    e = next((x for x in doc["entries"] if x["skill"] == skill and x["where"] == where and x.get("msg") == msg and x["status"] == "open"), None)
     if e: e["count"] += 1; e["last"] = DATE
+    elif nd: doc["entries"].append({"skill": skill, "where": where, "msg": msg, "count": 1, "first": DATE, "last": DATE, "status": "not_defect", "verdict": "非缺陷：" + nd})
     else: doc["entries"].append({"skill": skill, "where": where, "msg": msg, "count": 1, "first": DATE, "last": DATE, "status": "open"})
     import chain_error; chain_error.hook("skill", skill + "@" + where, msg)
     import debug; debug.error("skill_error %s@%s ×%d %s" % (skill, where, (e or doc["entries"][-1])["count"], msg), sms)
@@ -34,7 +41,7 @@ def resolve(sms, skill, write):
 
 def due(sms):
     agg = {}
-    for x in _doc(sms)["entries"]:
+    for x in _doc(sms)["entries"]:  # not_defect 不计入修复催办
         if x["status"] == "open": agg[x["skill"]] = agg.get(x["skill"], 0) + x["count"]
     hits = {k: v for k, v in agg.items() if v >= TH}
     return {"due": hits, "suggest": ["启用 Skill_Generator self_update 修复 %s（未解决错误 %d 处）" % (k, v) for k, v in hits.items()]}
