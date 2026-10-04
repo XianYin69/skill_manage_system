@@ -6,6 +6,7 @@ request(action,why)＝大模型侧入口（exec 跑 `python -B shell_lifecycle.p
 cmd(m,sms,on_line)＝手动入口（F1 菜单与 readline 兜底壳同径）：15 秒内连点两次才真做；
 resume(sms)＝重启后「继续执行任务」单一入口（回 (提示文案, 续跑话语或 None)·旗标一次性消费并留档；resume_hint/auto_resume 为委托它的兼容壳，不再二次消费旗标；开关 settings shell.auto_resume 默认开）。
 用法：python -B shell_lifecycle.py restart|shutdown|status|request <action> [原因]"""
+import no_window  # 静默子进程：前台运行任务不弹命令行窗口
 import os, sys, json, time, subprocess
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import resolve_home, chains, chain_timing, close_guard as cg
@@ -32,7 +33,7 @@ def _shell_pids(exclude=()):
     try:
         # 实测一次 PowerShell 查询约 1.1s：25s 上限＝网关/PS 卡住时，用户点「确认关闭」最长干等 25 秒，
         # 正是「点了没关」的观感来源。5s 足够；超时回 [] 由 kill_services 的 ctypes 路径兜底。
-        out = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", q], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=5).stdout
+        out = no_window.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", q], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=5).stdout
     except Exception: return []
     hits = []
     for ln in out.splitlines():
@@ -46,7 +47,7 @@ def kill_others(exclude=(), why=""):
     gone = []
     for pid in _shell_pids(exclude):
         try:
-            subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True, timeout=15)
+            no_window.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True, timeout=15)
             gone.append(pid)
         except Exception: pass
     gone and chains.record("event", "shell-kill-others %s（%s）" % (",".join(map(str, gone)), why or "restart"))
@@ -87,7 +88,7 @@ def kill_services(exclude=(), sms=None, budget=1.5, why=None):
     except Exception: pass
     for pid in pids:
         if time.time() - t0 > budget: break
-        try: subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True, timeout=3)
+        try: no_window.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True, timeout=3)
         except Exception: pass
     pids and chains.record("event", "shell-kill-services %s（%s）" % (",".join(map(str, pids)), why or "close"))
     return pids
@@ -103,9 +104,9 @@ def _bye(sms, tag):
     except Exception: pass
 def _spawn(sms):
     if not os.path.isfile(BIN): return ("启动器缺失：" + BIN, None)
-    kw = {"creationflags": 0x00000010, "stdin": subprocess.DEVNULL} if os.name == "nt" else {"start_new_session": True, "stdin": subprocess.DEVNULL}
+    kw = {"creationflags": 0x08000000 | 0x8, "stdin": subprocess.DEVNULL} if os.name == "nt" else {"start_new_session": True, "stdin": subprocess.DEVNULL}
     try:
-        pr = subprocess.Popen([sys.executable, "-B", BIN], cwd=os.path.dirname(BIN), env=dict(os.environ, SMS_SESSION=chains.cur_sess()), **kw)
+        pr = no_window.Popen([sys.executable, "-B", BIN], cwd=os.path.dirname(BIN), env=dict(os.environ, SMS_SESSION=chains.cur_sess()), **kw)
     except Exception as e:
         import chain_error; chain_error.record("shell", "shell_lifecycle._spawn", str(e))
         return ("拉起失败：" + str(e)[:120], None)
@@ -220,7 +221,7 @@ def _selftest():
         bak[p] = open(p, "rb").read() if os.path.exists(p) else None
     root = tempfile.mkdtemp(prefix="lc_selftest_"); pr = None
     try:
-        pr = subprocess.Popen([sys.executable, "-B", "-c", "import time;time.sleep(60)"],
+        pr = no_window.Popen([sys.executable, "-B", "-c", "import time;time.sleep(60)"],
                               creationflags=0x08000000 | 0x8)
         time.sleep(0.4)
         import proc_guard as pg

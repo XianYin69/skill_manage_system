@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """bootstrap.py — 确保 Skill_Generator 可用：查技能目录与 <SMS_HOME>/config/skills.json 的 skill_generator；缺失则从 GitHub 拉取。"""
+import no_window  # 静默子进程：前台运行任务不弹命令行窗口
 import os, sys, json, glob
 
 ID = "skill_generator"
@@ -39,7 +40,7 @@ def acquire(sms, dry):
     import permissions, subprocess
     if not (permissions.allow(sms, "network") and permissions.allow(sms, "write")):
         return {"found": False, "action": "DENIED: 拉取需授予 network + write"}
-    r = subprocess.run(["git", "clone", "--depth", "1", repo, dest], capture_output=True, text=True)
+    r = no_window.run(["git", "clone", "--depth", "1", repo, dest], capture_output=True, text=True)
     if r.returncode == 0: import trust; trust.mark(sms, os.path.basename(dest), "pending_review", "cloud", "bootstrap")
     return {"found": False, "cloned": r.returncode == 0, "target": dest, "detail": (r.stderr or r.stdout).strip()[:200]}
 

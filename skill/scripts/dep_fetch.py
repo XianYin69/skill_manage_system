@@ -4,6 +4,7 @@
 ①check：列出缺 source_url / 链接不可达的条目（缺链接＝不合格）；②fetch：按 source_url 把上游取回技能目录 dependence/vendor/<name>/（有 git 用 git clone --depth 1，否则 GitHub/GitLab 归档 zip 下载解压）；③list：打印依赖清单与链接。
 高危提示：fetch 会联网下载外部代码，须 :grant network（＋落链记录），默认只列不取。
 用法：python -B dep_fetch.py list <技能id或目录> | check [技能id…] | fetch <技能id> <依赖name>"""
+import no_window  # 静默子进程：前台运行任务不弹命令行窗口
 import os, sys, json, subprocess, urllib.request, zipfile, io as _io
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import resolve_home, permissions
@@ -93,7 +94,7 @@ def fetch(sid, name, sms=None):
     dst = os.path.join(d, DEPDIR, VEND, str(name)); os.makedirs(os.path.dirname(dst), exist_ok=True)
     if os.path.isdir(dst): return "已存在，跳过（删目录可重取）：" + dst
     if os.system("git --version >NUL 2>&1") == 0:
-        r = subprocess.run(["git", "clone", "--depth", "1", u, dst], capture_output=True, text=True, errors="replace", timeout=300)
+        r = no_window.run(["git", "clone", "--depth", "1", u, dst], capture_output=True, text=True, errors="replace", timeout=300)
         if r.returncode == 0:
             __import__("chains").record("tool", "dep_fetch %s｜%s ← %s" % (sid, name, u))
             return "已 git clone 到 " + dst

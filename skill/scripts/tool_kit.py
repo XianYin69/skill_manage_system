@@ -27,9 +27,26 @@ def read_window(path, max_lines=120, offset=0, chars=4000):
     return txt, (None if early else total), (cut or early or total > off + len(buf))
 def _keep(ns):
     ns[:] = [x for x in ns if x not in PRUNE and (not x.startswith(".") or x in (".github", ".vscode"))]
+def _scan_file(p, rel_root, rx, lim):
+    """单文件逐行流式扫描：跳二进制扩展名与 >MAXF，命中即止。回 (命中行, 是否截断)。"""
+    out = []
+    if os.path.splitext(p)[1].lower() in BIN_EXT: return out, False
+    try:
+        if os.path.getsize(p) > MAXF: return out, False
+        with open(p, encoding="utf-8", errors="replace") as f:
+            for i, ln in enumerate(f, 1):
+                if rx.search(ln):
+                    out.append(os.path.relpath(p, rel_root) + ":" + str(i) + ":" + ln.rstrip("\n").strip()[:200])
+                    if len(out) >= lim: return out, True
+    except Exception:
+        return out, False
+    return out, False
+
 def grep_walk(root, rx, include="*", max=60):
     """剪枝＋流式＋命中即止：跳二进制扩展名与 >8MB 文件，逐行扫不再整读。回 (命中行, 是否截断)。"""
     out = []; rx = rx if hasattr(rx, "search") else re.compile(str(rx)); lim = int(max or 60); lim = lim if lim >= 1 else 1
+    if os.path.isfile(root):  # 单文件路径直扫（旧版 os.walk 遇文件静默返回空＝精准度缺陷·2026-10-04 实测）
+        return _scan_file(root, os.path.dirname(os.path.abspath(root)) or ".", rx, lim)
     for dp, ns, fs in os.walk(root):
         _keep(ns)
         for fn in fs:

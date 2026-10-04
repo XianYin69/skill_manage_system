@@ -3,6 +3,7 @@
 职责：①scan 扫描全部技能 planned_tasks 文件夹并校验 schema；②next_run 按 at/cron/interval 算下次触发；③due 取到点条目；④fire 到点自动执行＝为该计划任务绑定/复用 session（kind=cron）→ 建任务表（task_table.plan）→ 把任务表与执行记录挂到该 session 关联链（chains.record）→ 交 runner（默认 shell_core.handle，模型会先向用户询问细节再执行）→ 回写 status/last_run/next_run/runs；⑤tick 节流扫描并触发；⑥CLI：ls/validate/add/show/pause/resume/run/tick/serve。
 约束（与 Skill_Generator README 一致）：一任务一文件、原子写、status 仅 pending/running/done/paused/failed、时间一律本地 ISO、技能自身不执行计划任务（只有本模块执行）。
 用法：python -B planned_tasks.py ls | validate | add "<标题>" "<时间>" "<诉求>" [技能id] | show <id> | pause <id> | resume <id> | run <id> | tick | serve | selftest"""
+import no_window  # 静默子进程：前台运行任务不弹命令行窗口
 import os, sys, json, time, glob, re, datetime
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import resolve_home, atomic_io, settings, chains, session_reg, task_table as tt
@@ -239,12 +240,12 @@ def start(sms=None):
     try:
         if os.path.exists(pf):
             pid = int((open(pf, encoding="utf-8").read() or "0").strip() or 0)
-            r = subprocess.run(["tasklist", "/FI", "PID eq %d" % pid], capture_output=True, text=True, errors="replace")
+            r = no_window.run(["tasklist", "/FI", "PID eq %d" % pid], capture_output=True, text=True, errors="replace")
             if str(pid) in (r.stdout or ""): return "调度进程已在运行（pid %d）" % pid
     except Exception: pass
     logf = open(os.path.join(d, "serve.log"), "a", encoding="utf-8")
     kw = {"creationflags": 0x8 | 0x08000000} if os.name == "nt" else {"start_new_session": True}
-    pr = subprocess.Popen([sys.executable, "-B", os.path.abspath(__file__), "serve"], stdin=subprocess.DEVNULL, stdout=logf, stderr=logf, cwd=os.path.dirname(os.path.abspath(__file__)), **kw)
+    pr = no_window.Popen([sys.executable, "-B", os.path.abspath(__file__), "serve"], stdin=subprocess.DEVNULL, stdout=logf, stderr=logf, cwd=os.path.dirname(os.path.abspath(__file__)), **kw)
     open(pf, "w", encoding="utf-8").write(str(pr.pid))
     return "计划任务调度进程已拉起（pid %d·日志 planned/serve.log）" % pr.pid
 

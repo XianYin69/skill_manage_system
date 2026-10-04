@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """shell_core.py — sms-shell 共享路由（与 bin ps1 同套确定性路由）：quit·`sms/sms-shell` 前缀剥离·裸内置词零模型直达（批22 收窄＝仅整行显式命令，自然语言一律走数据流交模型裁决意图）·`:dispatch` 真派发（批23 对等对话）·`:sh`/`!命令` 系统 shell 联动·`:edit/:view` 返回编辑器令牌（TUI F8）·`:session new|list|use|current|overview|conflicts` 会话层（新建会话＝新 session·conv 每输入/派发自动开收·拓扑与跨会话冲突经 sessions_view）。其余话语经 shell_mode.utter（含 F7 三态 gate）→ data flow；agent_stream 批16 LLM 主导：路由打分仅作〔参考〕注入，直答/派发由模型在 gateway 工具循环内自主决定。st 上报步骤、ev 收 msg_flow 信封供顶栏进度。"""
+import no_window  # 静默子进程：前台运行任务不弹命令行窗口
 import os, sys, subprocess, re; S = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, S)
 import web_banner as wb, agent_stream as ag, settings, user_commands, skill_route, user_index, debug, chains, resolve_home, sys_shells, shell_resume as sr, stop_channel as stop, chain_error; from shell_help import HELP, SHORT; SMS = ag.SMS; IMG = []; BUILD = "b97"; os.environ["SMS_TMP"] = resolve_home.wtmp(); os.environ.setdefault("SMS_SESSION", __import__("session_reg").current())
 def _solo():
@@ -47,7 +48,7 @@ def startup_block():
         except Exception: pass
     return "\n\n".join(parts)
 def run_script(name, args):
-    try: p = subprocess.run([sys.executable, "-B", os.path.join(S, name) if os.path.isfile(os.path.join(S, name)) else os.path.join(S, "..", "sub_skills", name.replace("/", os.sep))] + list(args), capture_output=True, text=True, encoding="utf-8", errors="replace", stdin=subprocess.DEVNULL, timeout=max(10, int(settings.get("shell.exec_timeout", 600))))
+    try: p = no_window.run([sys.executable, "-B", os.path.join(S, name) if os.path.isfile(os.path.join(S, name)) else os.path.join(S, "..", "sub_skills", name.replace("/", os.sep))] + list(args), capture_output=True, text=True, encoding="utf-8", errors="replace", stdin=subprocess.DEVNULL, timeout=max(10, int(settings.get("shell.exec_timeout", 600))))
     except subprocess.TimeoutExpired as te:
         chain_error.hook("script", name, "timeout")
         import run_watch as rw

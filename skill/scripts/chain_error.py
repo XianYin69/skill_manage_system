@@ -1,15 +1,23 @@
 #!/usr/bin/env python3
 """chain_error.py — 错误记录链（第 12 链 error）：运行期错误语句化为原子 `err:<kind>:<src> <msg>`；kind＝tool（agent_dispatch 工具异常）/script（shell_core rc≠0·超时）/skill（skill_errors 每笔）/dream（做梦后台失败）/shell（壳生命周期）/gate（其余）。同 (kind,src,msg 前 60 字) 命中既有未修原子只 bump freq，并挂 ref/member 边到当前 conv/session；error 属在谈链（chain_timing.LIVE）即时落盘。做梦 dream_repair 以本链＋skill_errors 台账为修复依据，修好 resolve() 打 [已修]。用法：python -B chain_error.py record <kind> <src> "<msg>" | list [kind] | stats | resolve <id>"""
-import os, sys, json
+import os, sys, json, re
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import chains, chain_store as cs
 KINDS = ("tool", "script", "skill", "dream", "shell", "gate")
 def _st(): return cs.Store(chains.resolve_home.ensure())
+VOL = ((re.compile(r"\d{4}-\d{2}-\d{2}[ T]?[\d:]*"), "<ts>"), (re.compile(r"\b[0-9a-fA-F]{8,}\b"), "<hex>"),
+       (re.compile(r"[A-Za-z]:[\\/][^\s,;)\]]+"), "<path>"), (re.compile(r"\d+"), "<n>"))
+def sig(msg):
+    """错误签名归一：时间戳/hex/绝对路径/数字 → 占位符，同一缺陷的多次实例才能去重合并（否则每条都新建原子，淹没修复依据）。"""
+    s = " ".join(str(msg).split())
+    for rx, ph in VOL: s = rx.sub(ph, s)
+    return s[:80].lower()
+
 def find(kind, src, msg):
-    pre = "err:%s:%s" % (kind, src); m = " ".join(str(msg).split())[:60]
+    pre = "err:%s:%s" % (kind, src); m = sig(msg)[:60]
     for f in _st().all_frags("error"):
         t = f.get("text") or ""
-        if t.startswith(pre) and "[已修]" not in t and m and m in t[len(pre):][:len(m) + 5]: return f
+        if t.startswith(pre) and "[已修]" not in t and m and sig(t[len(pre):])[:60] == m: return f
     return None
 def record(kind, src, msg, edges=None):
     kind = kind if kind in KINDS else "gate"; src = (str(src) or "unknown").replace(" ", "_")[:60]

@@ -6,7 +6,16 @@ import resolve_home, settings
 SKILL = "skill_manage_system"
 PROTOCOL = "〔处理协议·批24〕内部处理（思考·工具参数·链写入·任务表步骤·草稿）一律用英语、语句精简；给用户的最终输出先以英语处理完成、再译回用户话语所用语言，简短直给。"
 PROMPT = "你是 skill_manage_system（SMS）数据流中的主导决策者（LLM 主导·脚本辅助）：问答可直答（简短·用户语言）；本机事实先 read/grep/glob/ls/exec 查证、禁编造；动手才用工具——命中托管技能用 skill 派发对等对话（独立 conv·独立链·无主次·互任监视/指导/训诫）按注入 SKILL.md 真执行，收口＝形式停止、由你整合续推；本机脚本 exec 一次运行、禁反复试探、禁空口声称已执行；[SMS 路由·参考] 仅供裁量；既往先 chain recall、有价值即 chain append、岔路用 debate 自辩（仅高危回人确认）；确无可用技能则建议经 Skill_Generator 创建。生成文件只入工作区 tmp\\（env SMS_TMP·壳已自动建）；tmp 产物收编先 ws_release.py diff 预览、当轮同意后 release --yes（须 :grant danger）；模型/技能配置直读 <SMS_HOME>/config、禁复制重建入工作区；SMS 设置/命令据 settings/commands 查证作答。"
-def _reg(sms): return json.load(open(os.path.join(sms, "registry", "register.json"), encoding="utf-8")).get("skills", [])
+_RC = {}
+def _reg(sms):
+    """register.json 按 (mtime,size) 缓存：每轮构建提示词不再重复全量解析（批6 同法已用于 skill_route）。"""
+    p = os.path.join(sms, "registry", "register.json")
+    try: k = (os.path.getmtime(p), os.path.getsize(p))
+    except Exception: k = None
+    if (c := _RC.get("v")) and c[0] == k: return c[1]
+    try: rows = json.load(open(p, encoding="utf-8")).get("skills", [])
+    except Exception: rows = []
+    _RC["v"] = (k, rows); return rows
 def model_block(sms=None):
     sms = sms or resolve_home.ensure(); g = settings.eff(sms)["llm_gateway"]
     try:
@@ -16,12 +25,29 @@ def model_block(sms=None):
     ctx = mm.get("context_length"); mo = mm.get("max_output_tokens")
     src = {"upstream": "上游标注", "probe": "实测", "listing": "兜底", "default": "兜底"}.get(mm.get("source"), "")
     return "模型身份：" + str(g.get("model") or "auto") + "（" + str(g.get("base_url") or "未配置网关") + "）· temperature=" + str(g.get("temperature")) + " top_p=" + str(g.get("top_p")) + " max_tokens=" + str(g.get("max_tokens")) + (" 上下文≤" + str(ctx) + ("（" + src + "）" if src else "") if ctx else " 上下文未探测") + (" 输出≤" + str(mo) if mo else "")
+def _prefix(rows):
+    ps = [str(s.get("install_path", "")) for s in rows if s.get("install_path")]
+    if len(ps) < 2: return ""
+    try: return os.path.commonpath(ps)
+    except ValueError: return ""
+
 def index(sms=None):
     sms = sms or resolve_home.ensure()
     try: rows = [s for s in _reg(sms) if s.get("status", "active") == "active" and s.get("trust") not in ("quarantine", "pending_review")]
     except Exception: rows = []
     if not rows: return "SKILL.md 索引：（注册表为空，先跑 register.py）"
-    return "SKILL.md 索引（id → SKILL.md 路径，命中可 exec 读全文按其流程）：\n" + "\n".join("%s → %s" % (s.get("id"), os.path.join(str(s.get("install_path", "")), str(s.get("entry", "SKILL.md")))) for s in rows)[:2400]
+    pre = _prefix(rows); n = len(pre) + 1 if pre else 0
+    def pth(s):
+        ip = str(s.get("install_path", "")); en = str(s.get("entry", "SKILL.md"))
+        if pre and ip.startswith(pre):
+            tail = ip[n:].replace("/", "\\")
+            return (tail + "\\" + en) if tail else en
+        return os.path.join(ip, en)
+    head = "SKILL.md 索引（id → 路径，命中可 exec 读全文按其流程）" + ("：前缀＝%s（各行＝前缀\\相对路径）" % pre if pre else "：")
+    body = head + "\n" + "\n".join("%s → %s" % (s.get("id"), pth(s)) for s in rows)
+    if len(body) > 2600:  # 截断只保留完整行：半行路径会让模型 exec 到不存在的文件（精准度）
+        body = body[:2600].rsplit("\n", 1)[0]
+    return body
 def init(sms=None):
     sms = sms or resolve_home.ensure(); t = resolve_home.wtmp()
     return "[SMS 对话初始化·引导结构]\n① 技能名：" + SKILL + "\n② " + model_block(sms) + "\n③ 工作区：" + t[: -len(os.sep + "tmp")] + "（生成文件只入 tmp\\＝" + t + "·模型/技能配置直读 " + os.path.join(sms, "config") + "·待审产物可 ws_release diff/release 收编）\n④ " + index(sms)

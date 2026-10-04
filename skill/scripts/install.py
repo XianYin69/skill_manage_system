@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """install.py — skill 包管理器：从本地目录或云端 gh:owner/repo[/sub] 安装到目标 agent 客户端 skills 文件夹；本地→trusted_local，云端→pending_review（trust review 通过前不被 sync push 推送）；云端下载需 network+write 且 --accept-download 用户确认；包内 dependence/ 经 pkg_deps 与技能包同检同净化，未过即拒整包。"""
+import no_window  # 静默子进程：前台运行任务不弹命令行窗口
 import os, sys, json, shutil, subprocess
 
 def _targets(a):
@@ -15,7 +16,7 @@ def _fetch(sms, spec, write):
     if not (permissions.allow(sms, "network") and permissions.allow(sms, "write")): return None, "DENIED: 云端安装需授予 network + write"
     if not os.environ.get("SMS_ACCEPT_DOWNLOAD"): return None, "CONFIRM: 通过网络下载子skill到目标skill目录须用户同意——加 --accept-download"
     shutil.rmtree(dest, ignore_errors=True); os.makedirs(os.path.dirname(dest), exist_ok=True)
-    r = subprocess.run(["git", "clone", "--depth", "1", "https://github.com/" + owner_repo + ".git", dest], capture_output=True, text=True)
+    r = no_window.run(["git", "clone", "--depth", "1", "https://github.com/" + owner_repo + ".git", dest], capture_output=True, text=True)
     return (os.path.join(dest, "/".join(parts[2:])) if r.returncode == 0 else None), (r.stderr or r.stdout).strip()[:200]
 
 def install(sms, src, cls, write, source):

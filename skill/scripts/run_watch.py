@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """run_watch.py — 程序运行计时器＋反馈器（2026-09-30 用户「添加程序运行计时器和反馈器，防止大模型写的程序/脚本运行异常导致任务卡住；异常要关闭该程序并把最后时刻的输出附给大模型」）。三层防线：① 总预算 budget＝墙钟上限（shell.exec_timeout）到点强杀；② 静默看门狗 stall＝连续无输出即判卡死（shell.stall_timeout，旧版只算总时长——真死锁要白等满预算）；③ 进程树强杀 kill_tree＝Windows taskkill /T /F（只 p.kill() 会留孙进程占着管道＝上一版「杀了还卡」的真凶）。feedback() 产出一段给大模型的话：异常原因＋已跑多久＋上限＋最后时刻输出末段，并落 runtime_rec（phase=exec）供看门狗/顶栏回溯。另 run_with_timeout(fn,secs)＝把任意阻塞调用（QQ 入站派发、技能对话）挂墙钟上限：超时先 stop_channel 协作收口＋杀在途子进程树，再放弃该线程回一句异常——单 worker 线程被一条消息永久拖死正是本次「QQ 发进去没回复」的根因。2026-10-01 分级修复（做梦审计错误1·error 链 2ab90541b9·freq=5）：一档平铺静默值把「慢但活着」的深层链路（网关 LLM 请求／技能对话期间不打活动戳）在 240s 就误杀——现分三档：T1 网络/网关单请求（net_call 自计时即抛）／T2 阶段静默（按 set_stage 阶段取阈值，长等待阶段走宽档 qq.handle_stall_llm）／T3 总预算（qq.handle_timeout／shell.exec_timeout），反馈文本必带级别名与建议（阈值真源 timeout_tiers.py＋tier_feedback.py）。用法：python -B run_watch.py status|test"""
+import no_window  # 静默子进程：前台运行任务不弹命令行窗口
 import os, sys, time, threading, subprocess
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import settings, runtime_rec as rr, timeout_tiers as tiers, tier_feedback as fb
@@ -43,7 +44,7 @@ def kill_tree(p):
     """强杀整棵进程树（孙进程一个不留）；失败退 p.kill()。回手段名供反馈措辞。"""
     try:
         if os.name == "nt":
-            subprocess.run(["taskkill", "/PID", str(p.pid), "/T", "/F"], capture_output=True, timeout=15)
+            no_window.run(["taskkill", "/PID", str(p.pid), "/T", "/F"], capture_output=True, timeout=15)
             return "taskkill /T /F"
         import signal
         os.killpg(os.getpgid(p.pid), signal.SIGKILL); return "killpg SIGKILL"
@@ -330,6 +331,6 @@ if __name__ == "__main__":
         print("① 静默看门狗（应 ~3s 内判卡并杀掉）：", sys_shells.run("Start-Sleep -Seconds 30")[:200])
         print("② 有输出后卡死：", sys_shells.run("1..3 | %{ \"line$_\"; Start-Sleep -Seconds 30 }")[:200])
         print("③ 超时孙进程残留检查：taskkill 树杀后 Get-Process sleep 计数=", end=" ")
-        print(subprocess.run(["powershell", "-NoProfile", "-Command", "(Get-Process -Name sleep -ErrorAction SilentlyContinue).Count"], capture_output=True, text=True).stdout.strip())
+        print(no_window.run(["powershell", "-NoProfile", "-Command", "(Get-Process -Name sleep -ErrorAction SilentlyContinue).Count"], capture_output=True, text=True).stdout.strip())
     else:
         print(status())
