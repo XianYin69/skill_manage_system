@@ -38,7 +38,12 @@
   "auto_continue": true,
   "max_continue": 5,
   "max_parallel": 3,
-  "comment": "任务表（task_table.py 制表器·批12·批14①门控·批18 主流程守卫）：auto_table＝仅复杂任务（拆步≥2且至少一步命中执行性技能）送网关前自动拆步建表（粗分种子·行数无上限·模型首轮据实改表并按步 task_plan 推进）；单步/纯问答/无技能命中多步一律免表直送；auto_continue＝主流程守卫（批18·相信大模型·批23 收口＝形式停止非实质完成）——话语带任务表且仍有未完成行时禁止收口，注入续推提示让模型继续派发/改表（仅调度对话生效·派发对话收口返回后续推）；max_continue＝守卫连续续推上限（0＝无限·防模型反复宣告完成不推进时熔断转人工）；max_parallel＝task 工具并发子任务上限（parallel=false 时改依序串行）"
+  "batch_parallel": 3,
+  "row_timeout": 0,
+  "conflict_read_write": true,
+  "conflict_skill": false,
+  "eta_parallel": true,
+  "comment": "任务表（task_table.py 制表器·批12·批14①门控·批18 主流程守卫）：auto_table＝仅复杂任务（拆步≥2且至少一步命中执行性技能）送网关前自动拆步建表（粗分种子·行数无上限·模型首轮据实改表并按步 task_plan 推进）；单步/纯问答/无技能命中多步一律免表直送；auto_continue＝主流程守卫（批18·相信大模型·批23 收口＝形式停止非实质完成）——话语带任务表且仍有未完成行时禁止收口，注入续推提示让模型继续派发/改表（仅调度对话生效·派发对话收口返回后续推）；max_continue＝守卫连续续推上限（0＝无限·防模型反复宣告完成不推进时熔断转人工）；max_parallel＝task 工具并发子任务上限（parallel=false 时改依序串行）；批29 子步骤并行（task_res.py）：batch_parallel＝任务表并发批次内最大并行度（互不冲突的行同批并发·默认 3）；row_timeout＝单行执行超时秒数（0＝不限·到点只标该行 timeout 并弃线程，不拖同批其他行）；conflict_read_write＝同行写＋读同一资源是否判冲突（默认 true 保守串行，false 允许读写并发）；conflict_skill＝同一技能被两行占用是否判冲突（默认 false·agent_task 已给同技能多实例各开独立对等对话）；eta_parallel＝顶栏剩余时间按并发批次「批内最大值」估算（默认 true，false 退回逐行累加旧口径）"
  },
  "shell": {
   "exec_timeout": 600,

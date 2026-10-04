@@ -1,20 +1,13 @@
 #!/usr/bin/env python3
 """agent_task.py — 任务工具 task/task_detail（诉求拆分·按技能实例并行对等对话·合并·批23：每实例自开独立 conv 独立链归属·无主次）：tsk.decompose 拆子任务→逐笔 skill_route 路由，同一技能多次命中编号为实例（skill 两派＝sk_1/sk_2·各开独立对等对话·流前缀 ⧉实例▸·agent_ctx 线程隔离防串台）→ThreadPool 并行（settings task.max_parallel 默认 3·全部子任务同时跑可加大·批18：parallel=false 改依序串行·由模型判定子任务有无依赖/冲突）；子任务异常记 error 不中断其余；每完成一笔经 atomic_io 落 <SMS_HOME>/tasks/<id>.json＋msg_flow task 进度信封（meta.done/total→顶栏实时）；subsession/skill_call 链在 run_skill 内按实例名记；收口生成合并报告（逐实例状态＋全结果＋技能×次数统计），task_detail 复算并再发进度信封（模型/顶栏共用同一进度真源）。用法：python -B agent_task.py run "<诉求>" | detail [task-id]"""
 import os, sys, json, time, threading
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import resolve_home, chains, skill_route, task as tsk, agent_tools as at, agent_ctx as ac, atomic_io, settings, stop_channel as stop, task_table as tt
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import resolve_home, chains, skill_route, task as tsk, agent_tools as at, agent_ctx as ac, atomic_io, settings, stop_channel as stop, task_table as tt, task_res as tr
 SMS = resolve_home.ensure()
 def _tf(tid): return os.path.join(SMS, "tasks", tid + ".json")
 def _save(doc): os.makedirs(os.path.join(SMS, "tasks"), exist_ok=True); atomic_io.wjson(_tf(doc["id"]), doc)
-def task(intent, parallel=True, lane="fg"):
-    """批26 前台/后台双车道：lane=bg＝本表由后台线程跑完（调用方用 bg() 立即拿句柄），表内行与前台共用同一套 status/进度/顶栏（地位相同）；
-    唯一差别＝主流程守卫不被后台行卡住（task_table.pending 排除 lane=bg），前台可继续收口。"""
-    if str(lane or "fg") == "bg" and threading.current_thread().name != "bg-task": return bg(intent, parallel)
-    from concurrent.futures import ThreadPoolExecutor
-    subs = tsk.decompose(str(intent)); tid = "task-" + time.strftime("%Y%m%d-%H%M%S") + "-" + "%03d" % (time.time() * 1000 % 1000)  # 毫秒后缀：同秒连发两任务不再互相覆盖 tasks/<id>.json（实测 task2 撞名 IndexOverwrite）
-    doc = {"id": tid, "intent": str(intent), "conv": chains.ACTIVE["conv"], "sess": chains.cur_sess(), "created": time.strftime("%Y-%m-%d %H:%M:%S"), "src": __import__("qq_stall").src(chains.ACTIVE["conv"]), "lane": str(lane or "fg"),
-      "subtasks": [(dict(x, lane=str(lane or "fg")) if isinstance(x, dict) else {"id": "t%d" % (i + 1), "goal": str(x), "status": "pending", "lane": str(lane or "fg")}) for i, x in enumerate(subs)]}; _save(doc)
-    at.emit("task", "任务 " + tid + "：拆出 " + str(len(subs)) + " 子任务·" + ("并行派发" if parallel is not False else "依序串行") + "（剩余时间预测见顶栏）", tool="task", meta={"id": tid, "done": 0, "total": len(subs), "eta_s": tt.eta(doc)})
-    lk = threading.Lock(); cnt = {}; parent = ac.cur()
+def _row_fn(doc, subs, lk, cnt, tid, parent):
+    """单行执行闭包（task 工具与 task_plan op=run 共用同一真源）：路由→run_skill/ask→写回 result/status→落盘＋进度信封；
+    异常只标该行（error＋skill_errors 台账），用户停止标 stopped——失败隔离由 task_res.run_rows 的批内并发保证。"""
     def one(st):
         ac.adopt(parent); stop.check(); sid, _ = skill_route.route(st["goal"]); sk = (sid or "").split(",")[0] or None
         with lk:
@@ -26,12 +19,38 @@ def task(intent, parallel=True, lane="fg"):
         with lk: dn = sum(1 for x in subs if x["status"] == "done"); _save(doc)
         at.emit("task", "任务 " + tid + " 进度 " + str(dn) + "/" + str(len(subs)) + "（" + st["inst"] + " " + st["goal"][:30] + (" " + st["status"] if st["status"] != "done" else "") + "）", tool="task_detail", meta={"id": tid, "done": dn, "total": len(subs), "eta_s": tt.eta(doc)})
         return st
+    return one
+
+def task(intent, parallel=True, lane="fg"):
+    """批26 前台/后台双车道：lane=bg＝本表由后台线程跑完（调用方用 bg() 立即拿句柄），表内行与前台共用同一套 status/进度/顶栏（地位相同）；
+    唯一差别＝主流程守卫不被后台行卡住（task_table.pending 排除 lane=bg），前台可继续收口。"""
+    if str(lane or "fg") == "bg" and threading.current_thread().name != "bg-task": return bg(intent, parallel)
+    subs = tsk.decompose(str(intent)); tid = "task-" + time.strftime("%Y%m%d-%H%M%S") + "-" + "%03d" % (time.time() * 1000 % 1000)  # 毫秒后缀：同秒连发两任务不再互相覆盖 tasks/<id>.json（实测 task2 撞名 IndexOverwrite）
+    doc = {"id": tid, "intent": str(intent), "conv": chains.ACTIVE["conv"], "sess": chains.cur_sess(), "created": time.strftime("%Y-%m-%d %H:%M:%S"), "src": __import__("qq_stall").src(chains.ACTIVE["conv"]), "lane": str(lane or "fg"),
+      "subtasks": [(dict(x, lane=str(lane or "fg")) if isinstance(x, dict) else {"id": "t%d" % (i + 1), "goal": str(x), "status": "pending", "lane": str(lane or "fg")}) for i, x in enumerate(subs)]}; _save(doc)
+    at.emit("task", "任务 " + tid + "：拆出 " + str(len(subs)) + " 子任务·" + ("并行派发" if parallel is not False else "依序串行") + "（剩余时间预测见顶栏）", tool="task", meta={"id": tid, "done": 0, "total": len(subs), "eta_s": tt.eta(doc)})
+    lk = threading.Lock(); cnt = {}; one = _row_fn(doc, subs, lk, cnt, tid, ac.cur())
     workers = 1 if parallel is False else max(1, min(max(1, int(settings.get("task.max_parallel", 3))), len(subs)))
-    with ThreadPoolExecutor(max_workers=workers) as ex: res = list(ex.map(one, subs))
+    out = tr.run_rows(subs, one, limit=workers, timeout=(0 if parallel is False else settings.get("task.row_timeout", 0)), src=tid)
+    res = out["results"]
     stat = "、".join(k + "×" + str(v) for k, v in sorted(cnt.items())) or "无技能命中（子问答作答）"
     merged = "任务 " + tid + " 完成（" + str(len(subs)) + " 子任务 · " + stat + " · 成功 " + str(sum(1 for r in res if r["status"] == "done")) + "/" + str(len(res)) + "）：\n" + "\n".join("[" + r["status"] + "] " + r["inst"] + " · " + r["goal"][:40] + " → " + r["result"] for r in res)
     chains.record("event", "task " + tid + " 收口 " + str(len(subs)) + " 子任务（" + stat + "）", [[chains.ACTIVE["conv"] or "", "ref", 1], [chains.cur_sess(), "member", 1]])
+    merged += "\n并发批次：" + "｜".join("+".join(b) for b in out["batches"]) + "（批间串行＝资源冲突或超并行度·批内并发≤" + str(workers) + "·墙钟 " + str(out["wall_s"]) + "s·失败 " + str(out["error"]) + "·超时 " + str(out["timeout"]) + "）"
     _save(doc); return merged[:6000]
+def run_table(doc, rows=None):
+    """task_plan op=run：把表内未完成行按资源互斥自动组成并发批次一次执行（task_res.batches→run_rows）——
+    批内并发≤task.batch_parallel、每行独立超时 task.row_timeout、失败隔离（异常/超时只标该行并写 error 链），
+    行状态与进度信封仍落 tasks/<id>.json＋顶栏（与 task 工具同一真源）。"""
+    subs = doc.get("subtasks") or []
+    rows = rows if rows is not None else [x for x in subs if x.get("status") in ("pending", "running")]
+    if not rows: return "无未完成行——本表已清空"
+    lk = threading.Lock(); cnt = {}; tid = doc["id"]
+    out = tr.run_rows(rows, _row_fn(doc, subs, lk, cnt, tid, ac.cur()), limit=max(1, int(settings.get("task.batch_parallel", 3) or 3)), src=tid)
+    _save(doc); tt.emit(doc, "任务表（并发批次执行）")
+    return "并发批次执行完成：批 %d 个〔%s〕·成功 %d/%d·失败 %d·超时 %d·墙钟 %ss（剩余预测已按批内最大值）" % (
+        len(out["batches"]), "｜".join("+".join(b) for b in out["batches"]), out["done"], len(rows), out["error"], out["timeout"], out["wall_s"])
+
 def bg(intent, parallel=True):
     """后台车道（并行处理）：另起线程跑 task(lane=bg)，本对话立刻拿句柄继续干别的；进度照常落 tasks/<id>.json＋顶栏。"""
     def _run():
