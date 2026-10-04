@@ -4,9 +4,35 @@ import os, sys, json, time, re
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import resolve_home, chains, task as tsk, skill_route, settings, atomic_io, latency, msg_flow, qq_report
 SMS = resolve_home.ensure(); GEN = ("general_answer", "constraint_arbiter"); TD = os.path.join(SMS, "tasks")
 def _tf(tid): return os.path.join(TD, tid + ".json")
-def _save(doc): os.makedirs(TD, exist_ok=True); atomic_io.wjson(_tf(doc["id"]), doc)
+_SIG = {}
+def _lc(tid):
+    """批29 P1-01：按 (mtime_ns,size) 缓存解析——tasks\\ 已 115 张/186KB，旧版每次全量 rjson 把 UI 线程打到 950ms/s 空转。"""
+    q = _tf(tid)
+    try: st = os.stat(q); sg = (st.st_mtime_ns, st.st_size)
+    except Exception: sg = None
+    c = _SIG.get(tid)
+    if sg is not None and c and c[0] == sg: return c[1]
+    d = _load(tid)
+    if len(_SIG) > 3000: _SIG.clear()
+    _SIG[tid] = (sg, d); return d
+def _save(doc):
+    os.makedirs(TD, exist_ok=True); atomic_io.wjson(_tf(doc["id"]), doc)
+    subs = doc.get("subtasks") or []
+    if subs and all(x.get("status") == "done" for x in subs): _arch(doc["id"])
+def _arch(tid):
+    """批29 P3-12：全行 done 的表自动移入 tasks_archive\\，tasks\\ 只留在途表（P1-01 空转放大根因）。"""
+    try:
+        q = _tf(tid)
+        if not os.path.exists(q): return ""
+        os.makedirs(AD, exist_ok=True); os.replace(q, os.path.join(AD, tid + ".json"))
+        _SIG.pop(tid, None); return tid
+    except Exception: return 
+AD = os.path.join(SMS, "tasks_archive")
 def _load(tid):
-    try: return atomic_io.rjson(_tf(tid))
+    try:
+        q = _tf(tid)
+        if not os.path.exists(q): q = os.path.join(AD, tid + ".json")
+        return atomic_io.rjson(q)
     except Exception: return None  # noqa
 def eta(doc): llm = latency.avg("llm|" + str(settings.get("llm_gateway.model", "auto"))) or 45000; return round(sum(((latency.avg("skill|" + str(x.get("skill"))) or llm) if x.get("skill") else llm) for x in (doc.get("subtasks") or []) if x.get("status") in ("pending", "running")) / 1000)
 def emit(doc, note="任务表"):
@@ -33,7 +59,7 @@ def unfinished():
     if not os.path.isdir(TD): return out
     for fn in sorted(os.listdir(TD)):
         if not fn.endswith(".json"): continue
-        doc = _load(fn[:-5]); subs = (doc or {}).get("subtasks") or []
+        doc = _lc(fn[:-5]); subs = (doc or {}).get("subtasks") or []
         if not subs: continue
         dn = sum(1 for x in subs if x.get("status") == "done")
         if dn < len(subs): out.append((fn[:-5], dn, len(subs)))
@@ -44,11 +70,17 @@ def _all(): return sorted([f[:-5] for f in (os.listdir(TD) if os.path.isdir(TD) 
 def _find(t): k = [i for i in _all() if (t := str(t or "").strip()) and (i == t or i.endswith(t) or t in i)]; return k[-1] if k else ""
 def _latest():
     sc = lambda d: 0 if (c := chains.ACTIVE.get("conv") or "") and d.get("conv") == c else 1 if d.get("sess") == chains.cur_sess() else 2
-    op_ = [(d, t) for t in _all() if (d := _load(t)) and any(x.get("status") != "done" for x in (d.get("subtasks") or []))]
+    op_ = [(d, t) for t in _all() if (d := _lc(t)) and any(x.get("status") != "done" for x in (d.get("subtasks") or []))]
     return sorted(op_, key=lambda z: (sc(z[0]), z[1]))[-1][1] if op_ else ""
 def revise(op, tid="", row="", value=""):
     if op in ("new", "plan"): st = _steps(value or tid); return new_table(str(tid or value)[:200] if (value or tid) else "未命名任务表", st) if st else "建表失败：value＝你拆的步骤（逗号/顿号分隔）"
-    doc = _load(_find(tid) or _latest())
+    _tid = str(tid or "").strip()
+    if _tid:
+        _hit = _find(_tid)
+        if not _hit: return "无此表：" + _tid + "（tid 未命中即拒绝·不回落他人表·task_plan show 看全部）"
+        doc = _load(_hit)
+    else:
+        doc = _load(_latest())
     if not doc: return "无任务表：" + str(tid) + "（task_plan op=plan value=<步骤逗号分隔> 先建表；op=show 看全部）"
     if not row and re.search(r"pending|running|error|stopped", str(value or "")): row, value = str(value), "done"
     subs = doc.get("subtasks") or []; x = next((s for s in subs if s.get("id") == row), None)

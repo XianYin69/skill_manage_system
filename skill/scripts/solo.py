@@ -41,10 +41,28 @@ def set(on):
     return ("── SOLO 模式已开启 ──\n权限不再向用户确认，缺权限时由大模型自审决定是否授予。风险须知：\n" + banner_lines()) if on \
         else "SOLO 模式已关闭——权限准入回到用户确认（:grant），与未启用 SOLO 时逐字一致"
 def _utter():
-    """本轮用户话语摘要（user 链最新碎片·取不到＝空串，绝不因缺上下文阻断审核）。"""
+    """本轮用户话语摘要（批29 P1-03）：user 链只在偏好落盘时写、非逐轮写，旧版只取该链尾碎片——
+    本轮话语未落链时拿到数日前陈旧文本，用户明确要求的操作被判「本轮未明确要求」而误拒 danger/git 写。
+    现优先级＝① 当前 conv 在 dialogue 链的 user@ 记录（agent_stream 轮次开始即写全文）② user 链尾碎片
+    （超 48h 标〔非本轮·链内旧文本〕供审核器折价）③ 全取不到＝空串，绝不因缺上下文阻断审核。"""
     try:
+        c = chains.ACTIVE.get("conv") or ""
+        if c:
+            pre = "user@" + c; best = ""; bts = ""
+            for f in chains.store().all_frags("dialogue"):
+                t = str((f or {}).get("text") or "")
+                if not t.startswith(pre): continue
+                ts = str((f or {}).get("ts") or "")
+                if ts >= bts: bts, best = ts, t[len(pre):].strip()
+            if best: return best[:300]
         fs = [f for f in chains.store().all_frags("user") if (f or {}).get("text")]
-        return sorted(fs, key=lambda f: f.get("ts", ""))[-1].get("text", "")[:300] if fs else ""
+        if not fs: return ""
+        f = sorted(fs, key=lambda x: x.get("ts", ""))[-1]; txt = str(f.get("text") or "")[:300]
+        try:
+            stale = (time.time() - time.mktime(time.strptime(str(f.get("ts"))[:19], "%Y-%m-%dT%H:%M:%S"))) > 172800
+        except Exception:
+            stale = False
+        return ("〔非本轮·链内旧文本〕" if stale else "") + txt
     except Exception: return ""
 def _jsonline(txt):
     """从回复里取第一个 JSON 对象（模型多话也容得下·解不出＝None→上层保守拒绝）。"""
