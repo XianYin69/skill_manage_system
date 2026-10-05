@@ -5,18 +5,32 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import resolve_h
 SMS = resolve_home.ensure()
 def _base(path): return at._r(path or resolve_home.workspace())
 def glob(pattern="**/*", path="", limit=200):
-    """生成器早停匹配（批27）：不再整树展开后再截断。"""
-    hs, tr = tk.glob_fast(str(pattern), _base(path), limit)
-    at.emit("tool", "glob " + str(pattern) + " → " + str(len(hs)) + ("+（还有更多）" if tr else "") + " 项", tool="glob", ok=True)
-    return "\n".join(hs) or "（无匹配）"
+    """剪枝＋扫描上限＋墙钟 deadline 早停（批29）：早停原因如实回给模型——未扫全≠没有。"""
+    st = {}
+    hs, tr = tk.glob_fast(str(pattern), _base(path), limit, status=st)
+    part = bool(st.get("deadline") or st.get("cap"))
+    at.emit("tool", "glob " + str(pattern) + " → " + str(len(hs))
+            + ("+（还有更多）" if tr else "") + " 项" + (" · " + st.get("note", "") if part else ""),
+            tool="glob", ok=True)
+    txt = "\n".join(hs) or "（无匹配）"
+    if part:
+        txt += "\n〔早停·未扫全〕" + st.get("note", "") + "——缩小 path 或加限定词重试，或调高 tools.glob_deadline"
+    return txt
 def grep(pattern, path="", include="*", max=60):
     """剪枝＋流式＋命中即止（批27）：跳 .git/__pycache__/node_modules 等与二进制/超 8MB 文件，逐行扫不整读。"""
     b = _base(path)
     try: rx = re.compile(str(pattern))
     except re.error as e: return "正则错误：" + str(e)[:120]
-    out, tr = tk.grep_walk(b, rx, include, max)
-    at.emit("tool", "grep " + str(pattern) + " 命中 " + str(len(out)) + ("（截断）" if tr else ""), tool="grep", ok=bool(out))
-    return "\n".join(out) or "（无命中）"
+    st = {}
+    out, tr = tk.grep_walk(b, rx, include, max, status=st)
+    part = bool(st.get("deadline") or st.get("cap"))
+    at.emit("tool", "grep " + str(pattern) + " 命中 " + str(len(out))
+            + ("（截断）" if tr else "") + (" · " + st.get("note", "") if part else ""),
+            tool="grep", ok=bool(out))
+    txt = "\n".join(out) or "（无命中）"
+    if part:
+        txt += "\n〔早停·未扫全〕" + st.get("note", "") + "——缩小 path 或加 include 重试，或调高 tools.grep_deadline"
+    return txt
 def ls(path="", limit=200):
     b = _base(path)
     try: rows = sorted(os.listdir(b))[:limit]

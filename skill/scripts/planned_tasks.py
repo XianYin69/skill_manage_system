@@ -275,7 +275,20 @@ def serve():
     print("计划任务调度已启·扫描根：%s" % "、".join(roots()))
     while True:
         for r in tick(force=True): print("触发：", r)
+        _lc_pending()  # 批32 R1：常驻非壳宿主也可代为执行大模型登记的 restart/shutdown（旧版无人消费＝请求烂在文件里）
         time.sleep(max(5, int(settings.get("planned.tick_sec", 30))))
+def _lc_pending():
+    """经唯一接缝跑壳侧待办（runtime_bind.pending_run·core 侧不 import shell_*）：异常记 error 链不静默。"""
+    try:
+        import runtime_bind as rb
+        p = rb.pending_run(allow=True)
+        if isinstance(p, str) and p: print("lifecycle：", p[:200])
+    except Exception as e:
+        try:
+            import chain_error
+            chain_error.record("shell", "planned_tasks.serve", str(e)[:160])
+        except Exception as e2:
+            print("lifecycle 消费异常且记链失败：", repr(e2)[:100])
 
 def infer(when):
     w = str(when).strip()

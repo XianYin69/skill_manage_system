@@ -5,14 +5,15 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 S = os.path.join(ROOT, "skill", "scripts")
 sys.path.insert(0, S)
 import resolve_home, agent_stream, chains, dream
+import no_window  # 静默子进程：入口自检/pip 修补不闪黑框
 def run(script, *a):
-    return subprocess.run([sys.executable, "-B", os.path.join(S, script), *a], cwd=ROOT, capture_output=True, text=True)
+    return no_window.run([sys.executable, "-B", os.path.join(S, script), *a], cwd=ROOT, capture_output=True, text=True)
 def sniff(argv, say):
     say("python %d.%d%s" % (*sys.version_info[:2], "" if sys.version_info >= (3, 9) else " —— 过低（需≥3.9）"))
     have_py = True
     say("GUI 依赖 PySide6：%s" % ("可用" if importlib.util.find_spec("PySide6") else "缺失→sms-shell 回退 TUI；同意安装请加 --install-deps"))
     if "--install-deps" in argv and not importlib.util.find_spec("PySide6"):
-        subprocess.run([sys.executable, "-m", "pip", "install", "PySide6"])
+        no_window.run([sys.executable, "-m", "pip", "install", "PySide6"])
         say("GUI 依赖 PySide6：%s" % ("可用" if importlib.util.find_spec("PySide6") else "安装失败"))
     say("TUI 增强依赖 textual：%s" % ("可用" if importlib.util.find_spec("textual") else "缺失→sms-shell 回退旧 readline TUI（pip install textual 可启用增强 TUI）"))
     say("git：%s" % ("可用" if shutil.which("git") else "缺失→sync_skills/trust 不可用，请安装并加入 PATH"))
@@ -34,12 +35,20 @@ def main():
     if sp.returncode != 0 and "COUPLED" in (sp.stdout or ""): print("[1/3] 壳/核分离体检未通过——core 侧存在 shell_* 反向 import，禁止继续：%s" % json.dumps(json.loads(sp.stdout).get("violations"), ensure_ascii=False)); sys.exit(1)
     print("[1/3] 壳/核分离体检：%s" % ("SEPARATED（core→shell 0·seam=runtime_bind）" if sp.returncode == 0 else "跳过（sep_audit 不可用）"))
     if not chk.get("ok"): print("[1/3] 红线自检未通过，按治理禁止绕过：%s" % json.dumps(chk, ensure_ascii=False)); sys.exit(1)
+    try:
+        aw = run("no_window_audit.py")
+        print("[1/3] 静默子进程审计：%s" % ("通过（裸 subprocess 0）" if aw.returncode == 0
+              else "未通过——存在会闪黑框的裸调用：%s" % (aw.stdout or aw.stderr or "").strip()[:300]))
+        if aw.returncode != 0: sys.exit(1)
+    except SystemExit: raise
+    except Exception as e: print("[1/3] 静默子进程审计跳过（%s）" % str(e)[:60])
     print("[1/3] 红线自检：通过；[2/3 依赖嗅探与修补]")
     out = []; sniff(argv, out.append)
     for ln in out: print("[2/3]", ln)
     if "doctor" in argv: sys.exit(0)
     print("[3/3 引导至 CLI] 启动 sms-shell（Textual TUI 优先·ps1 原生 DOS TUI 回退·缺 python 时 api 路由至 locate.py）…")
     args = [a for a in argv if a not in ("doctor", "--rebuild", "--install-deps")]
+    # sms-visible：交棒 sms-shell——壳本体需要可见控制台
     e = os.path.join(ROOT, "bin", "sms-shell.cmd" if os.name == "nt" else "sms-shell")
     sys.exit(subprocess.call(subprocess.list2cmdline([e] + args), cwd=ROOT, shell=True) if os.name == "nt" else subprocess.call(["sh", e, *args], cwd=ROOT))
 if __name__ == "__main__":

@@ -36,8 +36,9 @@ def deliver(e, c=None):
         try: agent_stream.ask(txt, _col(L))
         finally: qq_brief.on(False); _beat("skill")  # 网关请求后／技能对话边界
         try:
-            import runtime_bind as rb; rb.pending_run(allow=True)
-        except Exception: pass
+            import runtime_bind as rb; rb.pending_run(allow=True, on_line=_col(L))
+        except Exception as e:
+            chain_error.record("shell", "qq_inbound.pending_run", str(e)[:160])
         _beat("push"); return "数据流已跑·正文经 qq_flow 被动回复（行 %d）" % len(L)
     finally:
         qq_reply.clear()

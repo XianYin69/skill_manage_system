@@ -40,6 +40,7 @@
   "max_parallel": 3,
   "batch_parallel": 3,
   "row_timeout": 0,
+  "stale_min": 30,
   "conflict_read_write": true,
   "conflict_skill": false,
   "eta_parallel": true,
@@ -64,6 +65,17 @@
   "stall_timeout": 300,
   "comment": "agent CLI 子进程（sms-shell 数据流回退执行器·agent_stream.py）的阻塞应对阈值：T3＝exec_timeout 总预算（到点 kill_tree 整棵树收口），T2＝stall_timeout 静默（连续无新输出行·且 proc_guard 归因非 computing 闷头算）即判卡死收口；半阈先预警；末行像交互提示（y/n/密码/input(）＝非交互壳等不到输入，宽限 8s 即收口点名；刷屏≥400 行/秒＝疑似死循环提前收口。旧版此处是裸 readline 循环＝最恶劣阻塞：CLI 卡住时本壳永久拿不回控制权、任务表无人续推（2026-10-01 表 001-161413-507 t4）",
   "webfetch_retries": 2
+ },
+ "tools": {
+  "comment": "工具件性能闸（批29·tool_kit.py 与 sys_shells.py）：glob_deadline/grep_deadline＝墙钟秒上限（到点早停并在输出里点名「未扫全」，0＝不限）；glob_max_scan/grep_max_files＝扫描条目上限；shell_detect_ttl＝sys_shells.detect 缓存秒（PATH 变化自动失效）；shell_current_ttl＝当前壳缓存秒；probe_ttl＝CIM 进程表缓存秒；exec_direct＝朴素单命令免 PowerShell 冷启直跑（含 shell 语法自动走原壳）",
+  "glob_deadline": 6,
+  "glob_max_scan": 150000,
+  "grep_deadline": 8,
+  "grep_max_files": 20000,
+  "shell_detect_ttl": 300,
+  "shell_current_ttl": 60,
+  "probe_ttl": 15,
+  "exec_direct": true
  },
  "qq": {
   "handle_stall": 240,

@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """chains_git.py — 十一链数据 git 管理（2026-09-25 用户红线：所有链必须使用 git 管理）：首次触链自动 git init <SMS_HOME>/chains 并把既有全部链导入提交；此后任何链写入防抖 5 秒自动 commit、进程退出兜底 flush；git 缺失或 init 失败即静默降级不阻断记录；ensure 只认 toplevel＝链目录自身（2026-09-26 修复：旧 rev-parse --git-dir 向上穿透命中祖先仓库，测试/临时 SMS_HOME 落他人工作树内时 add -A 混吞外层改动＝「混吞批」事故根因）；手动：python chains_git.py status|log [n]。"""
-import os, sys, subprocess, threading, atexit
+import os, sys, threading, atexit
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import no_window  # 静默子进程：链防抖 commit 不再闪黑框
 from time import strftime
 S = {"root": None, "timer": None, "ok": False}
 def _git(*a):
     if not S["root"]: return None
-    try: return subprocess.run(("git", "-C", S["root"]) + a, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    try: return no_window.run(("git", "-C", S["root"]) + a, capture_output=True, text=True, encoding="utf-8", errors="replace")
     except FileNotFoundError: return None
 def ensure(root):
     if S["root"] == root: return S["ok"]

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """hud.py — 界面顶面 HUD：任务进行时才常显，置顶·点击穿透·不抢焦点·只读，居屏幕顶中；start [文本]（启用并拉起查看器）/ session <简述> [ttl秒=1800] / step <步骤> [ttl=120] / alert <告警> [ttl=1800] / hide / stop（隐藏并终止查看器）/ status；缺文本时回 usage（修复旧版 `:hud session` 空文本被当清除＝「没法启用」）；状态只存 <SMS_HOME>/hud/，查看进程由 hud_view.py 后台拉起（首次使用自动启动，长期空自动退出），绝不写入 skill 目录；开关＝settings hud.enabled＋hud.auto（TUI 对话自动常显）。"""
-import os, sys, json, time, subprocess
+import os, sys, json, time
 S = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, S)
 import resolve_home
+import no_window  # 静默子进程：HUD 查看器与 taskkill 不再闪黑框
 ROOT = os.path.dirname(S); sms = resolve_home.ensure()
 def _st():
     p = os.path.realpath(os.path.join(sms, "hud", "state.json"))
@@ -24,9 +25,9 @@ def _alive():
     if h: k.CloseHandle(h)
     return r
 def _spawn():
-    kw = {"creationflags": 0x08000000 | 0x8, "close_fds": True} if os.name == "nt" else {"start_new_session": True}
+    kw = {"close_fds": True, "sms_detach": True} if os.name == "nt" else {"start_new_session": True}
     dn = open(os.devnull, "r+b")
-    subprocess.Popen([sys.executable, "-B", os.path.join(S, "hud_view.py"), sms], stdin=dn, stdout=dn, stderr=dn, **kw)
+    no_window.Popen([sys.executable, "-B", os.path.join(S, "hud_view.py"), sms], stdin=dn, stdout=dn, stderr=dn, **kw)
 def _set(key, text, ttl):
     _save(**{key: text, key + "_expires": (time.time() + ttl) if text else 0})
     if text and not _alive(): _spawn()
@@ -34,7 +35,7 @@ def _set(key, text, ttl):
 def _hide(): _save(session="", session_expires=0, step="", step_expires=0, alert="", alert_expires=0); return {"hud": "hidden"}
 def _stop():
     try:
-        pid = int(open(_st() + ".pid").read().strip()); subprocess.run(["taskkill", "/pid", str(pid), "/f"], capture_output=True) if os.name == "nt" else os.kill(pid, 15)
+        pid = int(open(_st() + ".pid").read().strip()); no_window.run(["taskkill", "/pid", str(pid), "/f"], capture_output=True) if os.name == "nt" else os.kill(pid, 15)
     except Exception: pass
     return _hide()
 if __name__ == "__main__":

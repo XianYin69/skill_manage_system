@@ -39,6 +39,7 @@ class Shell(QMainWindow):
         if not line: return
         self.echo("sms> " + line)
         if line == "tui":
+            # sms-visible：GUI 另起 TUI 终端壳——需要可见控制台，属有意开窗
             subprocess.Popen([sys.executable, "-B", os.path.join(S, "shell_tui.py")]); self.echo("已另起 TUI 终端壳"); return
         if line.strip() in ("quit", "exit", ":quit", ":q", ":exit"): self.close(); return
         if any(w.isRunning() for w in self.workers) and stop_channel.is_stop_word(line): stop_channel.request("GUI 输入 stop"); self.echo("⛔ 已请求停止当前任务——流式/工具/子进程下一检查点收口（ask_user 提问中下一轮生效）"); return

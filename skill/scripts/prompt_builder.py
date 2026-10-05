@@ -1,11 +1,21 @@
 #!/usr/bin/env python3
-"""prompt_builder.py — 引导增强型提示词构建器与对话初始化（批24：分段引导·语句精简·处理协议）：init＝①技能名＋②模型身份（配置参数）＋③工作区＋④SKILL.md 索引；build＝①处理协议＋②治理红线＋③SKILL.md 索引＋④用户输入（唯一指令）＋⑤QQ 简洁模式提示（qq_inbound 经 qq_brief 写 <SMS_HOME>/shell/qq_brief=1 时追加「回复≤200字·要点直给·勿刷屏」，直读状态文件不 import qq_brief/agent_stream 防回环）；PROTOCOL＝内部处理一律英语精简语句、最终输出译回用户语言；index＝register.json 活跃技能「id → SKILL.md 绝对路径」紧凑清单（供模型按需 exec 读全文，非全文注入）。用法：python -B prompt_builder.py init | build "<用户输入>" | index。"""
+"""prompt_builder.py — 引导增强型提示词构建器与对话初始化（批24 分段引导·批29 消除逐轮重复注入）：
+init＝①技能名②模型身份（配置参数）③工作区④SKILL.md 索引（唯一注入处·每对话一次，逐轮不再重复）；
+build＝①处理协议＋增量红线（DELTA＝SYS 未覆盖部分＋SOLO 注）②用户输入（唯一指令）＋⑤计划任务＋⑥QQ 简洁；
+PROTOCOL＝内部处理一律英语精简语句、最终输出译回用户语言；DELTA＝PROTOCOL＋索引位置指引＋配置直读句；
+PROMPT＝治理红线全文（仅 CLI prompt 与外部引用，逐轮不再注入）；index＝register.json 活跃技能
+「id → SKILL.md 绝对路径」紧凑清单（供模型按需 exec 读全文，非全文注入）。
+用法：python -B prompt_builder.py init | build "<用户输入>" | index | protocol | prompt | selftest。"""
 import os, sys, json
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import resolve_home, settings
 SKILL = "skill_manage_system"
 PROTOCOL = "〔处理协议·批24〕内部处理（思考·工具参数·链写入·任务表步骤·草稿）一律用英语、语句精简；给用户的最终输出先以英语处理完成、再译回用户话语所用语言，简短直给。"
 PROMPT = "你是 skill_manage_system（SMS）数据流中的主导决策者（LLM 主导·脚本辅助）：问答可直答（简短·用户语言）；本机事实先 read/grep/glob/ls/exec 查证、禁编造；动手才用工具——命中托管技能用 skill 派发对等对话（独立 conv·独立链·无主次·互任监视/指导/训诫）按注入 SKILL.md 真执行，收口＝形式停止、由你整合续推；本机脚本 exec 一次运行、禁反复试探、禁空口声称已执行；[SMS 路由·参考] 仅供裁量；既往先 chain recall、有价值即 chain append、岔路用 debate 自辩（仅高危回人确认）；确无可用技能则建议经 Skill_Generator 创建。生成文件只入工作区 tmp\\（env SMS_TMP·壳已自动建）；tmp 产物收编先 ws_release.py diff 预览、当轮同意后 release --yes（须 :grant danger）；模型/技能配置直读 <SMS_HOME>/config、禁复制重建入工作区；SMS 设置/命令据 settings/commands 查证作答。"
+DELTA = ("〔逐轮增量红线·SYS 未覆盖部分〕" + PROTOCOL
+         + "；索引位置：SKILL.md 索引见本对话 init④（每对话注入一次·逐轮不再重复），"
+         "命中技能按该行路径 exec 读 SKILL.md 全文并按其流程执行"
+         + "；配置直读：模型/技能配置直读 <SMS_HOME>/config，禁在工作区复制重建。")
 _RC = {}
 def _reg(sms):
     """register.json 按 (mtime,size) 缓存：每轮构建提示词不再重复全量解析（批6 同法已用于 skill_route）。"""
@@ -84,11 +94,56 @@ def _solo_note():
     except Exception:
         return ""
 def build(user_input, sms=None):
-    return "[SMS 逐轮构建·引导结构]\n① 处理协议：" + PROTOCOL + "\n② 治理红线：" + PROMPT + _solo_note() + "\n③ " + index(sms) + "\n④ 用户输入（唯一指令）：\n" + user_input + PLAN + (BRIEF if brief_on(sms) else "")
+    """逐轮构建（批29）：只送 SYS 未覆盖的增量＋用户输入，索引与治理红线全文不再逐轮注入。"""
+    return ("[SMS 逐轮构建·引导结构]\n① 处理协议＋增量红线：" + DELTA + _solo_note()
+            + "\n② 用户输入（唯一指令）：\n" + user_input + PLAN
+            + (BRIEF if brief_on(sms) else ""))
+
+KEYS = ("处理协议", "英语", "SKILL.md 索引", "Skill_Generator", "chain", "tmp", "SOLO", "用户输入")
+def _selftest():
+    """逐轮重复注入自检：a 索引只在 init、b 降幅≥2500、c 治理关键词不丢、d DELTA 不与 SYS 重复、e SOLO 注。"""
+    bad, skip = [], ""
+    sms = resolve_home.ensure()
+    i0, ix, b = init(sms), index(sms), build("测试", sms)
+    hit = next((ln.strip() for ln in ix.splitlines() if ln.strip().endswith("SKILL.md")), "")
+    if (hit and hit in b) or (hit and hit not in i0):
+        bad.append("a_index_not_init_only")
+    new_total = len(i0) + len(b)
+    old_total = len(i0) + len(PROTOCOL) + len(PROMPT) + len(ix) + len(b)
+    if len(PROTOCOL) + len(PROMPT) + len(ix) < 2500:
+        bad.append("b_old_baseline_invalid")
+    if new_total > old_total - 2500:
+        bad.append("b_drop_lt_2500")
+    sys_txt = ""
+    try:
+        import gateway
+        sys_txt = gateway.SYS
+        for seg in DELTA.split("；"):
+            seg = seg.strip("〔〕 ")
+            if seg and seg in sys_txt:
+                bad.append("d_delta_in_SYS:" + seg[:16])
+    except Exception as e:
+        skip = " skip=d_gateway:" + type(e).__name__
+    for k in KEYS:
+        if k not in sys_txt + i0 + b:
+            bad.append("c_lost:" + k)
+    import inspect
+    if "_solo_note()" not in inspect.getsource(build):
+        bad.append("e_no_solo_note_call")
+    if bad:
+        print("PBSELFTEST FAIL:" + ",".join(bad))
+        return 1
+    print("PBSELFTEST OK init=%d build=%d index=%d new_total=%d old_total=%d drop=%d%s"
+          % (len(i0), len(b), len(ix), new_total, old_total, old_total - new_total, skip))
+    return 0
+
+
 if __name__ == "__main__":
     a = sys.argv[1:] or ["init"]; cmd = a[0]
     if cmd == "init": print(init())
     elif cmd == "index": print(index())
     elif cmd == "protocol": print(PROTOCOL)
+    elif cmd == "prompt": print(PROMPT)
+    elif cmd == "selftest": sys.exit(_selftest())
     elif cmd == "build": print(build(" ".join(a[1:]) or "你好"))
     else: print(__doc__.strip().splitlines()[-1])

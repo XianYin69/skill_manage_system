@@ -5,11 +5,19 @@
 高危提示：fetch 会联网下载外部代码，须 :grant network（＋落链记录），默认只列不取。
 用法：python -B dep_fetch.py list <技能id或目录> | check [技能id…] | fetch <技能id> <依赖name>"""
 import no_window  # 静默子进程：前台运行任务不弹命令行窗口
-import os, sys, json, subprocess, urllib.request, zipfile, io as _io
+import os, sys, json, urllib.request, zipfile, io as _io
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import resolve_home, permissions
 SKILLS = [os.path.expanduser("~/.kilocode/skills"), os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sub_skills")]
 DEPDIR = "dependence"; VEND = "vendor"
+
+
+def _git_ok():
+    """git 可用性探测：经 no_window 静默执行（os.system 会弹 cmd 黑框）。"""
+    try:
+        return no_window.run(["git", "--version"], capture_output=True).returncode == 0
+    except Exception:
+        return False
 
 def skill_dir(sid):
     for r in SKILLS:
@@ -93,7 +101,7 @@ def fetch(sid, name, sms=None):
     if not u.startswith("http"): return "%s 的链接非可下载 URL（%s）——本地依赖无需取回" % (name, u or "空")
     dst = os.path.join(d, DEPDIR, VEND, str(name)); os.makedirs(os.path.dirname(dst), exist_ok=True)
     if os.path.isdir(dst): return "已存在，跳过（删目录可重取）：" + dst
-    if os.system("git --version >NUL 2>&1") == 0:
+    if _git_ok():
         r = no_window.run(["git", "clone", "--depth", "1", u, dst], capture_output=True, text=True, errors="replace", timeout=300)
         if r.returncode == 0:
             __import__("chains").record("tool", "dep_fetch %s｜%s ← %s" % (sid, name, u))

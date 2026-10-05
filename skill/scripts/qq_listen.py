@@ -3,6 +3,7 @@
 import os, sys, time, json, subprocess
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import resolve_home, qq_push as qp, qq_watch as W
+import no_window  # 静默子进程：监听自举与 taskkill 不再闪黑框
 HERE = os.path.dirname(os.path.abspath(__file__))
 def _w(n, v, sms=None):
     os.makedirs(W._d(sms), exist_ok=True); open(W._f(n, sms), "w", encoding="utf-8").write(v)
@@ -40,8 +41,8 @@ def spawn(sms=None):
     if not qp.ready(qp.conf(sms)): return "未绑定或未启用 QQ（:qq bind / :qq on）——监听器不启动"
     os.makedirs(W._d(sms), exist_ok=True)
     f = open(os.path.join(W._d(sms or resolve_home.ensure()), "listen.log"), "ab")
-    subprocess.Popen([sys.executable, "-B", os.path.join(HERE, "qq_listen.py"), "run"], stdin=subprocess.DEVNULL, stdout=f, stderr=f, cwd=HERE,
-                     creationflags=(0x00000008 | 0x00000200) if os.name == "nt" else 0)
+    no_window.Popen([sys.executable, "-B", os.path.join(HERE, "qq_listen.py"), "run"], stdin=subprocess.DEVNULL, stdout=f, stderr=f, cwd=HERE,
+                     creationflags=0x00000200 if os.name == "nt" else 0, sms_detach=True)
     time.sleep(2.0); d = W.status(sms)
     return "已拉起（pid=%s·running=%s·state=%s·ready=%s）" % (d["pid"], d["running"], d["state"] or "-", d["ready"])
 def stop(sms=None):
@@ -54,7 +55,7 @@ def stop(sms=None):
             except OSError: pass
         W.log("pid 复用（pid 文件=%d·心跳 pid=%d·心跳龄 %ss）→ 只清文件绝不 taskkill" % (p, hp, round(age, 1)), sms)
         return "pid=%d 与心跳 pid=%d 不一致（pid 已被别的程序复用）——只清 pid/心跳文件，绝不 taskkill 陌生进程" % (p, hp)
-    try: subprocess.run((["taskkill", "/PID", str(p), "/F"] if os.name == "nt" else ["kill", str(p)]), capture_output=True, timeout=15)
+    try: no_window.run((["taskkill", "/PID", str(p), "/F"] if os.name == "nt" else ["kill", str(p)]), capture_output=True, timeout=15)
     except Exception as e: return "终止失败：" + str(e)[:120]
     for n in ("listen.pid", "listen.heartbeat"):
         try: os.remove(W._f(n, sms))

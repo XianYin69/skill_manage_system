@@ -2,11 +2,12 @@
 """tool_kit.py — 工具件精准高速内核（批27·用户「write/read/network_fetch 等工具使用更精准和高速的算法及命令执行步骤、更清晰准确的工具命令执行范式」）：
 ① read_window＝流式窗口读（islice 只取所需行，大文件不再整读进内存；带 offset/总行数/截断标记）；
 ② grep_walk＝剪枝目录＋二进制/超大文件跳过＋逐行流式＋命中即止（旧版整文件 read().splitlines() 且无体积闸）；
-③ glob_fast＝生成器 islice 早停（旧版整树展开再截 200）；
-④ fetch＝Accept-Encoding gzip/deflate＋响应头 charset＋字节上限＋retry_io 有限重试＋html_to_text 正文抽取（旧版整页原样吐 HTML 给模型，白烧 token）；
-⑤ adapt＝命令执行范式适配（PowerShell 顶层 && → ;、cmd 内建重定向 2>nul → 2>$null、dir /b → Get-ChildItem -Name），改写即回说明行，杜绝「一条命令因分隔符语法报错再试一轮」。
+③ glob_fast＝目录剪枝＋扫描上限＋墙钟 deadline 早停，status 如实标注「未扫全」（批29·旧版 iglob 无剪枝无时限，实测中位 36.7s/p90 72s）；
+④ grep_walk＝同闸（墙钟 deadline＋文件上限）；
+⑤ fetch＝Accept-Encoding gzip/deflate＋响应头 charset＋字节上限＋retry_io 有限重试＋html_to_text 正文抽取（旧版整页原样吐 HTML 给模型，白烧 token）；
+⑥ adapt＝命令执行范式适配（PowerShell 顶层 && → ;、cmd 内建重定向 2>nul → 2>$null、dir /b → Get-ChildItem -Name），改写即回说明行，杜绝「一条命令因分隔符语法报错再试一轮」。
 本模块只做算法与文案，权限/门禁/信封仍归 agent_tools*。用法：python -B tool_kit.py selftest。"""
-import os, re, sys, gzip, zlib, fnmatch, io as _io
+import os, re, sys, time, gzip, zlib, fnmatch, io as _io
 from itertools import islice
 PRUNE = {".git", "__pycache__", "node_modules", ".venv", "venv", "dist", "build", ".pytest_cache", ".idea", ".kilocode_cache"}
 BIN_EXT = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".pdf", ".zip", ".gz", ".7z", ".exe", ".dll", ".pyc", ".mp4", ".mp3", ".woff", ".woff2", ".ttf", ".bak"}
@@ -42,14 +43,28 @@ def _scan_file(p, rel_root, rx, lim):
         return out, False
     return out, False
 
-def grep_walk(root, rx, include="*", max=60):
-    """剪枝＋流式＋命中即止：跳二进制扩展名与 >8MB 文件，逐行扫不再整读。回 (命中行, 是否截断)。"""
-    out = []; rx = rx if hasattr(rx, "search") else re.compile(str(rx)); lim = int(max or 60); lim = lim if lim >= 1 else 1
-    if os.path.isfile(root):  # 单文件路径直扫（旧版 os.walk 遇文件静默返回空＝精准度缺陷·2026-10-04 实测）
-        return _scan_file(root, os.path.dirname(os.path.abspath(root)) or ".", rx, lim)
+def grep_walk(root, rx, include="*", max=60, deadline=None, max_files=None, status=None):
+    """剪枝＋流式＋命中即止＋墙钟 deadline/文件上限早停（批29 加闸·旧版无时限可整树扫到分钟级）：
+    跳 .git/__pycache__/node_modules 等与二进制/超 8MB 文件，逐行扫不整读。status 回扫描量与早停原因；
+    时限/上限触发的截断同样回 True 并在 status["note"] 点名「未扫全」。回 (命中行, 是否截断)。"""
+    rx = rx if hasattr(rx, "search") else re.compile(str(rx))
+    lim = int(max or 60); lim = lim if lim >= 1 else 1
+    dl = _num(deadline, "grep_deadline", 8.0)
+    capf = int(_num(max_files, "grep_max_files", 20000.0))
+    st = status if isinstance(status, dict) else {}
+    st.update(files=0, lines=0, deadline=False, cap=False, limit=False, pruned=0)
+    if os.path.isfile(root):  # 单文件路径直扫（旧版 os.walk 遇文件静默返回空＝精准度缺陷）
+        out, tr = _scan_file(root, os.path.dirname(os.path.abspath(root)) or ".", rx, lim)
+        st.update(files=1, limit=tr, mode="单文件")
+        _note(st, "单文件扫描", 1, len(out), lim, dl, capf)
+        return out, tr
+    out = []; t0 = time.time(); stop_ = ""
     for dp, ns, fs in os.walk(root):
-        _keep(ns)
+        _keep2(ns, st)
         for fn in fs:
+            st["files"] += 1
+            if capf and st["files"] > capf: stop_ = "cap"; break
+            if dl and (st["files"] & 127) == 0 and time.time() - t0 >= dl: stop_ = "deadline"; break
             if include != "*" and not fnmatch.fnmatch(fn, str(include)): continue
             if os.path.splitext(fn)[1].lower() in BIN_EXT: continue
             p = os.path.join(dp, fn)
@@ -57,18 +72,117 @@ def grep_walk(root, rx, include="*", max=60):
                 if os.path.getsize(p) > MAXF: continue
                 with open(p, encoding="utf-8", errors="replace") as f:
                     for i, ln in enumerate(f, 1):
+                        st["lines"] += 1
                         if rx.search(ln):
-                            out.append(os.path.relpath(p, root) + ":" + str(i) + ":" + ln.rstrip("\n").strip()[:200])
-                            if len(out) >= lim: return out, True
+                            out.append(os.path.relpath(p, root) + ":" + str(i) + ":"
+                                       + ln.rstrip("\n").strip()[:200])
+                            if len(out) >= lim: stop_ = "limit"; break
             except Exception: continue
-    return out, False
+            if stop_: break
+        if stop_: break
+    st["deadline"] = stop_ == "deadline"; st["cap"] = stop_ == "cap"; st["limit"] = stop_ == "limit"
+    st["mode"] = "grep 剪枝扫描"
+    _note(st, st["mode"], st["files"], len(out), lim, dl, capf)
+    return out, bool(stop_)
 
-def glob_fast(pattern, root, limit=200):
-    """生成器早停：取 limit+1 判是否还有更多（旧版 sorted 整树展开后再截断）。回 (匹配列表, 是否截断)。"""
+def _num(v, key, default):
+    """数值闸：显式参数 > settings(tools.<key>) > 默认；<=0＝不设限（批29 性能闸）。"""
+    if v is None:
+        try:
+            import settings; v = settings.get("tools." + key)
+        except Exception: v = None
+    try: v = float(v)
+    except Exception: v = float(default)
+    return v if v > 0 else 0.0
+
+def _keep2(ns, st):
+    """剪枝并计数（供如实标注）。"""
+    b = len(ns); _keep(ns); st["pruned"] = st.get("pruned", 0) + b - len(ns)
+
+def _seg_rx(s):
+    """单层 glob → 正则片段（* 与 ? 不跨分隔符·[seq] 支持 ! 取反）。"""
+    out = []; i = 0; n = len(s)
+    while i < n:
+        ch = s[i]
+        if ch == "*": out.append("[^/]*")
+        elif ch == "?": out.append("[^/]")
+        elif ch == "[":
+            j = s.find("]", i + 1)
+            if j < 0: out.append(re.escape(ch))
+            else:
+                cls = s[i + 1:j]
+                if cls[:1] in ("!", "^"): cls = "^" + cls[1:]
+                out.append("[" + cls.replace("\\", "\\\\") + "]"); i = j
+        else: out.append(re.escape(ch))
+        i += 1
+    return "".join(out)
+
+def _glob_rx(pattern):
+    """glob 模式 → 编译正则（反斜杠归一为 /·** 跨目录·Windows 大小写不敏感）。"""
+    segs = [x for x in str(pattern).replace("\\", "/").split("/") if x not in ("", ".")]
+    parts = []
+    for i, s in enumerate(segs):
+        if s == "**":
+            parts.append(".*" if i == len(segs) - 1 else "(?:[^/]+/)*")
+        else:
+            parts.append(_seg_rx(s))
+            if i < len(segs) - 1: parts.append("/")
+    return re.compile("".join(parts), re.IGNORECASE if os.name == "nt" else 0)
+
+def _note(st, mode, scanned, nhits, limit, dl, cap):
+    """如实标注：模式/扫描量/命中数＋早停原因（时限/上限/命中截断），绝不假装结果完整。"""
+    bits = [mode, "扫描 %d 项" % scanned, "命中 %d" % nhits]
+    if st.get("pruned"): bits.append("剪枝 %d 目录" % st["pruned"])
+    if st.get("deadline"): bits.append("⚠墙钟 %.1fs 早停·未扫全" % dl)
+    if st.get("cap"): bits.append("⚠扫描上限 %d 早停·未扫全" % cap)
+    if st.get("limit"): bits.append("⚠命中达 %d 截断" % limit)
+    st["note"] = "·".join(bits); return st["note"]
+
+def glob_fast(pattern, root, limit=200, deadline=None, max_scan=None, status=None):
+    """剪枝＋扫描上限＋墙钟 deadline 早停（批29·用户实测旧版 iglob 无剪枝无时限：中位 36.7s/p90 72s）：
+    含 ** 的递归模式走自研匹配器（跳 .git/__pycache__/node_modules/venv/dist/build 等，旧版 glob 模块
+    不剪枝＝垃圾目录全进）；单层模式仍走 glob.iglob＋islice 早停。status 回实际扫描量与早停原因，
+    到 limit/时限/上限即停并如实标注「未扫全」——不假装找全。回 (匹配相对路径≤limit, 是否截断)。"""
     import glob as _g
-    it = islice(_g.iglob(str(pattern), root_dir=root, recursive=True), int(limit) + 1)
-    rows = sorted(list(it))
-    return rows[:int(limit)], len(rows) > int(limit)
+    st = status if isinstance(status, dict) else {}
+    limit = max(1, int(limit or 200)); dl = _num(deadline, "glob_deadline", 6.0)
+    cap = int(_num(max_scan, "glob_max_scan", 150000.0))
+    st.update(scanned=0, deadline=False, cap=False, limit=False, pruned=0)
+    pat = str(pattern)
+    if "**" not in pat:
+        it = islice(_g.iglob(pat, root_dir=root, recursive=True), limit + 1)
+        rows = sorted(list(it)); more = len(rows) > limit
+        st.update(mode="iglob", scanned=len(rows), limit=more)
+        _note(st, "单层匹配(iglob)", len(rows), len(rows[:limit]), limit, dl, cap)
+        return rows[:limit], more
+    rx = _glob_rx(pat); root = str(root)
+    pre = len(root.rstrip("\\/")) + 1
+    hits = []; t0 = time.time(); stop_ = ""
+    for dp, ns, fs in os.walk(root):
+        _keep2(ns, st)
+        for name in ns:
+            st["scanned"] += 1
+            rel = os.path.join(dp, name)[pre:].replace("\\", "/")
+            if rx.fullmatch(rel):
+                hits.append(rel)
+                if len(hits) > limit: stop_ = "limit"; break
+        if stop_: break
+        for fn in fs:
+            st["scanned"] += 1
+            if cap and st["scanned"] > cap: stop_ = "cap"; break
+            if dl and (st["scanned"] & 255) == 0 and time.time() - t0 >= dl:
+                stop_ = "deadline"; break
+            rel = os.path.join(dp, fn)[pre:].replace("\\", "/")
+            if rx.fullmatch(rel):
+                hits.append(rel)
+                if len(hits) > limit: stop_ = "limit"; break
+        if stop_: break
+    st["deadline"] = stop_ == "deadline"; st["cap"] = stop_ == "cap"
+    st["limit"] = stop_ == "limit"
+    rows = sorted(hits[:limit]); st["mode"] = "剪枝递归匹配"
+    _note(st, st["mode"], st["scanned"], len(rows), limit, dl, cap)
+    return rows, bool(stop_)
+
 _TAG = re.compile(r"(?is)<(script|style|noscript|svg)[^>]*>.*?</\1>|<[^>]+>")
 _SP = re.compile(r"[ \t]{2,}|(?:\r?\n){3,}")
 def html_to_text(h):
@@ -179,6 +293,21 @@ if __name__ == "__main__":
     _io.open(os.path.join(d, "node_modules", "x", "b.txt"), "w").write("hit")
     assert not any("node_modules" in h for h in grep_walk(d, re.compile("hit"), "*", 9)[0])
     g, tr2 = glob_fast("**/*.txt", d, 200); assert g and not tr2, g
+    os.makedirs(os.path.join(d, ".git", "hooks"), exist_ok=True)
+    _io.open(os.path.join(d, ".git", "hooks", "c.txt"), "w").write("x")
+    st = {}
+    g2, _ = glob_fast("**/*.txt", d, 200, status=st)
+    assert not any(".git" in x for x in g2), g2
+    assert st.get("pruned") and "剪枝" in st.get("note", ""), st
+    os.makedirs(os.path.join(d, "sub"), exist_ok=True)
+    _io.open(os.path.join(d, "sub", "z.txt"), "w").write("z")
+    g3, tr3 = glob_fast("**/*.txt", d, 1); assert tr3 and len(g3) == 1, (g3, tr3)
+    if os.name == "nt":
+        st2 = {}; _h, tr4 = glob_fast("**/*.ini", r"C:\Windows", 200, deadline=0.01, status=st2)
+        assert tr4 and st2.get("deadline") and "未扫全" in st2["note"], st2
+        st3 = {}; _h2, tr5 = grep_walk(r"C:\Windows", re.compile("zzz_never"),
+                                       "*.ini", 5, deadline=0.01, status=st3)
+        assert tr5 and st3.get("deadline"), st3
     assert html_to_text("<html><script>var a=1;</script><style>p{}</style><h1>Hi&nbsp;there</h1><p>x</p></html>") == "Hi there x", html_to_text("<b>x</b>")
     import gzip as _gz
     class _H(dict):

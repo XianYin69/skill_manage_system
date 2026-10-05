@@ -94,9 +94,28 @@ def _meta(m, a, on_line, st):
     else: on_line(HELP if m in ("help", "?") else "未知元指令 :" + m + "（:help）")
 HELPW = ("help", "?", "h", "帮助", "用法"); CFGW = ("config", "设置", "配置", "状态", "status", "修改配置", "打开设置", "查看配置", "如何修改配置", "怎么修改配置", "如何查看配置", "修改配置文件", "打开配置", "进入配置", "配置编辑器", "图形化配置"); CMDW = ("cmds", "命令", "指令", "命令表"); METAS = frozenset(("agents","use","skill","image","dispatch","sh","edit","view","session","hud","deploy","workspace","resume","config","web","ext","debug","detail","mode","net","tts","learn","file","path","api","grant","solo","dream","cmds","intent","index","skills","alias","unalias","help","?","quit","tools","perms","stop","task","manual"))
 def _cfgline(): g = settings.status()["gateway"]; return "gateway: enabled=%s base_url=%s model=%s api_key=%s max_tokens=%s 推理=%s · 文件=<SMS_HOME>/config/config.json\n改配置：:config set <path> <json> · 全量：:config show · TUI F4 图形化（debug 开关/输出路径同处）· 推理等级 :config set llm_gateway.reasoning_effort \"high\"（low|medium|high·null 不发送）" % (g["enabled"], g["base_url"], g["model"], g["api_key"], g["max_tokens"], g.get("reasoning", "-"))
+def _lc_pending(on_line):
+    """批32 R1：quit/exit 也消费大模型登记的 restart/shutdown（旧版直接 return "exit"＝请求残留无人执行）。
+    壳内＝真执行（restart 拉起新实例并硬退本进程）；异常不静默（记 error 链＋一行告知·文件保留）。"""
+    try:
+        import shell_lifecycle as lc
+        r = lc.run_pending(SMS, on_line=on_line)
+        if isinstance(r, str) and "待壳执行" in r:
+            on_line(r)  # R2：取不到执行者＝明确告知＋文件保留，不静默
+        return r
+    except Exception as e:
+        try:
+            import chain_error
+            chain_error.record("shell", "shell_core.quit_pending", str(e)[:160])
+        except Exception as e2:
+            on_line("!lifecycle▸ 退出前消费登记请求异常且记链失败：" + repr(e2)[:100])
+        on_line("!lifecycle▸ 退出前消费 restart/shutdown 登记异常（请求文件保留·已记 error 链）：" + str(e)[:120])
+        return None
 def handle(line, on_line, st=lambda n: None, ev=None):
     if not (t := line.strip()): return None
-    if t.lower() in ("quit", "exit", ":quit", ":q", ":exit"): return "exit"
+    if t.lower() in ("quit", "exit", ":quit", ":q", ":exit"):
+        _lc_pending(on_line)  # 批32 R1：退出路径也消费登记请求（壳内 restart 拉起新实例后硬退，走不到下一行）
+        return "exit"
     if (pm := re.match(r"(?i)^(sms[\s\-_\.]*shell(\.cmd)?|sms)(?=[\s,，:：]|$)[\s,，]*(.*)$", t)): return handle(pm.group(3), on_line, st, ev) if pm.group(3).strip() else on_line(HELP)
     if t.startswith(("!", "！")): st("系统 shell 透传"); on_line(sys_shells.run(t[1:].strip(), on_line=on_line)); return None
     if t.startswith((":", "：")): p = t.lstrip(":：").split(); k = p[0].lower(); debug.enabled() and debug.log("meta " + " ".join(p)[:200]); st("元指令：" + k); return (on_line("停止状态：" + stop.status() + "（任务进行中在 TUI/GUI 直接输 stop/停止；readline 兜底壳 Ctrl+C 中断）"), stop.clear(), None)[2] if k == "stop" else _meta(k, p[1:], on_line, st)

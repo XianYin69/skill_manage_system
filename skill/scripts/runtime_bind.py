@@ -37,8 +37,10 @@ def run(text, on_line=None, st=None, ev=None):
     try: return f(text, on_line or (lambda s: None), st or (lambda n: None), ev)
     except Exception as e: return "壳执行异常：" + repr(e)[:200]
 def pending_run(**kw):
-    """跑壳侧待办（计划任务/接续等）：未绑定＝回 None 静默跳过（与「无待办」同义）。"""
-    f = pending(); return f(**kw) if f else None
+    """跑壳侧待办（计划任务/接续/lifecycle 请求）：未绑定＝回明确错误串（批32 R2——不再与「无待办」
+    混同，调用方按文本自决降级；lifecycle 请求文件由 shell_lifecycle 保留不删）。"""
+    f = pending()
+    return f(**kw) if f else "未绑定壳待办执行器（shell_lifecycle 不可用）：待办未消费·请求文件保留"
 def lifecycle_request(action, why=""):
     """向壳登记生命周期请求（restart/shutdown·本轮收口由壳自己执行）：回壳的登记结果串；
     未绑定壳/异常＝回明确错误串（不抛不静默，调用方按文本自决·语义同直接调用）。"""
@@ -46,13 +48,39 @@ def lifecycle_request(action, why=""):
     if not lc: return "未绑定壳生命周期器（shell_lifecycle 不可用）：请求未登记"
     try: return lc.request(action, why)
     except Exception as e: return "壳生命周期请求异常：" + repr(e)[:200]
-def lifecycle_kill_services(why="", exclude=(), budget=1.5):
+def lifecycle_kill_services(why="", exclude=(), budget=1.5, others=False):
     """回收壳拉起的后台服务（DETACHED 子进程不随本进程死）：回被回收 pid 列表；
-    未绑定壳/异常＝回 None（＝无服务可回收，与调用方原 try-except 吞异常同义，不改行为）。"""
+    未绑定壳/异常＝回 None（＝无服务可回收，与调用方原 try-except 吞异常同义，不改行为）。
+    批30 others=True＝再回收「其它壳＋命令行含 skill_manage_system 的 core 后台」（lc.kill_others），
+    回 (服务 pids, 其它 pids)——关闭/重启必须把整台 SMS 收干净，close_guard._bye 用此参数。"""
     lc = _lifecycle()
     if not lc: return None
-    try: return lc.kill_services(exclude=exclude, budget=budget, why=why)
-    except Exception: return None
+    try:
+        svc = lc.kill_services(exclude=exclude, budget=budget, why=why)
+    except Exception:
+        svc = None
+    if not others: return svc
+    try:
+        return svc, lc.kill_others(exclude=exclude, why=why)
+    except Exception:
+        return svc, None
+def lifecycle_register_shell(pid=None):
+    """批30：把本壳 pid 登记进壳侧登记表（shells.json）——reclaim 的零 PowerShell 主路径。
+    未绑定壳/异常＝回 None（只降级不抛，绝不挡壳启动）。"""
+    lc = _lifecycle()
+    if not lc: return None
+    try:
+        return lc.register_shell(pid=pid)
+    except Exception:
+        return None
+def lifecycle_unregister_shell(pid=None):
+    """批30：退出时注销本壳 pid（防登记表残留死 pid）。未绑定/异常＝回 None。"""
+    lc = _lifecycle()
+    if not lc: return None
+    try:
+        return lc.unregister_shell(pid=pid)
+    except Exception:
+        return None
 if __name__ == "__main__":
     print("bound=%s runner=%s pending=%s lifecycle=%s" % (
         bound(), bool(runner()), bool(pending()), bool(_lifecycle())))

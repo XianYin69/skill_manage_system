@@ -40,7 +40,8 @@ def stop(name):
 def spawn(name):
     lf = open(os.path.join(resolve_home.ensure(), "shell", name + ".log"), "a"); sp = [sys.executable, "-B", os.path.join(S, name + ".py"), "serve"]
     kw = {"stdout": lf, "stderr": lf, "stdin": subprocess.DEVNULL}
-    (subprocess.Popen(sp, creationflags=0x8 | 0x08000000, **kw) if os.name == "nt" else subprocess.Popen(sp, start_new_session=True, **kw))
+    kw2 = dict(kw, sms_detach=True) if os.name == "nt" else dict(kw, start_new_session=True)
+    no_window.Popen(sp, **kw2)  # 静默自举：DETACHED 语义保留、不再闪黑框
     return "已后台启动：" + name + "（日志 shell/" + name + ".log）"
 def send(h, code, obj, ctype="application/json; charset=utf-8"):
     b = obj if isinstance(obj, bytes) else json.dumps(obj, ensure_ascii=False, default=str).encode("utf-8")

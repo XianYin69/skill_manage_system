@@ -3,6 +3,7 @@
 import os, sys, time, subprocess
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import resolve_home, settings
+import no_window  # 静默子进程：做梦后台自举不闪黑框
 STALE = 45 * 60
 def _lk(sms): return os.path.join(sms, "chains", "dream.lock")
 def stamp(sms):
@@ -17,10 +18,10 @@ def spawn(sms):
     try:
         os.makedirs(os.path.join(sms, "logs"), exist_ok=True); f = open(os.path.join(sms, "logs", "dream.log"), "ab")
         stamp(sms)
-        subprocess.Popen([sys.executable, "-B", os.path.join(os.path.dirname(os.path.abspath(__file__)), "dream.py"), "run"],
+        no_window.Popen([sys.executable, "-B", os.path.join(os.path.dirname(os.path.abspath(__file__)), "dream.py"), "run"],
                          stdin=subprocess.DEVNULL, stdout=f, stderr=f, cwd=os.path.dirname(os.path.abspath(__file__)),
                          env=dict(os.environ, SMS_BG="1"),
-                         creationflags=(0x00000008 | 0x00000200) if os.name == "nt" else 0)
+                         creationflags=0x00000200 if os.name == "nt" else 0, sms_detach=True)
     except Exception: return False
     return True
 def unlock(sms):

@@ -18,8 +18,8 @@ def gui_ok():
 def launch(mode, extra=()):
     sp = [sys.executable, "-B", os.path.join(S, "shell_" + mode + ".py")] + list(extra)
     if mode == "gui" and os.name == "nt":
-        import subprocess; dn = open(os.devnull, "r+b")
-        subprocess.Popen(sp, stdin=dn, stdout=dn, stderr=dn, creationflags=0x8 | 0x08000000, close_fds=True); return
+        import no_window; dn = open(os.devnull, "r+b")
+        no_window.Popen(sp, stdin=dn, stdout=dn, stderr=dn, close_fds=True, sms_detach=True); return
     os.execv(sp[0], sp)
 if __name__ == "__main__":
     args = sys.argv[1:]; pos = [a for a in args if not a.startswith("--")]

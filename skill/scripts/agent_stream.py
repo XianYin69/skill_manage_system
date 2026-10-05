@@ -22,9 +22,30 @@ def use(name): _put("current_agent", name); return "切到 agent：" + name + ("
 def skill(on): _put("skill_prefix", "on" if on else "off"); return "skill_manage_system 前缀：" + _state("skill_prefix", "on")
 def compose(text, sms=None): return prompt_builder.init(sms or SMS) + "\n\n" + prompt_builder.build(text, sms or SMS)
 def _edge(conv): return [[conv, "ref", 1], [chains.cur_sess(), "member", 1]]
+def _consume(on_line):
+    """批32 R1/R3/R5：本轮收口处消费大模型经 exec 登记的 restart/shutdown——壳内硬退（os._exit）前
+    必须先出一行提示（on_line 交回 shell_lifecycle），异常绝不静默吞：记 error 链＋一行用户提示，
+    请求文件由 shell_lifecycle 保留不删。"""
+    try:
+        r = lc.run_pending(sms=SMS, on_line=on_line)
+        if isinstance(r, str) and "待壳执行" in r:
+            on_line(r)  # R2：非壳宿主无执行者——明确串送会话输出（绝不与「无待办」混同·文件保留）
+        return r
+    except Exception as e:
+        try:
+            import chain_error
+            chain_error.record("shell", "agent_stream.run_pending", str(e)[:160])
+        except Exception as e2:
+            on_line("!lifecycle▸ 消费登记请求异常且 error 链写入失败：" + repr(e2)[:100])
+        on_line("!lifecycle▸ 收口消费 restart/shutdown 登记异常（请求文件保留·已记 error 链）：" + str(e)[:120])
+        return None
 def ask(text, on_line, st=lambda n: None, ev=None):
     on_line = qq_flow.wrap(tts.hook(on_line)); tts.preempt(); stop.clear(); dream.maybe(SMS); qq_boot.autostart(SMS); model_meta.maybe(); ag = current(); st("检测执行器：" + (ag or "无"))
-    if not ag: on_line("拒绝：未检出 agent CLI 且原生网关未启用（config llm_gateway.enabled=true）——sms-shell 只经数据流执行，请先 :config 启用网关或装 agent CLI"); return None
+    if not ag:
+        on_line("拒绝：未检出 agent CLI 且原生网关未启用（config llm_gateway.enabled=true）"
+                "——sms-shell 只经数据流执行，请先 :config 启用网关或装 agent CLI")
+        _consume(on_line)  # 批32 R1：无执行器早退路径也消费登记的 restart/shutdown
+        return None
     spec = adapters()[ag]; ct.flush(); conv = chains.session_id(); chains.set_active(conv); __import__("session_reg").attach(conv, chains.cur_sess()); chains.record("session", "open:" + conv, _edge(conv)); qq_flow._wb([]); st("开新对话：" + conv)
     wsp, virt = ws.begin(conv); st("工作区：" + wsp + ("〔虚拟·收口即删〕" if virt else "")); at.bind(on_line=on_line, ev=ev if ev is not None else False)
     want = _state("current_agent"); want and want != ag and not spec.get("native") and on_line("注意：所选 agent " + want + " 未检出，本次经 " + ag + " 执行（:agents 查看）")
@@ -38,7 +59,10 @@ def ask(text, on_line, st=lambda n: None, ev=None):
             if bl[-1].startswith("[图:") and bl[-1].endswith("]"): p = bl[-1][3:-1].strip(); body = "\n".join(bl[:-1]); imgs = [p] if os.path.isfile(p) else None
             resp = gateway.run(body, on_line, images=imgs, ev=ev); sr.flag() and sr.append(text, str(resp or "（本轮网关中断·任务未必完成——下轮据接续与任务表继续推进）"))
         else:
-            st("agent CLI 执行：" + ag); args, env = list(spec.get("args", [])), dict(os.environ, PYTHONIOENCODING="utf-8", SMS_WORKSPACE=wsp, SMS_TMP=resolve_home.wtmp()); env.update(spec.get("env") or {})
+            st("agent CLI 执行：" + ag); args = list(spec.get("args", []))
+            # 批32 R4：显式钉死 SMS_HOME——exec 子进程 request 与壳 run_pending 写读同一 lifecycle.json
+            env = dict(os.environ, PYTHONIOENCODING="utf-8", SMS_WORKSPACE=wsp,
+                       SMS_TMP=resolve_home.wtmp(), SMS_HOME=SMS); env.update(spec.get("env") or {})
             stdin = subprocess.PIPE if spec.get("prompt_stdin") else subprocess.DEVNULL
             p = no_window.Popen([spec.get("bin", ag)] + args + ([] if stdin else [text if not prefix_on() else text + "\n\n" + inj]), stdin=stdin, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace", env=env, cwd=wsp)
             if spec.get("prompt_stdin"):
@@ -66,7 +90,20 @@ def ask(text, on_line, st=lambda n: None, ev=None):
                 sr.flag() and sr.append(text, "（本轮 agent CLI 被阻塞应对收口：" + str(_why)[:120] + "·已收 %d 行·对照任务表未完成行继续）" % len(_buf))
     except stop.Stopped as e: rc = 130; stop.clear(); on_line("⛔ 任务已停止（" + str(e)[:80] + "）——在途输出中断·会话照常收口·停止旗标已复位")
     except Exception as e: rc = 1; __import__("debug").enabled() and __import__("debug").log("EXC " + __import__("debug").tb()[-800:]); __import__("skill_errors").record(SMS, str(ag), "ask", str(e)[:200], True); on_line("数据流异常（会话照常收口·任务表保留·下轮按接续与任务表续跑）：" + str(e)[:160]); sr.flag() and sr.append(text, "（本轮异常中断：" + str(e)[:100] + "·对照任务表未完成行继续）")
-    try:
-        lc.run_pending()  # 2026-09-30 用户「大模型可以依据任务要求重启，重启后继续执行任务」：本轮话说完、任务表落盘后再执行登记的 restart/shutdown
-    except Exception: pass
-    chains.record("session", "close:" + conv, _edge(conv)); chains.record("time", "对话 " + conv + " 收口 rc=" + str(rc), _edge(conv)); nf = ct.flush(); st("对话收口 rc=" + str(rc) + ("·收口链补写%d" % nf if nf else "")); m_ = ws.end(wsp, virt); m_ and on_line(m_); chains.ACTIVE["conv"] = ""; qq_flow.close(); return {"agent": ag, "rc": rc, "conv": conv}
+    finally:
+        # 批32 R1/R5：正常／异常／用户 stop 每条退出路径都在此收口——先落盘（任务表对账·会话关闭链·工作区释放），
+        # 再消费登记的 restart/shutdown（旧版包在 try/except pass 里＝异常静默吞，且无执行器早退路径不经过）。
+        try: tt.reconcile(conv)  # 批30 P1 收口对账：有 result 或写资源已落盘的未完行补置 done
+        except Exception as e:
+            try:
+                import chain_error
+                chain_error.record("shell", "agent_stream.reconcile", str(e)[:160])
+            except Exception as e2:
+                on_line("!收口▸ 对账异常且 error 链写入失败：" + repr(e2)[:100])
+            on_line("!收口▸ 任务表对账异常（不挡收口·已记 error 链）：" + str(e)[:120])
+        chains.record("session", "close:" + conv, _edge(conv))
+        chains.record("time", "对话 " + conv + " 收口 rc=" + str(rc), _edge(conv))
+        nf = ct.flush(); st("对话收口 rc=" + str(rc) + ("·收口链补写%d" % nf if nf else ""))
+        m_ = ws.end(wsp, virt); m_ and on_line(m_)
+        chains.ACTIVE["conv"] = ""; qq_flow.close(); _consume(on_line)  # R1：落盘之后再消费登记请求
+    return {"agent": ag, "rc": rc, "conv": conv}

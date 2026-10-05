@@ -71,13 +71,24 @@ def execute(name, raw):
         if not (a.get("input") or a.get("inp")): mm.append("input＝未传或空白")
         if mm: return _bad("skill", _pmsg("skill", mm), sig=_psig("skill"))
         rr.rec("exec"); 
-        try: return chain_error.fail("skill", a.get("name", ""), at.run_skill(a.get("name", ""), a.get("input") or a.get("inp") or ""))
+        try:
+            nm = a.get("name", ""); ip = a.get("input") or a.get("inp") or ""
+            r = chain_error.fail("skill", nm, at.run_skill(nm, ip))
+            s = str(r or "").strip()  # 批30 P0：派发成功即自动置行（漏 task_plan status 不再卡守卫）
+            tt.auto_done(skill=nm, goal=ip, result=s, ok=tt.dispatch_ok(s))  # 批33 缺陷B：判据抽核复用
+            return r
         finally: rr.rec("idle")
     fn = REG.get(name)
     if not fn: return "未知工具：" + name
     if m := _miss(tname, a): return _bad(tname, _pmsg(tname, m), sig=_psig(tname))
     kw = {k: v for k, v in a.items() if k in fn.__code__.co_varnames[:fn.__code__.co_argcount] and not (v is None and k not in REQ.get(tname, []))}
-    try: return chain_error.fail("tool", name, fn(**kw))
+    try:
+        r = chain_error.fail("tool", name, fn(**kw))
+        if name == "task":  # 批30 P0：task 工具路径同样回写（技能名留空·按 goal 匹配行）
+            s = str(r or "").strip()
+            if s.startswith("任务"):  # 参数拒绝/工具禁用＝未执行·不动行
+                tt.auto_done(goal=str(a.get("intent") or ""), result=s, ok="成功 0/" not in s)
+        return r
     except TypeError as e: return _bad(tname, "参数不匹配：" + tname + "（" + str(e)[:120] + "）——请照此最小示例改对：" + tname + " " + _ex(tname), sig=_psig(tname))
     except Exception as e: return _bad(name, "工具失败：" + str(e)[:200])
 if __name__ == "__main__":

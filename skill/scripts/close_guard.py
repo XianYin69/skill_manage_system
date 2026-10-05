@@ -5,6 +5,8 @@
 ② 终端 Ctrl+C／Ctrl+Break——同上（Textual 里 ctrl+c 被壳接管，走 TUI 的 confirm 动作；readline 兜底壳走 KeyboardInterrupt 捕获）；
 ③ 大模型侧：agent 用 exec 跑 shell_lifecycle restart 时，请求写进 shell/lifecycle.json，由壳进程在本轮收口时自己执行（spawn 新实例＋杀旧＋os._exit），保证「只保留重启之后的」那一个进程。
 通报＝qq_push 尽力推一句「SMS 关闭中／重启中（原因·时间）」，任何异常吞掉，绝不因通报挡住退出。
+批30：关闭必回收全部 core 后台——_bye 经接缝 reclaim（服务＋其它壳＋含 skill_manage_system 的后台），
+arm 时把本壳 pid 登记进 shells.json（壳侧登记表＝reclaim 的零 PowerShell 主路径）。
 用法：python -B close_guard.py status|test"""
 import os, sys, time, json, threading
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -62,12 +64,17 @@ def _msgbox(text, title="SMS 关闭确认"):
         return ctypes.windll.user32.MessageBoxW(None, text, title, MB_YESNO | MB_ICONWARNING) == IDYES
     except Exception: return None
 def _bye(why):
-    """放行退出前的收尾：链落盘＋远端通报＋回收后台服务（DETACHED 子进程不随本进程死＝旧版「关了个寂寞」）。"""
+    """放行退出前的收尾：链落盘＋远端通报＋回收全部后台（DETACHED 子进程不随本进程死＝旧版「关了个寂寞」）。
+    批30：others=True＝连其它壳与含 skill_manage_system 的 core 后台一起收，收完注销本壳 pid。"""
     push("SMS 关闭中（%s）· %s" % (why, time.strftime("%H:%M:%S")))
-    try:
-        import runtime_bind  # 经唯一接缝取壳生命周期能力（core 侧不得出现 shell_* import）
-        runtime_bind.lifecycle_kill_services(why="窗口/控制事件")
-    except Exception: pass
+    rb = _seam()  # 经唯一接缝取壳生命周期能力（core 侧不得出现 shell_* import）
+    if rb:
+        try:
+            rb.lifecycle_kill_services(why="窗口/控制事件", others=True)
+        except Exception: pass
+        try:
+            rb.lifecycle_unregister_shell()
+        except Exception: pass
     try:
         import chain_timing; chain_timing.flush()
     except Exception: pass
@@ -94,16 +101,37 @@ def _handler(sig):
         app and app.call_from_thread(app.log_line, __import__("rich.text", fromlist=["Text"]).Text(txt, style="bold yellow"))
     except Exception: pass
     return True
+def _seam():
+    """取唯一接缝（core 侧不得出现 shell_* import——登记表/回收一律经 runtime_bind 转调）。"""
+    try:
+        import runtime_bind
+        return runtime_bind
+    except Exception:
+        return None
+def _register(note=""):
+    """B1 壳启动即登记本 pid（批31：只有命令行命中壳特征的进程才入表，非壳不登记；
+    失败只降级不抛）。"""
+    rb = _seam()
+    if not rb:
+        return note + "·壳 pid 登记跳过（接缝未绑定）"
+    pid = rb.lifecycle_register_shell()
+    return note + ("·已登记壳 pid=%s" % pid if pid
+                   else "·本进程非壳，未登记（仅壳进程入表）")
 def arm(app=None):
-    """注册控制台控制事件处理器（Windows 专用·非 nt 或失败一律静默，绝不挡启动）。"""
+    """注册控制台控制事件处理器（Windows 专用·非 nt 或失败一律静默，绝不挡启动）；
+    批30：无论拦截是否装上，都把本壳 pid 登记进 shells.json（reclaim 主路径）。"""
     S["app"] = app
-    if S["armed"] or os.name != "nt": return "不适用（非 Windows 或已注册）"
+    if os.name != "nt":
+        return _register("不适用（非 Windows）")
+    if S["armed"]:
+        return _register("已注册（复用）")
     try:
         import ctypes
         global _CB
         _CB = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_uint)(_handler)
         if not ctypes.windll.kernel32.SetConsoleCtrlHandler(_CB, True): return "注册失败（GetLastError=%s）" % ctypes.windll.kernel32.GetLastError()
-        S["armed"] = True; return "已注册控制台关闭拦截（窗口 X／Ctrl+C 首枪拦下＋二次确认）"
+        S["armed"] = True
+        return _register("已注册控制台关闭拦截（窗口 X／Ctrl+C 首枪拦下＋二次确认）")
     except Exception as e:
         return "注册异常已忽略：" + str(e)[:80]
 def peek(sms=None):

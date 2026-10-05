@@ -8,6 +8,7 @@ os.environ["PYTHONUTF8"] = "1"; os.environ["PYTHONIOENCODING"] = "utf-8"
 D = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, D)
 if sys.argv[1:2] == ["api"]:
+    # sms-visible：启动器交棒控制台壳（定位技能前不可 import no_window）
     sys.exit(subprocess.call([sys.executable, "-B", os.path.join(D, "locate.py")] + sys.argv[1:]))
 BASE = None
 try:
@@ -27,6 +28,9 @@ if TUI and os.path.isfile(TUI) and "--gui" not in args and (args or tty) and imp
 ps1 = shutil.which("powershell.exe") or shutil.which("pwsh")
 if os.path.isfile(os.path.join(D, "sms_shell.ps1")) and ps1:
     if not args:
+        # sms-visible：启动器交棒控制台壳（定位技能前不可 import no_window）
         sys.exit(subprocess.call([ps1, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", os.path.join(D, "sms_shell.ps1")]))
+    # sms-visible：启动器交棒控制台壳（定位技能前不可 import no_window）
     sys.exit(subprocess.call([ps1, "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", "& '%s' @args" % os.path.join(D, "sms_shell.ps1")] + args))
+# sms-visible：启动器交棒控制台壳（定位技能前不可 import no_window）
 sys.exit(subprocess.call([sys.executable, "-B", os.path.join(D, "locate.py")] + args))
