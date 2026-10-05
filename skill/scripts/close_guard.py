@@ -65,8 +65,8 @@ def _bye(why):
     """放行退出前的收尾：链落盘＋远端通报＋回收后台服务（DETACHED 子进程不随本进程死＝旧版「关了个寂寞」）。"""
     push("SMS 关闭中（%s）· %s" % (why, time.strftime("%H:%M:%S")))
     try:
-        import shell_lifecycle as lc  # 懒 import 防回环（shell_lifecycle 顶部 import close_guard）
-        lc.kill_services(why="窗口/控制事件")
+        import runtime_bind  # 经唯一接缝取壳生命周期能力（core 侧不得出现 shell_* import）
+        runtime_bind.lifecycle_kill_services(why="窗口/控制事件")
     except Exception: pass
     try:
         import chain_timing; chain_timing.flush()

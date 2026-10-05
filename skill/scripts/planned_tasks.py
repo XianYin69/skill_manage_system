@@ -9,6 +9,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import resolve_home, atomic_io, settings, chains, session_reg, task_table as tt
 SMS = resolve_home.ensure()
 DIRNAME = "planned_tasks"
+SMS_PLANNED = "planned"   # SMS 自身的计划任务真源目录（<SMS_HOME>/planned·运行时数据不进 skill 目录·红线#2）
+SELF = ("sms", "skill_manage_system")   # SMS 自身＝落盘一律 <SMS_HOME>
 ROOTS = [os.path.expanduser("~/.kilocode/skills"),
          os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sub_skills")]
 STATUS = ("pending", "running", "done", "paused", "failed")
@@ -87,8 +89,9 @@ def roots():
     return out
 
 def extra_dirs():
-    """SMS 级计划任务目录（不属于任何技能的全局定时项）。"""
-    return [os.path.join(SMS, DIRNAME)]
+    """SMS 级计划任务目录（不属于任何技能的全局定时项）：真源＝<SMS_HOME>/planned（与调度器
+    日志/pid 同目录），旧 <SMS_HOME>/planned_tasks 继续只读扫描＝既有任务不丢。"""
+    return [os.path.join(SMS, SMS_PLANNED), os.path.join(SMS, DIRNAME)]
 
 def paths():
     p = [g for d in extra_dirs() for g in glob.glob(os.path.join(d, "*.json"))]
@@ -288,8 +291,11 @@ def add(title, when, text, skill="sms"):
            "created": ISO(), "next_run": "", "last_run": None, "runs": 0, "notify": "shell", "depends": []}
     nr = next_run(doc)
     doc["next_run"] = ISO(nr) if nr else ""  # 永不命中＝留空，绝不写「现在」防立即触发
-    base = os.path.join(roots()[0], skill) if os.path.isdir(os.path.join(roots()[0], skill)) else SMS
-    d = os.path.join(base, DIRNAME); os.makedirs(d, exist_ok=True)
+    if str(skill) in SELF: d = os.path.join(SMS, SMS_PLANNED)   # SMS 自身＝<SMS_HOME>/planned（不落 skill 目录）
+    else:
+        base = os.path.join(roots()[0], skill) if os.path.isdir(os.path.join(roots()[0], skill)) else SMS
+        d = os.path.join(base, DIRNAME)
+    os.makedirs(d, exist_ok=True)
     p = os.path.join(d, pid + ".json"); _save(p, doc)
     errs = bad(doc)
     return "已登记计划任务 %s → %s（下次 %s）%s" % (pid, p, doc["next_run"] or "—",

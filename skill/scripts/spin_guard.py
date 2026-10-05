@@ -196,7 +196,7 @@ def _escalate(s):
         except Exception: pass
     if n >= 3 and _cfg("spin_selfheal", 1) >= 1:
         try:
-            import shell_lifecycle; shell_lifecycle.request("restart", "spin-selfheal cpu=%.0fms/s silent=%.0fs" % (cpu, sil))
+            import runtime_bind; runtime_bind.lifecycle_request("restart", "spin-selfheal cpu=%.0fms/s silent=%.0fs" % (cpu, sil))
         except Exception: pass
 def _watch(tick_s):
     prev = _cpu_ms(); pts = time.time(); ext = 0.0

@@ -12,3 +12,5 @@ config/config.json
 *.out
 
 _*  # scratch output
+planned_tasks/
+.pytest_cache/
