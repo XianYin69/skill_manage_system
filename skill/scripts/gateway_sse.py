@@ -9,7 +9,7 @@ SENT = "。！？；!?…"
 def _req(msgs):
     import agent_dispatch as ad
     c = settings.eff()["llm_gateway"]; body = {"model": c.get("model") or "auto", "messages": msgs, "max_tokens": int(c.get("max_tokens", 1024)), "tools": ad.tools_schema(), "stream": True, **{k: c[k] for k in ("temperature", "top_p", "reasoning_effort") if c.get(k) is not None}}
-    key = os.environ.get(c.get("api_key_env") or "", "") or c.get("api_key", "")
+    key = (os.environ.get(c.get("api_key_env") or "") or "").strip() or str(c.get("api_key") or "")  # 空 env 不覆盖配置密钥（同 gateway.cfg 口径）
     return urllib.request.Request(dsm.api_url("/chat/completions", str(c.get("base_url", ""))), data=json.dumps(body).encode("utf-8"), headers={"Authorization": "Bearer " + str(key), "Content-Type": "application/json", "Accept": "text/event-stream"}), int(c.get("timeout", 120))
 def _emit(buf, on_line):
     while buf:

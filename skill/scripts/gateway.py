@@ -12,7 +12,15 @@ def _b64img(p):
     return ({".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".gif": "image/gif"}).get(os.path.splitext(p)[1].lower(), "image/png"), base64.b64encode(open(p, "rb").read()).decode()
 def image_message(text, paths): return {"role": "user", "content": [{"type": "text", "text": text}] + [{"type": "image_url", "image_url": {"url": "data:" + m + ";base64," + d}} for m, d in (_b64img(p) for p in paths)]}
 def cfg():
-    c = dict(resolve_home.conf(resolve_home.ensure()).get("llm_gateway") or {}); k = c.get("api_key_env"); c["api_key"] = os.environ.get(k, c.get("api_key", "")) if k else c.get("api_key", ""); return c
+    """网关配置快照。密钥口径（批34 根治）：env（api_key_env 命名）优先，但**空值不覆盖配置密钥**——
+    旧写法 os.environ.get(k, 默认) 只挡「变量不存在」，挡不住「变量存在但为空」：任何父进程/壳把
+    SCNet-Max 带成空串，密钥即变 "Bearer " → 网关 401 invalid api key，SOLO 自审与对话全线哑火
+    （2026-10-07/10-08 event 链实证「SOLO故障分析不可用：HTTP Error 401」）。回 key_source 供 doctor 说明密钥来处。"""
+    c = dict(resolve_home.conf(resolve_home.ensure()).get("llm_gateway") or {})
+    k = c.get("api_key_env"); v = (os.environ.get(k) or "").strip() if k else ""
+    c["api_key"] = v or (c.get("api_key") or "")
+    c["key_source"] = "env" if v else ("config" if c.get("api_key") else "none")
+    return c
 def enabled(): return bool(cfg().get("enabled"))
 def _http(req):
     with urllib.request.urlopen(req, timeout=int(cfg().get("timeout", 120))) as r: return json.loads(r.read().decode("utf-8", "replace"))
@@ -25,7 +33,10 @@ def _send(req):
     """提供商（大模型网关）访问失败＝有限次重试：次数＝settings llm_gateway.retries（默认 3·指数退避 1.2s 起封顶 10s·HTTP 4xx 不重试·stop 即时中断），每次记 tool 链。耗尽回 (None, err)，err 带「重试耗尽(N次)」标记——run 见标记不再整轮重发（防重试次数相乘）。"""
     n = max(0, int(settings.get("llm_gateway.retries", 3)))
     def _t(e):
-        chains.log("tool", "提供商访问失败重试：" + str(e)[:100]); return rio.transient(e)
+        """predicate 只在**真要重试**时留痕：旧写法每失败一次先记「提供商访问失败重试」再判瞬时性，
+        401/404/405 这类不可重试错也被记成重试风暴，事后查链一律误判（批34 实测：401 被记 3 次）。"""
+        ok = rio.transient(e)
+        ok and chains.log("tool", "提供商访问失败重试（瞬时）：" + str(e)[:100]); return ok
     bx = {"i": 0}
     def _ot(i, k, e, d): bx["i"] = i; rr.rec("llm", attempt=i, retries=max(0, k - i), err=e)
     rr.rec("llm", attempt=0, retries=n)
@@ -234,6 +245,6 @@ def run(text, on_line=lambda ln: None, images=None, ev=None, max_rounds=None):
             f = tc.get("function") or {}; nm = str(f.get("name") or ""); raw = str(f.get("arguments") or "{}"); acted = acted or nm in ("write", "skill", "task"); res = fg.TRUNC if bad[k] else latency.wrap("tool", nm, ad.execute, nm, raw); stop.check(); msgs.append({"role": "tool", "tool_call_id": tc.get("id", ""), "content": str(res)[:4000] or "(无输出)"})
 if __name__ == "__main__":
     a = sys.argv[1:] or ["doctor"]; cmd, arg, c = a[0], " ".join(a[1:]), cfg()
-    if cmd == "doctor": print(json.dumps({"enabled": bool(c.get("enabled")), "base_url": c.get("base_url"), "model": c.get("model"), "key": "set" if c.get("api_key") else "missing"}, ensure_ascii=False))
+    if cmd == "doctor": print(json.dumps({"enabled": bool(c.get("enabled")), "base_url": c.get("base_url"), "model": c.get("model"), "key": "set" if c.get("api_key") else "missing", "key_source": cfg().get("key_source"), "env_var": c.get("api_key_env"), "env_empty": bool(c.get("api_key_env") and not (os.environ.get(c.get("api_key_env") or "") or "").strip())}, ensure_ascii=False))
     elif cmd == "models": data, err = _req("/models"); print("\n".join(x["id"] for x in (data or {}).get("data", [])) or "ERR " + err)
     else: run(arg or "你好", print, images=[p for p in a[1:] if os.path.isfile(p) and not p.startswith("-")] or None) if not cmd.startswith("-") else (print(__doc__.strip()), sys.exit(1))

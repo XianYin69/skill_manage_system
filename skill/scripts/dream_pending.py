@@ -56,7 +56,12 @@ def auto_solo(sms=None):
         except Exception as e:
             out = "续跑异常：" + str(e)[:80]
         if out.startswith("已续跑修复"): ok += 1
-        else: bad += 1
+        # 批35：resume 成功路径自己会 drop 成 fixed/failed，但「仍未取得所需权限」早退分支不落态＝该行永远
+        # 留在 open，空闲每轮 auto_solo 重复同一条 → event 刷屏＋守卫把 bad 当「续跑无进展」误触熔断。
+        # 现未成但已落终态者计 ok 侧（不再算无进展），仍 open 的才计 bad 并只报一次。
+        else:
+            _row = take(fid, sms)
+            bad += 0 if isinstance(_row, dict) and str(_row.get("status") or "") in ("fixed", "failed", "dropped") else 1
         notes.append("%s→%s" % (str(fid), out[:60]))
         chains.record("event", "SOLO自动同意待批·%s：%s" % (str(fid), out[:120]))
     msg = "SOLO 自动同意并续跑修复待批：成功%d·未成%d（%s）" % (ok, bad, "；".join(notes)[:200])

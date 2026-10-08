@@ -22,3 +22,6 @@ skill/scripts/web_page.html
 sms.py
 sms
 sms.cmd
+skill/scripts/shell_*
+skill/scripts/*.bak*
+bin/*
