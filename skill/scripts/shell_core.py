@@ -58,8 +58,26 @@ def startup_block():
                 parts.append("── SOLO 模式已开启 ──\n缺权限不再向用户确认，由大模型自审决定是否授予（关闭：:solo off／F10 权限面板）\n" + s.banner_lines() + "\n当日已放行 " + str(stt.get("granted_today", 0)) + " 项 · 自审网关" + ("可用" if stt.get("gateway_ok") else "未启用") + " · allow_danger=" + str(stt.get("allow_danger")) + " · 永不自审：" + "、".join(stt.get("never") or []) + "（:solo status）")
         except Exception: pass
     return "\n\n".join(parts)
+_CORE_SK = []
+def _core_skill():
+    """批34 双仓根治（壳仓 standalone 态）：核独有件（commands/solo/planned_tasks/task_table…＋sub_skills/*）
+    恒在核仓 skill 目录下——env SMS_CORE → 配置 sms_skill → 相邻 ../../../SMS-core 三级找回（结果缓存）。"""
+    if _CORE_SK: return _CORE_SK[0]
+    cands = [os.environ.get("SMS_CORE") or "", str(settings.get("sms_skill") or ""),
+             os.path.normpath(os.path.join(S, "..", "..", "..", "SMS-core"))]
+    got = next((os.path.normpath(b) for b in cands if b
+                and os.path.isfile(os.path.join(b, "skill", "scripts", "resolve_home.py"))), "")
+    _CORE_SK.append(got); return got
+def _sp(name):
+    """脚本名 → 实际路径：壳层件优先本仓 scripts，sub_skills 件回本仓 sub_skills，两处皆无则回落核仓
+    同名目录（覆盖安装态两处同源，顺序无差别）——旧版只认本仓两级，壳仓独立跑时 :cmds/:solo/:plan 报 can't open file。"""
+    rel = name.replace("/", os.sep)
+    ck = [os.path.join(S, rel), os.path.join(S, "..", "sub_skills", rel)]
+    core = _core_skill()
+    if core: ck += [os.path.join(core, "skill", "scripts", rel), os.path.join(core, "skill", "sub_skills", rel)]
+    return next((c for c in ck if os.path.isfile(c)), ck[0])
 def run_script(name, args):
-    try: p = no_window.run([sys.executable, "-B", os.path.join(S, name) if os.path.isfile(os.path.join(S, name)) else os.path.join(S, "..", "sub_skills", name.replace("/", os.sep))] + list(args), capture_output=True, text=True, encoding="utf-8", errors="replace", stdin=subprocess.DEVNULL, timeout=max(10, int(settings.get("shell.exec_timeout", 600))))
+    try: p = no_window.run([sys.executable, "-B", _sp(name)] + list(args), capture_output=True, text=True, encoding="utf-8", errors="replace", stdin=subprocess.DEVNULL, timeout=max(10, int(settings.get("shell.exec_timeout", 600))))
     except subprocess.TimeoutExpired as te:
         chain_error.hook("script", name, "timeout")
         import run_watch as rw

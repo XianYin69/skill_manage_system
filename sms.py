@@ -1,13 +1,42 @@
 #!/usr/bin/env python3
 """sms.py — 根入口（Windows/macOS/Linux，纯标准库）：①开箱即用：解析/创建 SMS_HOME、播种用户配置、红线自检（失败即停）；②依赖嗅探与修补：python/PySide6/textual/git/agent CLI 逐项报告（缺 dep 不自动安装，--install-deps 经同意才 pip 装 PySide6；textual 仅报告）；注册表产物缺失或 --rebuild 时重建；③引导至 CLI：交棒 bin/sms-shell（Textual TUI 优先，ps1 原生 DOS TUI 回退）。用法：python sms.py [doctor|shell] [--rebuild] [--install-deps] [shell 参数…]。"""
-import importlib.util, json, os, shutil, subprocess, sys, time
+import importlib.util, io, json, os, shutil, subprocess, sys, time
 ROOT = os.path.dirname(os.path.abspath(__file__))
 S = os.path.join(ROOT, "skill", "scripts")
 sys.path.insert(0, S)
+def _core_scripts():
+    """批34 双仓根治：核独有件（resolve_home/agent_stream/chains/dream/no_window＋redlines/sep_audit/
+    dream.py/init_registry.py 等）只在 SMS-core/skill/scripts——壳仓 standalone（未做覆盖安装）时按
+    env SMS_CORE → <SMS_HOME>/config/config.json 的 sms_skill → 相邻 ../SMS-core 三级找回。
+    sys.path＋PYTHONPATH 双注入：交棒 subprocess/execv 的新解释器不继承进程内 sys.path，只认 env。"""
+    core = os.environ.get("SMS_CORE") or ""
+    hm = os.environ.get("SMS_HOME") or ""
+    if not hm:
+        home = os.path.expanduser("~")
+        c = os.environ.get("LOCALAPPDATA") or (os.path.join(home, "Library", "Caches") if sys.platform == "darwin" else os.path.join(home, ".cache"))
+        for cand in (os.path.join(c, "SMS"), os.path.join(home, "SMS")):
+            if os.path.isfile(os.path.join(cand, "config", "config.json")): hm = cand; break
+    if not core and hm:
+        try: core = json.load(io.open(os.path.join(hm, "config", "config.json"), encoding="utf-8-sig")).get("sms_skill") or ""
+        except Exception: pass
+    if not core:
+        p = os.path.normpath(os.path.join(ROOT, "..", "SMS-core"))
+        if os.path.isfile(os.path.join(p, "skill", "scripts", "resolve_home.py")): core = p
+    s = os.path.join(core, "skill", "scripts") if core else ""
+    return s if os.path.isfile(os.path.join(s, "resolve_home.py")) else ""
+CORE_S = _core_scripts()
+if CORE_S and CORE_S not in sys.path:
+    sys.path.insert(0, CORE_S)
+    _pp = os.environ.get("PYTHONPATH") or ""
+    if CORE_S not in _pp.split(os.pathsep):
+        os.environ["PYTHONPATH"] = CORE_S + (os.pathsep + _pp if _pp else "")
 import resolve_home, agent_stream, chains, dream
 import no_window  # 静默子进程：入口自检/pip 修补不闪黑框
+def _script(name):
+    """脚本名 → 实际路径：壳层件优先本仓，核独有件回落到核仓（覆盖安装态两处同源，顺序无差别）。"""
+    return next((p for p in (os.path.join(S, name), os.path.join(CORE_S, name) if CORE_S else "") if p and os.path.isfile(p)), os.path.join(S, name))
 def run(script, *a):
-    return no_window.run([sys.executable, "-B", os.path.join(S, script), *a], cwd=ROOT, capture_output=True, text=True)
+    return no_window.run([sys.executable, "-B", _script(script), *a], cwd=ROOT, capture_output=True, text=True)
 def sniff(argv, say):
     say("python %d.%d%s" % (*sys.version_info[:2], "" if sys.version_info >= (3, 9) else " —— 过低（需≥3.9）"))
     have_py = True

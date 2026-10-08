@@ -273,7 +273,26 @@ def tick(force=False, gap=30):
         except Exception as ex: res.append((e["doc"].get("id"), "failed", repr(ex)[:200]))
     return res
 
+def _other_serve_alive():
+    """serve.pid 里的活进程（非本 pid）——重复调度器＝双份 tick，历史实测两 serve 并存（10-08 检出）。"""
+    pf = os.path.join(SMS, "planned", "serve.pid")
+    try:
+        pid = int((io.open(pf, encoding="utf-8").read() or "0").strip() or 0)
+    except Exception:
+        return 0
+    if not pid or pid == os.getpid():
+        return 0
+    try:
+        r = no_window.run(["tasklist", "/FI", "PID eq %d" % pid], capture_output=True, text=True, errors="replace")
+        return pid if str(pid) in (r.stdout or "") else 0
+    except Exception:
+        return 0
+
 def serve():
+    o = _other_serve_alive()
+    if o:
+        print("计划任务调度已在运行（pid %d）——本进程退出防双触发；如需接管：先回收旧实例再启" % o)
+        return 0
     print("计划任务调度已启·扫描根：%s" % "、".join(roots()))
     while True:
         for r in tick(force=True): print("触发：", r)

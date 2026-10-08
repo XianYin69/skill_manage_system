@@ -32,6 +32,9 @@ def _isolate(monkeypatch):
     monkeypatch.setattr(lc, "_bye", lambda s, t: None)
     monkeypatch.setattr(cg, "push", lambda t: None)
     monkeypatch.setattr(lc, "BIN", os.path.join(str(os.getcwd()), "__no_such_launcher__.py"))
+    # 批34：模拟失败的请求绝不可经 _note→chain_error 落进真实 <SMS_HOME> 的 error 链
+    # （否则每跑一次 pytest 就多一条「启动器缺失 __no_such_launcher__.py」，做梦把它当生产故障反复登记）
+    monkeypatch.setattr(lc, "_note", lambda e, src: None)
 
 
 def test_allow_host_performs_instead_of_bouncing(monkeypatch, tmp_path):
