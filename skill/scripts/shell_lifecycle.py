@@ -17,8 +17,11 @@ import os, sys, json, time, subprocess
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import resolve_home, chains, chain_timing, atomic_io, close_guard as cg
 S = os.path.dirname(os.path.abspath(__file__))
-BIN = os.path.join(os.path.dirname(os.path.dirname(S)), "bin", "sms-shell.py")
+# 批34：启动器可经 env SMS_LAUNCHER 覆盖（部署态 bin 与脚本不同根时用之），默认＝同仓 bin/sms-shell.py
+BIN = os.environ.get("SMS_LAUNCHER") or os.path.join(os.path.dirname(os.path.dirname(S)), "bin", "sms-shell.py")
 PATTERNS = ("shell_tui_textual.py", "shell_tui.py", "shell_console.py", "shell_gui.py", "sms-shell.py")
+SMS_MARK = ("skill_manage_system", "SMS-core", "SMS-shell")  # 批34 移动 Developin：命令行特征串三认
+def _sms_hit(cl): return any(m in (cl or "") for m in SMS_MARK)
 CONF = {"m": "", "at": 0.0}
 # A1 重启必须出现可用新窗口：CREATE_NEW_CONSOLE(0x10)；绝不含 CREATE_NO_WINDOW(0x08000000)
 NEW_CONSOLE = 0x00000010
@@ -214,7 +217,7 @@ def _sms_pids(exclude=(), force=False, sms=None, cim=True, global_ok=None):
         add(pid)
     if cim and _gscan(sms, global_ok):
         for p, cl in _cim_rows(force=force):
-            if int(p) not in keep and "skill_manage_system" in cl:
+            if int(p) not in keep and _sms_hit(cl):
                 add(int(p))
     for _name, rel in SVC:
         try:
@@ -289,7 +292,7 @@ def kill_services(exclude=(), sms=None, budget=1.5, why=None, global_ok=None):
     if time.time() - t0 < budget and _gscan(sms, global_ok):  # ③ 兜底只在预算内跑·走 TTL 缓存·镜像根不扫全机
         for pid, cl in _cim_rows():
             if pid in keep or pid in pids: continue
-            if "skill_manage_system" in cl or any(pt in cl for pt in PATTERNS):
+            if _sms_hit(cl) or any(pt in cl for pt in PATTERNS):
                 if _alive(pid): pids.append(pid)
     for pid in pids:
         if time.time() - t0 > budget: break
@@ -313,7 +316,7 @@ def _spawn(sms):
     no_window.flags() 会强制 f |= CREATE_NO_WINDOW 并塞 startupinfo(SW_HIDE)，实测子进程
     GetConsoleWindow()==0＝隐形进程，用户看不到「重启后的新窗口」。重启的语义就是要一个
     可用新控制台，故 nt 上直接用 CREATE_NEW_CONSOLE(0x10) 调 subprocess.Popen。"""
-    if not os.path.isfile(BIN): return ("启动器缺失：" + BIN, None)
+    if not os.path.isfile(BIN): return ("启动器缺失：" + BIN + "（可用 env SMS_LAUNCHER 指向真实 bin/sms-shell.py）", None)
     # A1b：nt 上不重定向任何标准流——传 stdin=DEVNULL 会让新控制台立刻读到 EOF
     # （键盘输入失效＝重启后那个窗口打字没反应）；不传则 CreateProcess 把子进程
     # 三个句柄绑到新控制台本身，才是「可用新窗口」。posix 无控制台概念，保持 DEVNULL。

@@ -37,7 +37,7 @@ def g_sessions(q=None):
     sr = _m("session_reg"); tt = _m("task_table"); reg = sr.list_(); cur = sr.current(); un = {}
     for tid in tt._all():
         d = tt._load(tid) or {}; s = str(d.get("sess") or "")
-        n = len([x for x in (d.get("subtasks") or []) if str(x.get("status")) not in ("done", "error", "stopped")])
+        n = len([x for x in (d.get("subtasks") or []) if str(x.get("status") or "pending") not in ("done", "skipped", "error", "stopped")])
         if n: un[s] = un.get(s, 0) + n
     out = [{"id": k, "session": k, "created": v.get("created"), "at": v.get("created"), "name": v.get("name"),
             "kind": v.get("kind"), "state": v.get("state"), "conv": v.get("conv"),

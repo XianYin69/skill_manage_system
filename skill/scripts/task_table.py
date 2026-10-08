@@ -4,6 +4,10 @@ import os, sys, json, time, re
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import resolve_home, chains, task as tsk, skill_route, settings, atomic_io, latency, msg_flow, qq_report, task_res as tr
 SMS = resolve_home.ensure(); GEN = ("general_answer", "constraint_arbiter"); TD = os.path.join(SMS, "tasks")
 def _tf(tid): return os.path.join(TD, tid + ".json")
+TERMINAL = ("done", "skipped", "error", "stopped")  # 批34 终态集：skipped＝用户指令弃置/中止，不再算未完成
+def open_row(x): return str((x or {}).get("status") or "pending") not in TERMINAL
+def guard_row(x):  # 主流程守卫催办判据：skipped/stopped＝已闭不催，error＝仍需处置继续催
+    return str((x or {}).get("status") or "pending") in ("pending", "running", "error")
 _SIG = {}
 def _lc(tid):
     """批29 P1-01：按 (mtime_ns,size) 缓存解析——tasks\\ 已 115 张/186KB，旧版每次全量 rjson 把 UI 线程打到 950ms/s 空转。"""
@@ -18,7 +22,7 @@ def _lc(tid):
 def _save(doc):
     os.makedirs(TD, exist_ok=True); atomic_io.wjson(_tf(doc["id"]), doc)
     subs = doc.get("subtasks") or []
-    if subs and all(x.get("status") == "done" for x in subs): _arch(doc["id"])
+    if subs and all(str(x.get("status")) in ("done", "skipped") for x in subs): _arch(doc["id"])
 def _arch(tid):
     """批29 P3-12：全行 done 的表自动移入 tasks_archive\\，tasks\\ 只留在途表（P1-01 空转放大根因）。"""
     try:
@@ -42,7 +46,7 @@ def eta(doc, parallel=None):
     """剩余时间预测（批29 修正）：默认按并发批次「批内最大值求和」（task.eta_parallel），
     旧版逐行累加在并行时高估耗时（实测 6 行表预测 240s·真实两批≈80s）；parallel=false 退回累加口径。"""
     llm = latency.avg("llm|" + str(settings.get("llm_gateway.model", "auto"))) or 45000
-    rows = [x for x in (doc.get("subtasks") or []) if x.get("status") in ("pending", "running")]
+    rows = [x for x in (doc.get("subtasks") or []) if open_row(x)]
     if not rows: return 0
     par = bool(settings.get("task.eta_parallel", True)) if parallel is None else bool(parallel)
     tot = tr.batch_eta(rows, _per_ms(llm)) if par else sum(_per_ms(llm)(x) for x in rows)
@@ -56,7 +60,7 @@ def _other_rows(tid="", conv=""):
         if not fn.endswith(".json") or t == tid: continue
         d = _lc(t)
         if not d or (c and d.get("conv") != c): continue
-        out += [x for x in (d.get("subtasks") or []) if x.get("status") in ("pending", "running")]
+        out += [x for x in (d.get("subtasks") or []) if open_row(x)]
     return out
 def emit(doc, note="任务表"):
     import agent_tools as at; subs = doc.get("subtasks") or []; dn = sum(1 for x in subs if x.get("status") == "done"); at.emit("task", note + " " + str(doc["id"])[-14:] + "：" + str(dn) + "/" + str(len(subs)) + " " + msg_flow.fmt(eta(doc)), tool="task", meta={"id": doc["id"], "done": dn, "total": len(subs), "eta_s": eta(doc)}); qq_report.progress(doc, note)  # emit
@@ -81,7 +85,7 @@ def pending(conv=""):
         except Exception: pass  # noqa 自愈失败不影响守卫
     c = conv or chains.ACTIVE.get("conv") or ""; out = []
     for tid in ([fn[:-5] for fn in sorted(os.listdir(TD)) if fn.endswith(".json")] if os.path.isdir(TD) else []):
-        doc = _load(tid); rest = [x for x in (doc.get("subtasks") or []) if x.get("status") != "done" and str(x.get("lane", "fg")) != "bg"] if doc and doc.get("conv") == c else []
+        doc = _load(tid); rest = [x for x in (doc.get("subtasks") or []) if guard_row(x) and str(x.get("lane", "fg")) != "bg"] if doc and doc.get("conv") == c else []
         rest and out.append("〔任务表 " + tid[-14:] + "〕未完成 " + str(len(rest)) + "/" + str(len(doc.get("subtasks") or [])) + "：" + "；".join(str(x.get("id")) + "｜" + str(x.get("skill") or "工具自办") + "｜" + str(x.get("goal"))[:40] + "〔" + str(x.get("status", "pending")) + "〕" for x in rest)[:600])
     return "\n".join(out)
 def unfinished():
@@ -93,7 +97,7 @@ def unfinished():
         doc = _lc(fn[:-5]); subs = (doc or {}).get("subtasks") or []
         if not subs: continue
         dn = sum(1 for x in subs if x.get("status") == "done")
-        if dn < len(subs): out.append((fn[:-5], dn, len(subs)))
+        if any(guard_row(x) for x in subs): out.append((fn[:-5], dn, len(subs)))
     return out
 
 def _gmatch(goal, row):
@@ -123,7 +127,7 @@ def auto_done(skill="", goal="", result="", ok=True, tid=""):
                        + "（表 conv=" + str(doc.get("conv") or "") + "·当前 conv="
                        + str(chains.ACTIVE.get("conv") or "") + "）")
             return ""
-        rows = [x for x in (doc.get("subtasks") or []) if x.get("status") != "done"]
+        rows = [x for x in (doc.get("subtasks") or []) if open_row(x)]
         if not rows: return ""
         sk = str(skill or "").strip().lower()
         x = next((r for r in rows if sk and str(r.get("skill") or "").strip().lower() == sk), None)
@@ -197,7 +201,7 @@ def reconcile(conv=""):
                 rej.append(tid[-14:]); continue
             subs = doc.get("subtasks") or []; ch = []; since = _since(doc)
             for x in subs:
-                if x.get("status") == "done": continue
+                if not open_row(x): continue
                 if str(x.get("result") or "").strip() or _artifacts(x, since):
                     x["status"] = "done"; x["auto"] = "reconcile"
                     x["auto_at"] = time.strftime("%Y-%m-%d %H:%M:%S"); ch.append(str(x["id"]))
@@ -282,9 +286,9 @@ def revise(op, tid="", row="", value=""):
     if not doc: return "无任务表：" + str(tid) + "（task_plan op=plan value=<步骤逗号分隔> 先建表；op=show 看全部）"
     if op == "status" and not row:  # 批30 P0：状态词回落只认 status——旧版对所有 op 生效，op=add 的行文案含 running/pending 即被整条换成 "done"
         v = str(value or "").strip()
-        m = re.match(r"^(t\d+)\s+(pending|running|done|error|stopped)$", v, re.I)
+        m = re.match(r"^(t\d+)\s+(pending|running|done|error|stopped|skipped)$", v, re.I)
         if m: row, value = m.group(1), m.group(2).lower()
-        elif re.fullmatch(r"(pending|running|done|error|stopped)", v, re.I): row, value = v, "done"
+        elif re.fullmatch(r"(pending|running|done|error|stopped|skipped)", v, re.I): row, value = v, "done"
     subs = doc.get("subtasks") or []; x = next((s for s in subs if s.get("id") == row), None)
     if op == "show":
         for x in subs: tr.res_of(x)
@@ -300,8 +304,8 @@ def revise(op, tid="", row="", value=""):
     if op == "remove" and x: subs.remove(x); _save(doc); emit(doc, "任务表删行"); return "已删 " + str(row)
     if op == "status" and x:
         v = str(value or "").strip().lower()
-        if v not in ("pending", "running", "done", "error", "stopped"):
-            return ("状态值非法：" + str(value) + "——合法集合 pending/running/done/error/stopped，"
+        if v not in TERMINAL + ("pending", "running"):
+            return ("状态值非法：" + str(value) + "——合法集合 pending/running/done/error/stopped/skipped，"
                     "行 " + str(row) + " 状态未改（批33 缺陷D：旧版把乱值静默当 done＝误标完成）")
         x["status"] = v
         if v == "running": x["started_at"] = time.strftime("%Y-%m-%d %H:%M:%S")  # 批33 缺陷C：行级活动度
@@ -311,7 +315,7 @@ def revise(op, tid="", row="", value=""):
                 + "·" + msg_flow.fmt(eta(doc)) + "）")
     if op == "skill" and x: x["skill"] = str(value); x["inst"] = str(value); _save(doc); emit(doc, "任务表改派"); return str(row) + " 指定技能：" + str(value)
     if op == "conflict":
-        rows = [x for x in subs if x.get("status") != "done"]
+        rows = [x for x in subs if open_row(x)]
         if str(value or "").strip().lower() in ("all", "cross", "跨表"): rows = rows + _other_rows(doc["id"])
         if not rows: return "无未完成行——本表已清空"
         cf = tr.conflicts(rows)

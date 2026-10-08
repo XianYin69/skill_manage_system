@@ -48,7 +48,9 @@ def _read_pend():
     for fn in (sorted(os.listdir(td)) if os.path.isdir(td) else []):
         try: doc = atomic_io.rjson(os.path.join(td, fn))
         except Exception: continue
-        subs = doc.get("subtasks") or []; rest = [x for x in subs if x.get("status") != "done"]
+        subs = doc.get("subtasks") or []
+        # 批34：终态＝done/skipped/error/stopped——skipped＝用户指令弃置，不再算「未完成」
+        rest = [x for x in subs if str(x.get("status") or "pending") not in ("done", "skipped", "error", "stopped")]
         if not (doc and rest): continue
         out.append({"tid": doc.get("id", fn[:-5]), "sess": doc.get("sess") or "?",
                     "conv": doc.get("conv") or "", "rows": len(rest), "total": len(subs),
