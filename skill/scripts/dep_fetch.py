@@ -8,7 +8,7 @@ import no_window  # 静默子进程：前台运行任务不弹命令行窗口
 import os, sys, json, urllib.request, zipfile, io as _io
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import resolve_home, permissions
-SKILLS = [os.path.expanduser("~/.kilocode/skills"), os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sub_skills")]
+SKILLS = [os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..")), os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sub_skills")]
 DEPDIR = "dependence"; VEND = "vendor"
 
 

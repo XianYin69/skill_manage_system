@@ -14,7 +14,7 @@ metadata:
 
 ## 输入
 
-- 扫描根目录（默认 `~/.kilocode/skills`；可追加本系统 sub_skills 目录）。
+- 扫描根目录（默认 `C:/Users/User/AppData/Local/SMS/skills`；可追加本系统 sub_skills 目录）。
 
 ## 步骤
 

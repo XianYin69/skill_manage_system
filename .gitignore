@@ -14,3 +14,11 @@ config/config.json
 _*  # scratch output
 planned_tasks/
 .pytest_cache/
+# 批34 双仓拆分：壳层源属 SMS-shell 仓，此处为覆盖安装的运行时混合体
+bin/
+skill/scripts/shell_*.py
+skill/scripts/shell.py
+skill/scripts/web_page.html
+sms.py
+sms
+sms.cmd

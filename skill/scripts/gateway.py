@@ -3,6 +3,8 @@
 import os, sys, json, base64, urllib.request, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import resolve_home, chains, settings, msg_flow, agent_dispatch as ad, agent_ctx as ac, task_table as tt, latency, stop_channel as stop, flow_guard as fg, runtime_rec as rr, solo
 import retry_io as rio
+import urllib.error
+import dsm
 def _b64img(p):
     if os.path.getsize(p) > 800_000:
         try: from PIL import Image; import io as _io; im = Image.open(p); im.thumbnail((1568, 1568)); buf = _io.BytesIO(); im.convert("RGB").save(buf, "JPEG", quality=82); return "image/jpeg", base64.b64encode(buf.getvalue()).decode()
@@ -36,9 +38,159 @@ def _send(req):
         except Exception: d = str(e)[:150]
         return None, str(e)[:150] + " " + d
 def _req(path, body=None):
-    c = cfg(); h = {"Authorization": "Bearer " + str(c.get("api_key", ""))}; d = None if body is None else json.dumps(body).encode("utf-8"); d is not None and h.update({"Content-Type": "application/json"}); return _send(urllib.request.Request(str(c.get("base_url", "")).rstrip("/") + path, data=d, headers=h))
+    c = cfg(); h = {"Authorization": "Bearer " + str(c.get("api_key", ""))}; d = None if body is None else json.dumps(body).encode("utf-8"); d is not None and h.update({"Content-Type": "application/json"}); return _send(urllib.request.Request(dsm.api_url(path, str(c.get("base_url", ""))), data=d, headers=h))
+def _dsm_warn(text, on_line=None):
+    """DSM 降级/异常一律留痕（契约：绝不静默）——tool 链一条＋主输出 notice 一行。"""
+    chains.log("tool", "DSM warning: " + str(text)[:160])
+    try:
+        if callable(on_line): on_line(msg_flow.brief(msg_flow.make("notice", "DSM：" + str(text))))
+    except Exception: pass
+
+
+def _dsm_url(path, base=None):
+    """DSM/legacy 端点 URL 的**唯一拼接口**＝dsm.api_url（尾巴2 的结构性根治）。
+
+    旧写法只在 base 以 /v1 **结尾**时剥前缀；代理前缀形如 /api/v1 或 base 不含 /v1
+    时仍会拼出 /v1/v1/…（服务端 404 → 客户端锁死降级 legacy，DSM 永远用不上）。
+    dsm.api_url 改为守不变量「最终 URL 里 /v1 只出现一次」，两种 base 形都正确。"""
+    return dsm.api_url(path, base if base is not None else str(cfg().get("base_url", "")))
+
+
+def _dsm_post(path, body, accept=None, on_frame=None):
+    """DSM 专用 POST（Content-Type/Accept＝application/dsm+json·契约 §1 内容协商）。
+    与 _send 分开：需要保留 HTTP 状态码判 404/415 降级，_send 会把状态码压成字符串。
+
+    `on_frame`＝ndjson 逐帧回调（out=delta 专用）：**逐行读、到一帧回调一帧**，
+    不再 r.read() 整包缓冲。尾巴3 的另一半就在这里——整包读时首字延迟＝整轮延迟，
+    增量协议在客户端被缓冲成了整包，于是「DSM 路不出逐字流」。"""
+    c = cfg(); ct = dsm.CTYPE
+    h = {"Authorization": "Bearer " + str(c.get("api_key", "")), "Content-Type": ct, "Accept": accept or ct}
+    req = urllib.request.Request(_dsm_url(path, str(c.get("base_url", ""))),
+                                 data=json.dumps(body, ensure_ascii=False).encode("utf-8"), headers=h)
+    try:
+        with urllib.request.urlopen(req, timeout=int(c.get("timeout", 120))) as r:
+            ct = str(r.headers.get("content-type") or "")
+            if dsm.CTYPE_STREAM in ct and on_frame is not None:
+                # 真增量：迭代响应对象（urllib 的 response 本身是行迭代器）＝边到边解析
+                rows = []
+                for raw in r:
+                    line = raw.decode("utf-8", "replace").strip()
+                    if not line:
+                        continue
+                    try:
+                        obj = json.loads(line)
+                    except Exception:
+                        continue
+                    rows.append(obj)
+                    try:
+                        on_frame(obj)
+                    except Exception:
+                        pass
+                return (rows or None), "", 200, ct
+            raw = r.read().decode("utf-8", "replace")
+            if dsm.CTYPE_STREAM in ct:                       # out=delta：一 seq 一行的 ndjson
+                rows = [json.loads(x) for x in raw.splitlines() if x.strip()]
+                return (rows or None), "", 200, ct
+            try:
+                return json.loads(raw), "", 200, ct
+            except Exception:                                # 服务端未按头声明也照 ndjson 收
+                rows = [json.loads(x) for x in raw.splitlines() if x.strip()]
+                return (rows or None), "", 200, ct
+    except urllib.error.HTTPError as e:
+        d = ""
+        try: d = e.read().decode("utf-8", "replace")[:200]
+        except Exception: pass
+        return None, "HTTP %d %s" % (e.code, d), e.code, ""
+    except Exception as e:
+        return None, str(e)[:150], 0, ""
+
+
+def _dsm_register(env, on_line=None):
+    """sch 首帧登记（POST /v1/dsm/schema·幂等）：404/415＝服务端无 DSM 路由 → 需降级。"""
+    data, err, code, _ct = _dsm_post(dsm.ENDPOINT_SCHEMA, dsm.schema_frame(env), dsm.CTYPE)
+    if code in (404, 415): return "downgrade", err, code
+    if code != 200:
+        _dsm_warn("schema 登记未成功(%s)——继续按引用发送（服务端 require_registered_schema=false 时可正常 chat）：%s"
+                  % (code, str(err)[:80]), on_line)
+    else:
+        dsm.mark_registered(env["sch"])
+    return "ok", "", code
+
+
+def _dsm_chat(msgs, on_line=None):
+    """dsm.enabled=true 的信封路径：build_env → 首帧登记 → POST /v1/dsm/chat → decode_to_openai_shape。
+    回 (message, note, kind)，kind∈ok|legacy|err——legacy 即调用方落回今天完全相同的路径。"""
+    c = dsm.cfg()
+    if dsm.broken():
+        # 冷却期内不再试信封：直接走与今天逐字节相同的 legacy 路
+        return None, "DSM 暂不可用（%s）→legacy" % dsm.broken_info()[1], "legacy"
+    mem = None
+    if c.get("mem_ref"):
+        q = " ".join(str(m.get("content") or "") for m in msgs[-2:] if m.get("role") in ("user", "tool"))[:600]
+        mem = dsm.mem_ids(q) or None
+    try:
+        env = dsm.build_env(msgs, tools=ad.tools_schema(), model=cfg().get("model") or "auto", dsm_cfg=c, mem=mem)
+    except Exception as e:
+        _dsm_warn("信封构造失败（语义装不下）→legacy：" + str(e)[:120], on_line); return None, str(e)[:150], "legacy"
+    if c.get("schema_ref") and dsm.needs_register(env["sch"]):
+        st, err, code = _dsm_register(env, on_line)
+        if st == "downgrade":
+            if c.get("fallback"):
+                _dsm_warn("服务端 DSM schema 路由缺失(%d)→降级 legacy（dsm.fallback=true）" % code, on_line); dsm.mark_broken("schema route %d" % code); return None, err, "legacy"
+            _dsm_warn("服务端 DSM schema 路由缺失(%d)且 dsm.fallback=false→报错不降级" % code, on_line); return None, err, "err"
+    accept = dsm.CTYPE_STREAM if c.get("out") == "delta" else dsm.CTYPE
+    data, err, code, _ct = _dsm_post(dsm.ENDPOINT, env, accept)
+    if code in (404, 415):
+        if c.get("fallback"):
+            _dsm_warn("服务端未提供 DSM(%d)→降级 legacy（dsm.fallback=true）" % code, on_line); dsm.mark_broken("dsm chat %d" % code); return None, err, "legacy"
+        _dsm_warn("服务端未提供 DSM(%d)且 dsm.fallback=false→报错不降级" % code, on_line); return None, err, "err"
+    if code == 409:
+        # 水位不符（服务端会话态与本侧对不上）：绝不带着同一个水位重试——那会 409 到底。
+        # 丢掉本 conv 的水位、整段历史重发一次（resync），DSM 路就此恢复；再失败才降级。
+        _dsm_warn("服务端 DSM 水位不符(409)→重置 delta 并全量重发一次", on_line)
+        dsm.reset_delta((env.get("x") or {}).get("sms.delta_key") or "")
+        try:
+            env = dsm.build_env(msgs, tools=ad.tools_schema(), model=cfg().get("model") or "auto",
+                                dsm_cfg=c, mem=mem, resync=True)
+        except Exception as e:
+            if c.get("fallback"):
+                _dsm_warn("重同步信封构造失败→legacy：" + str(e)[:120], on_line); dsm.mark_broken("resync build_env"); return None, str(e)[:150], "legacy"
+            return None, str(e)[:150], "err"
+        if c.get("schema_ref") and dsm.needs_register(env["sch"]):
+            _dsm_register(env, on_line)
+        data, err, code, _ct = _dsm_post(dsm.ENDPOINT, env, accept)
+        if code in (404, 415) and c.get("fallback"):
+            _dsm_warn("服务端未提供 DSM(%d)→降级 legacy" % code, on_line); dsm.mark_broken("resync route %d" % code); return None, err, "legacy"
+    if data is None:
+        if code == 409 and c.get("fallback"):
+            _dsm_warn("DSM 重同步仍失败(409)→降级 legacy 并冷却", on_line); dsm.mark_broken("409 resync failed"); return None, err, "legacy"
+        return None, err, "err"
+    o = dsm.decode_to_openai_shape(data)
+    m = o["choices"][0]["message"]
+    if not (m.get("tool_calls") or []) and not ((m.get("content") or "") + (m.get("reasoning_content") or "")).strip():
+        # DSM 回 200 但信封是空的（上游只吐 reasoning 就被截断 / 服务端收口帧 answer=""）。
+        # 绝不把空信封交给上层——那就是用户看到的「空响应」（2026-10-06 报障）。
+        # 也不推进水位：空轮次写进 delta ⇒ 后续每轮都少一段历史。
+        if c.get("fallback"):
+            _dsm_warn("DSM 空信封（200 无正文/无工具调用）→legacy 全量重发一次", on_line)
+            return None, "dsm empty envelope → legacy", "legacy"
+        _dsm_warn("DSM 空信封且 dsm.fallback=false→报错不降级", on_line)
+        return None, "DSM 空信封（200 无正文·fallback=false）", "err"
+    dsm.clear_broken()
+    dsm.commit_from_env(env, msgs)
+    m["content"] = (m.get("content") or "").replace("\x00", "").replace("\r", "\n")
+    m["reasoning_content"] = (m.get("reasoning_content") or "").replace("\x00", "")
+    chains.log("tool", "gateway:dsm/" + str(o.get("model")))
+    return m, "finish=" + str(o["choices"][0].get("finish_reason")), "ok"
+
+
 def chat(msgs, on_line=None):
     if on_line is not None and settings.get("llm_gateway.stream", True): import gateway_sse as sse; return sse.stream(msgs, on_line)
+    if dsm.enabled():
+        m, note, kind = _dsm_chat(msgs, on_line)
+        if kind == "ok": return m, note
+        if kind == "err": return None, note
+    if rf := dsm.legacy_refused(): return None, rf   # openai_compat=false → 拒绝构造 legacy body（loud）
     data, err = _req("/chat/completions", {"model": cfg().get("model") or "auto", "messages": msgs, "max_tokens": int(cfg().get("max_tokens", 1024)), "tools": ad.tools_schema(), **{k: cfg()[k] for k in ("temperature", "top_p", "reasoning_effort") if cfg().get(k) is not None}})
     if data: m = data["choices"][0]["message"]; m["content"] = (m.get("content") or "").replace("\x00", "").replace("\r", "\n"); m["reasoning_content"] = (m.get("reasoning_content") or "").replace("\x00", "")
     return (None, err) if not data else ((chains.log("tool", "gateway:" + str(data.get("model"))) and data)["choices"][0]["message"], "finish=" + str(data["choices"][0].get("finish_reason")))

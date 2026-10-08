@@ -230,7 +230,8 @@ def _sms_pids(exclude=(), force=False, sms=None, cim=True, global_ok=None):
 
 # ── A5/A6/A7 回收 ──────────────────────────────────────────────────────────────
 SVC = (("web_shell", ("shell", "web_shell.pid")), ("planned", ("planned", "serve.pid")),
-       ("hud", ("hud", "state.json.pid")), ("qq_listen", ("qq", "listen.pid")))
+       ("hud", ("hud", "state.json.pid")), ("qq_listen", ("qq", "listen.pid")),
+       ("smsocket", ("shell", "smsocket.pid")))
 def _kill(pid, tree=False):
     """taskkill 单点：tree=True 仅对登记表来源（我们自己拉起、连带合理）；
     CIM 来源不带 /T——防连带杀掉用户无关子进程。"""

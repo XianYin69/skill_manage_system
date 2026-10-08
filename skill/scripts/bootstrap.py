@@ -6,7 +6,7 @@ import os, sys, json, glob
 ID = "skill_generator"
 REPO = "https://github.com/XianYin69/Skill_Generator.git"
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-ROOTS = [os.path.join(ROOT, "skill", "sub_skills"), os.path.expanduser("~/.kilocode/skills")]
+ROOTS = [os.path.join(ROOT, "skill", "sub_skills"), os.path.abspath(os.path.join(ROOT, ".."))]
 
 
 def _hit(s):

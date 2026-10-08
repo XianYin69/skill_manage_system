@@ -9,7 +9,8 @@
 import os, sys, time, glob
 
 TOOLS = ["read", "write", "edit", "glob", "grep", "bash", "task", "skill", "websearch", "webfetch"]
-DEFAULT_ROOTS = [os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sub_skills"), os.path.expanduser("~/.kilocode/skills")]
+HUB = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".."))
+DEFAULT_ROOTS = [os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sub_skills"), HUB]
 ENTRY_RELS = ("SKILL.md", "skill/SKILL.md")
 
 def candidates(root):

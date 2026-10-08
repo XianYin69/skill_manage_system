@@ -40,7 +40,7 @@ def _consume(on_line):
         on_line("!lifecycle▸ 收口消费 restart/shutdown 登记异常（请求文件保留·已记 error 链）：" + str(e)[:120])
         return None
 def ask(text, on_line, st=lambda n: None, ev=None):
-    on_line = qq_flow.wrap(tts.hook(on_line)); tts.preempt(); stop.clear(); dream.maybe(SMS); qq_boot.autostart(SMS); model_meta.maybe(); ag = current(); st("检测执行器：" + (ag or "无"))
+    on_line = qq_flow.wrap(tts.hook(on_line)); tts.preempt(); stop.clear(); dream.maybe(SMS); qq_boot.autostart(SMS); __import__("smsocket_boot").autostart(SMS); model_meta.maybe(); ag = current(); st("检测执行器：" + (ag or "无"))
     if not ag:
         on_line("拒绝：未检出 agent CLI 且原生网关未启用（config llm_gateway.enabled=true）"
                 "——sms-shell 只经数据流执行，请先 :config 启用网关或装 agent CLI")

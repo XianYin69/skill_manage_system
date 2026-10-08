@@ -1,0 +1,18 @@
+{
+  "sms_home": null,
+  "comment": "SMS 固定路径：默认由 resolve_home.py 解析（env SMS_HOME > 缓存目录 > 根目录,统一建 SMS/）。若需覆盖，在此填绝对路径或设置环境变量 SMS_HOME。",
+  "scan_roots": [
+    "C:/Users/User/AppData/Local/SMS/skills"
+  ],
+  "skill_generator": {
+    "repo": "https://github.com/XianYin69/Skill_Generator.git",
+    "path": null,
+    "comment": "无匹配技能时：先查目标技能目录与配置是否含 skill_generator；缺失则由 scripts/bootstrap.py 从 repo 拉取（需 network + write 授权）。"
+  },
+  "permissions_default": {
+    "read": true,
+    "write": false,
+    "execute": false,
+    "network": false
+  }
+}

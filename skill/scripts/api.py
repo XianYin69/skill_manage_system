@@ -30,7 +30,8 @@ def main(a):
     if cmd in ("formats", "detect"):
         if cmd == "formats": print(json.dumps(F.FORMATS, ensure_ascii=False, indent=2)); return
         home = os.path.expanduser("~"); p = lambda x: x if os.path.isdir(os.path.join(home, x)) else None
-        print(json.dumps({"claude": p(".claude/skills"), "codex": p(".codex/skills"), "kilocode": p(".kilocode/skills"), "cursor": p(".cursor/skills")}, ensure_ascii=False, indent=2)); return
+        hub = os.path.join(sms_home(), "skills")
+        print(json.dumps({"sms_hub": hub if os.path.isdir(hub) else None, "agents": p(".agents/skills"), "cursor": p(".cursor/skills"), "kilocode": p(".kilocode/skills"), "claude": p(".claude/skills"), "codex": p(".codex/skills")}, ensure_ascii=False, indent=2)); return
     if len(a) < 2: sys.exit("用法: sms-shell api formats|detect|show|validate|export <skill> [--out D] [--format F] [--write]")
     skill = resolve_skill(a[1]); meta, _ = F.load(skill)
     if cmd == "show": print(json.dumps({"path": skill, "meta": meta}, ensure_ascii=False, indent=2)); return

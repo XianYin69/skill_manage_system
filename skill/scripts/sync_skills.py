@@ -4,10 +4,10 @@
 客户端默认已知目录，env SMS_CLIENTS="name=path;..." 可增改。"""
 import os, sys, json, glob, shutil, hashlib
 
-KNOWN = {"kilocode": "~/.kilocode/skills", "claude": "~/.claude/skills", "codex": "~/.codex/skills", "agents": "~/.agents/skills", "cursor": "~/.cursor/skills"}
+KNOWN = {"agents": "~/.agents/skills", "cursor": "~/.cursor/skills"}  # 2026-10-07：.kilocode/.claude/.codex 的 skills 目录已删（技能家＝SMS/skills），env SMS_CLIENTS 可再挂客户端
 
 def clients():
-    out = {k: os.path.expanduser(v) for k, v in KNOWN.items() if os.path.isdir(os.path.dirname(os.path.expanduser(v)))}
+    out = {k: os.path.expanduser(v) for k, v in KNOWN.items() if os.path.isdir(os.path.expanduser(v))}
     for pair in (os.environ.get("SMS_CLIENTS") or "").split(";"):
         if "=" in pair:
             k, v = pair.split("=", 1); out[k.strip()] = os.path.expandvars(os.path.expanduser(v.strip()))

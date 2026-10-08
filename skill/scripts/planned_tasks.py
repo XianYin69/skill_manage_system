@@ -11,7 +11,7 @@ SMS = resolve_home.ensure()
 DIRNAME = "planned_tasks"
 SMS_PLANNED = "planned"   # SMS 自身的计划任务真源目录（<SMS_HOME>/planned·运行时数据不进 skill 目录·红线#2）
 SELF = ("sms", "skill_manage_system")   # SMS 自身＝落盘一律 <SMS_HOME>
-ROOTS = [os.path.expanduser("~/.kilocode/skills"),
+ROOTS = [os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..")),
          os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sub_skills")]
 STATUS = ("pending", "running", "done", "paused", "failed")
 FIELDS = ("id", "title", "skill", "input", "schedule", "session", "status", "created", "next_run")
@@ -146,8 +146,10 @@ def next_run(doc, frm=None):
     return None
 
 def brief(doc):
+    sc = doc.get("schedule")
+    sc = sc if isinstance(sc, dict) else {}   # 模板占位（schedule 为字符串）不再炸 ls
     return "%-22s %-8s %-10s %-19s %s" % (str(doc.get("id"))[-22:], doc.get("status"),
-                                          str((doc.get("schedule") or {}).get("mode")),
+                                          str(sc.get("mode")),
                                           str(doc.get("next_run") or "-"), str(doc.get("title") or "")[:26])
 
 def _save(path, doc): atomic_io.wjson(path, doc)

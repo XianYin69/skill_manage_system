@@ -3,7 +3,7 @@
 import os, sys, json, re, time, urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import resolve_home, settings, gateway
+import resolve_home, settings, gateway, dsm
 def path(): return os.path.join(resolve_home.ensure(), "config", "models.json")
 def load():
     try: return json.load(open(path(), encoding="utf-8"))
@@ -21,9 +21,10 @@ def parse_limit(txt):
         if m: return int(m.group(1))
     return None
 def _post(payload, timeout=90):
-    """直发 /chat/completions 取 (data, err_text)——探测专用，不走重试（要的就是报错原文）。"""
+    """直发 /chat/completions 取 (data, err_text)——探测专用，不走重试（要的就是报错原文）。
+    TODO(DSM v1)：探测仍走 legacy /chat/completions——上下文/RPM 探测要的是「报错原文」与整包用量，DSM 信封响应（decode_to_openai_shape 后）虽同形但由 SMSocket 出口层改写 usage 口径，且 dsm.openai_compat=false 时该端点会 410；待服务端 /v1/dsm/chat 回全 usage 三分账后再切信封探测。"""
     c = gateway.cfg()
-    req = urllib.request.Request(str(c.get("base_url", "")).rstrip("/") + "/chat/completions", data=json.dumps(payload).encode("utf-8"),
+    req = urllib.request.Request(dsm.api_url("/chat/completions", str(c.get("base_url", ""))), data=json.dumps(payload).encode("utf-8"),
         headers={"Authorization": "Bearer " + str(c.get("api_key", "")), "Content-Type": "application/json"})
     try:
         with urllib.request.urlopen(req, timeout=int(timeout)) as r: return json.loads(r.read().decode("utf-8", "replace")), ""
@@ -42,7 +43,7 @@ def probe_context(model, fill=None):
     return None if d else parse_limit(e)
 def _probe(model):
     try:
-        c = gateway.cfg(); req = urllib.request.Request(str(c.get("base_url", "")).rstrip("/") + "/chat/completions",
+        c = gateway.cfg(); req = urllib.request.Request(dsm.api_url("/chat/completions", str(c.get("base_url", ""))),
             data=json.dumps({"model": model, "messages": [{"role": "user", "content": "ping"}], "max_tokens": 1}).encode(),
             headers={"Authorization": "Bearer " + str(c.get("api_key", "")), "Content-Type": "application/json"})
         with urllib.request.urlopen(req, timeout=int(c.get("timeout", 120))) as r: return r.headers.get("x-ratelimit-limit-requests")

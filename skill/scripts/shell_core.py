@@ -39,6 +39,17 @@ def startup_block():
         else:
             parts.append("── 网页端已禁用（:config set web_shell.enabled true 开启）──")
     except Exception: pass
+    try:
+        import smsocket_boot as sb
+        _msg = sb.autostart(SMS) or ""
+        _st = sb.status(SMS, cheap=True)  # 壳启动路径＝零 PowerShell（实测省 2s）
+        parts.append("── SMSocket 模型路由网关 ──\n地址 %s · 内核：%s · SMS 接入：%s%s\n"
+                     "（打开 SMS-core 即自动拉起并接入；开关 settings smsocket.auto_start/attach_gateway，命令 :smsocket status|start|stop|attach|detach|doctor）" % (
+            _st["url"],
+            ("运行中" + (" pid=%s" % _st["pid"] if _st["pid"] else "（非 SMS 拉起·pid 见 llm-router\\runtime\\SMSocket.pid）") if _st["up"] else "未运行（自启已试，见 shell/smsocket.log）"),
+            "已接入（原直连已备份，:smsocket detach 回退）" if _st["attached"] else "未接入",
+            ("\n本次：" + _msg) if _msg else ""))
+    except Exception: pass
     s = _solo()
     if s:
         try:
@@ -80,7 +91,7 @@ def _meta(m, a, on_line, st):
     elif m == "image" and a: p = " ".join(a); IMG[:] = [p] if os.path.isfile(p) else []; on_line(("已附图（下一句生效）：" if IMG else "图片不存在：") + p)
     elif m == "use" and a: on_line(ag.use(a[0]))
     elif m == "skill": on_line(ag.skill(not (a and a[0] == "off")))
-    elif m in ("hud", "deploy", "workspace", "resume", "qq", "plan", "dep"): on_line(run_script({"resume": "shell_resume", "qq": "qq_cli", "plan": "planned_tasks", "dep": "dep_fetch"}.get(m, m) + ".py", a))
+    elif m in ("hud", "deploy", "workspace", "resume", "qq", "plan", "dep", "smsocket"): on_line(run_script({"resume": "shell_resume", "qq": "qq_cli", "plan": "planned_tasks", "dep": "dep_fetch", "smsocket": "smsocket_boot"}.get(m, m) + ".py", a))
     elif m in ("config", "web", "ext", "debug", "mode"): m == "debug" and a and a[0] in ("on", "off") and settings.set("debug.enabled", a[0] == "on"); on_line(run_script({"config": "settings", "web": "web_shell", "ext": "external", "mode": "shell_mode"}.get(m, m) + ".py", a or ["status"]))
     elif m in ("net", "tts", "learn", "file", "path", "detail"): on_line(run_script({"net": "ff_lite", "file": "file_ops/scripts/file_ops.py", "path": "file_ops/scripts/path_ops.py", "detail": "shell_console"}.get(m, m) + (".py" if m not in ("file", "path") else ""), (a if a and a[0] in ("tail", "bus", "clear", "status") else (["tail"] + a)) if m == "detail" else (a or (["status"] if m in ("tts", "net") else []))))
     elif m == "api": on_line(run_script("api.py", a or ["formats"]))

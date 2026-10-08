@@ -13,6 +13,19 @@
   "reasoning_effort": null,
   "retries": 3,
   "stream_max_chunks": 20000,
+  "dsm": {
+   "enabled": false,
+   "style": "openai-chat",
+   "openai_compat": true,
+   "fallback": true,
+   "schema_ref": true,
+   "mem_ref": true,
+   "lane_tools": false,
+   "budget": "auto",
+   "out": "json",
+   "fan": false,
+   "comment": "DSM v1 内部报文（dsm.py·叠加层非替换层）：enabled=false（默认）→ gateway/gateway_sse 与今天逐字节同路 /v1/chat/completions；true → 构造信封 POST /v1/dsm/chat（Content-Type: application/dsm+json），响应经 decode_to_openai_shape 还原成 choices/usage，下游 agent_dispatch 工具循环零改动。openai_compat=false → 客户端拒绝构造 legacy body 并报错（绝不静默降级）；fallback=true → 服务端 404/415/未装 dsm 时自动降级 legacy 并打一条 warning。schema_ref=按 sch 指纹免重传 system+tools（false 时内联进 x.sms.inline_schema）；mem_ref=链记忆走 id 引用（false→x.mem_off）；lane_tools=叶子道只登记 exec/read/write/grep/glob/ls 子集；budget=思考分档 low|mid|high|auto；out=响应编码 json|delta|msgpack（msgpack 本机未装＝协商位）；fan=是否允许 fan 扇出声明。开关经 python -B dsm.py on|off 写入，勿手改 JSON。"
+  },
   "comment": "SMS 原生大模型网关（gateway.py）：base_url+api_key+model 即可对话；stream=true 经 gateway_sse.py 逐段吐字（false 回退整轮等待）；temperature/top_p 为模型参数（null＝不发送，用上游默认）；reasoning_effort＝推理等级（low|medium|high·null＝不发送——chat/SSE 请求体 reasoning_effort 字段，F4 可改）；retries＝提供商（大模型网关）访问失败自动重试次数（批12 防任务半途断·2026-09-29 默认 1→3：非流式在 gateway._send、流式在 gateway_sse.stream 各自重试，指数退避 1.2s 起封顶 10s，HTTP 4xx 与 stop 不重试，已吐字的流式不重试防重复上屏；重试耗尽即本轮收口并交接续续跑）；stream_max_chunks＝流式吐块保险上限（防无限慢流卡死）；密钥可 api_key_env 指向环境变量"
  },
  "model_meta": {
@@ -112,6 +125,17 @@
   "port": 8737,
   "comment": "本地加密网页壳（web_shell.py）：HTTPS 自签指纹证书＋配对 token；:web start|stop|token",
   "show_token": true
+ },
+ "smsocket": {
+  "enabled": true,
+  "auto_start": true,
+  "attach_gateway": true,
+  "root": "C:\\UserSpace\\EthanYan\\Developin\\llm-router",
+  "config": "config.yaml",
+  "host": "127.0.0.1",
+  "port": 8011,
+  "boot_timeout": 12,
+  "comment": "SMSocket 本机模型路由网关（smsocket_boot.py）：auto_start＝打开 SMS-core 时自动拉起内核（python run.py --config config.yaml，分离子进程·pid 写 shell/smsocket.pid 已登记进 shell_lifecycle.SVC，关壳/重启必回收）；attach_gateway＝就绪后把 llm_gateway.base_url/api_key 指向 http://host:port/v1，原直连参数备份在 llm_gateway.direct，网关失联即刻自动回退（SMS 不因代理断网）；root＝llm-router 仓位置（无 run.py 则不自启）；boot_timeout＝等 /healthz 就绪秒数。菜单 F1→系统→SMSocket 网关，命令 :smsocket status|start|stop|attach|detach|doctor"
  },
  "external": {
   "enabled": false,
