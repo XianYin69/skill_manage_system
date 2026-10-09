@@ -1,27 +1,25 @@
-__pycache__/
-*.pyc
+# 伞仓忽略：成员内容不入库（成员各属自己的仓）
+sms-core/
+SMS-core/
+sms-shell/
+SMS-Shell/
+smsc/
+smsocket/
+llm-router/
+private/
+!private/.gitkeep
+
+# 通用噪声
 tmp/
-SMS/
-registry/
-sessions/
+*.log
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+*.pem
+*.key
 .idea/
 .vscode/
-.kilo/
-config/config.json
 .DS_Store
-*.out
-
-_*  # scratch output
-planned_tasks/
-.pytest_cache/
-# 批34 双仓拆分：壳层源属 SMS-shell 仓，此处为覆盖安装的运行时混合体
-bin/
-skill/scripts/shell_*.py
-skill/scripts/shell.py
-skill/scripts/web_page.html
-sms.py
-sms
-sms.cmd
-skill/scripts/shell_*
-skill/scripts/*.bak*
-bin/*
+Thumbs.db

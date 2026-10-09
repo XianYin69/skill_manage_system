@@ -1,0 +1,30 @@
+{
+  "name": "smsystem-suit",
+  "members": [
+    {
+      "id": "sms-core",
+      "path": "C:\\UserSpace\\EthanYan\\Developin\\SMS-core",
+      "repo": "https://github.com/XianYin69/sms-core",
+      "role": "内核：数据流引擎 / 网关 / 链 / 权限 / SOLO"
+    },
+    {
+      "id": "sms-shell",
+      "path": "C:\\UserSpace\\EthanYan\\Developin\\SMS-Shell",
+      "repo": "https://github.com/XianYin69/sms-shell",
+      "role": "命令行与图形壳（批36 PyQt6 GUI shell_qt.py）"
+    },
+    {
+      "id": "smsc",
+      "path": "C:\\UserSpace\\EthanYan\\Developin\\smsc",
+      "repo": "https://github.com/XianYin69/smsc",
+      "role": "浏览器 / 控制台侧"
+    },
+    {
+      "id": "smsocket",
+      "path": "C:\\UserSpace\\EthanYan\\Developin\\smsocket",
+      "repo": "https://github.com/XianYin69/smsocket",
+      "role": "本地模型路由 socket"
+    }
+  ],
+  "gui": "sms-shell:skill/scripts/shell_qt.py"
+}
